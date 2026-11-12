@@ -194,7 +194,8 @@ export function App() {
       fanTimerRef.current = null;
     }
     soundManager.init();
-    soundManager.playButtonClick('OPEN');
+    soundManager.playButtonClick('SWITCH');
+    soundManager.stopDoorMotor();
     soundManager.stopMotorDrone();
     soundManager.stopRapidVentilation();
     soundManager.stopMiasmaHeartbeat();
@@ -242,7 +243,8 @@ export function App() {
   // PREPARE（15F・10F・5F）から下降を開始/再開する
   const handleStartDescent = () => {
     if (gameState !== 'PREPARE') return;
-    soundManager.playButtonClick('OPEN');
+    soundManager.playButtonClick('SWITCH');
+    soundManager.playDoorLatchShut();
     setGameState('MOVING');
   };
 
@@ -254,6 +256,7 @@ export function App() {
       isHoldingOpenRef.current = false;
       setIsHoldingOpen(false);
 
+      soundManager.stopDoorMotor();
       soundManager.stopPryingLoop();
       soundManager.stopAnomalyPresence();
 
@@ -265,7 +268,8 @@ export function App() {
       if (decision === 'BOARD' || decision === 'TIMEOUT_BOARD') {
         doorPercentRef.current = 100;
         setDoorOpenPercent(100);
-        soundManager.playDoorSlide(0.35, true);
+        soundManager.playDoorSlide(0.4, true);
+        soundManager.playDoorBumperStop();
 
         if (visitor.isThreat) {
           // 怪異またはルール違反の偽物を乗せてしまった
@@ -326,7 +330,8 @@ export function App() {
         // REJECT: 扉を0%まで閉め切った
         doorPercentRef.current = 0;
         setDoorOpenPercent(0);
-        soundManager.playDoorSlide(0.3, false);
+        soundManager.playDoorSlide(0.35, false);
+        window.setTimeout(() => soundManager.playDoorLatchShut(), 280);
 
         if (visitor.isThreat) {
           // 怪異・偽物を正しく閉め出した
@@ -862,6 +867,7 @@ export function App() {
           setActiveSubtitle(peekConfig.revealedDialogue);
 
           if (peekConfig.type === 'REVEAL_THREAT') {
+            soundManager.stopDoorMotor();
             soundManager.playPeekRevealGlitch();
             setScreenShake('VIOLENT');
             setJumpscareFlash(true);
@@ -875,6 +881,8 @@ export function App() {
         }
 
         if (nextDoor >= 100) {
+          soundManager.stopDoorMotor();
+          soundManager.playDoorBumperStop();
           resolveJudgingDecision('BOARD');
         }
       } else if (doorPercentRef.current > 12) {
@@ -884,7 +892,10 @@ export function App() {
       }
     }, intervalMs);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      soundManager.stopDoorMotor();
+    };
   }, [gameState, currentVisitor, resolveJudgingDecision]);
 
   // 4. EVENT_RESULT フェーズ（判定結果の後、ゲームオーバー判定または休む間もなく次の階へ下降）
@@ -922,6 +933,7 @@ export function App() {
           soundManager.playDoorSlide(0.35, false);
           doorPercentRef.current = 0;
           setDoorOpenPercent(0);
+          window.setTimeout(() => soundManager.playDoorLatchShut(), 280);
         }
         setGameState('MOVING');
       }
@@ -935,7 +947,7 @@ export function App() {
     if (isPausedRef.current || gameState !== 'JUDGING' || decisionLockedRef.current) return;
     if (!isHoldingOpenRef.current) {
       soundManager.playButtonClick('OPEN');
-      soundManager.playDoorSlide(0.4, true);
+      soundManager.startDoorMotor('OPEN');
     }
     isHoldingOpenRef.current = true;
     setIsHoldingOpen(true);
@@ -945,8 +957,9 @@ export function App() {
     if (!isHoldingOpenRef.current) return;
     isHoldingOpenRef.current = false;
     setIsHoldingOpen(false);
+    soundManager.stopDoorMotor();
     if (gameState === 'JUDGING' && !decisionLockedRef.current && doorPercentRef.current > 12) {
-      soundManager.playDoorSlide(0.25, false);
+      soundManager.playDoorSlide(0.35, false);
     }
   };
 
