@@ -58,9 +58,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const needFanAction =
     (isActiveEvent && movingEvent?.requiredAction === 'FAN') ||
     (isMoving && pendingRequest?.requiredAction === 'FAN');
-  const needCloseAction =
-    (isActiveEvent && movingEvent?.requiredAction === 'CLOSE') ||
-    (isMoving && pendingRequest?.requiredAction === 'CLOSE');
   const needBellAction = isActiveEvent && movingEvent?.requiredAction === 'BELL';
 
   return (
@@ -146,14 +143,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <motion.button
           id="btn-door-close"
           type="button"
-          disabled={!isJudging && !isMoving}
+          disabled={!isJudging}
           onClick={onPressClose}
-          whileTap={isJudging || isMoving ? { scale: 0.95 } : undefined}
+          whileTap={isJudging ? { scale: 0.95 } : undefined}
           className={`w-full py-3.5 px-2.5 rounded border-2 flex flex-col items-center justify-center gap-1 transition-all whitespace-nowrap ${
-            !isJudging && !isMoving
+            !isJudging
               ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
-              : needCloseAction
-              ? 'bg-amber-950/90 border-amber-400 text-amber-100 shadow-[0_0_16px_rgba(245,158,11,0.65)] animate-pulse cursor-pointer'
               : isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
               ? 'bg-red-950 border-red-500 text-red-100 shadow-[0_0_18px_rgba(239,68,68,0.75)] cursor-pointer'
               : 'bg-stone-900 hover:bg-stone-800 border-stone-600 text-stone-100 shadow-md cursor-pointer'
@@ -163,9 +158,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             ＞＜ 閉扉
           </span>
           <span className="text-[11px] text-stone-300 whitespace-nowrap">
-            {needCloseAction
-              ? '★閉扉要求 (応諾)'
-              : isJudging && requiredCloseClicks > 1
+            {isJudging && requiredCloseClicks > 1
               ? `★抉開抵抗！残${closeClicksRemaining}回連打`
               : '押下：強制閉扉 / 遮断排除'}
           </span>

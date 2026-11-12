@@ -500,7 +500,7 @@ export function App() {
     const quietStreak = floorsSinceLastMovingEventRef.current;
 
     if (pendingRequester && pendingRequester.pendingRequest) {
-      // 同乗者の車内要求（換気要求・閉ボタン要求）
+      // 同乗者の車内要求（換気要求）
       scheduledEvent = {
         id: `req-${Date.now()}`,
         type: 'PASSENGER_REQUEST',
@@ -954,41 +954,6 @@ export function App() {
   const handlePressClose = () => {
     if (isPausedRef.current) return;
     soundManager.playButtonClick('CLOSE');
-
-    // 移動中（MOVING）に同乗者から閉ボタン要求がある場合
-    if (gameState === 'MOVING') {
-      const targetPassenger = activePassengers.find(
-        (p) =>
-          p.pendingRequest &&
-          !p.requestFulfilled &&
-          p.pendingRequest.requiredAction === 'CLOSE'
-      );
-      if (targetPassenger && targetPassenger.pendingRequest) {
-        setActivePassengers((prev) =>
-          prev.map((p) =>
-            p.visitor.id === targetPassenger.visitor.id
-              ? { ...p, requestFulfilled: true }
-              : p
-          )
-        );
-        setActiveSubtitle(targetPassenger.pendingRequest.successText);
-
-        if (
-          movingEventRef.current &&
-          movingEventRef.current.type === 'PASSENGER_REQUEST' &&
-          movingEventRef.current.requiredAction === 'CLOSE' &&
-          movingEventRef.current.status === 'ACTIVE'
-        ) {
-          const resolvedEv: MovingCabinEvent = {
-            ...movingEventRef.current,
-            status: 'RESOLVED',
-          };
-          movingEventRef.current = resolvedEv;
-          setMovingEvent(resolvedEv);
-        }
-      }
-      return;
-    }
 
     // 検問フェーズ（JUDGING）中の閉め出し操作
     if (gameState !== 'JUDGING' || decisionLockedRef.current) return;

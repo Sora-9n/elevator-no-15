@@ -14,7 +14,7 @@ export type VisitorCategory =
   | 'RULE_VIOLATOR'    // 張り紙のルールと矛盾する偽住人・幽霊・不審者
   | 'ANOMALY';         // あからさまな怪異
 
-export type CabinActionType = 'FAN' | 'CLOSE' | 'BELL';
+export type CabinActionType = 'FAN' | 'BELL';
 
 export interface CabinRequest {
   id: string;

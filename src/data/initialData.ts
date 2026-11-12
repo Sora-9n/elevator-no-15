@@ -348,11 +348,11 @@ export const INITIAL_VISITORS: VisitorData[] = [
   {
     id: 'v-ch2-red-coat-valid',
     name: '赤いコートの女性住人',
-    category: 'RUDE_RESIDENT',
+    category: 'NORMAL',
     isThreat: false,
     chapter: 2,
-    dialogue: '「こんばんは、タクシーを下に待たせているの。早く開けてちょうだい。」',
-    enteredDialogue: '「ふぅ、ありがとう。少しでも早く1階に着きたいのよ。」',
+    dialogue: '「こんばんは、タクシーを下に待たせているの。開けてくださる？」',
+    enteredDialogue: '「ふぅ、ありがとう。1階までお願いしますね。」',
     rejectedDialogue: '「ちょっと！ どうして閉めるのよ！ 管理室に苦情を入れますからね！」',
     appearance: {
       silhouetteType: 'SLENDER',
@@ -365,14 +365,6 @@ export const INITIAL_VISITORS: VisitorData[] = [
     },
     requiredCloseClicks: 1,
     sanityDamage: 0,
-    cabinRequest: {
-      id: 'req-close-red',
-      requiredAction: 'CLOSE',
-      actionLabel: '閉ボタンを押す',
-      promptText: '「ねえ、なんだか降りるのが遅いわね。閉ボタンを押して急いでちょうだい！」',
-      successText: '「ええ、そうやってキビキビお願いね。」',
-      failureReason: '赤いコートの住人より「急いでいるのに要望を無視された」とクレームが入りました。',
-    },
     description: '赤いコートを着た正規住人。目にしっかりハイライトがあり、表情も自然（張り紙⑤合致）。',
   },
   {
