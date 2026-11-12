@@ -1,0 +1,1071 @@
+/**
+ * Web Audio API を用いたプロシージャル音響生成クラス
+ * 外部音声ファイルに依存せず、レトロな業務用エレベーターの駆動音・ベル・怪異ノイズを合成する
+ */
+class SoundManager {
+  private ctx: AudioContext | null = null;
+  private motorOsc1: OscillatorNode | null = null;
+  private motorOsc2: OscillatorNode | null = null;
+  private motorLfo: OscillatorNode | null = null;
+  private motorGain: GainNode | null = null;
+
+  private fanNoiseNode: AudioNode | null = null;
+  private fanRattleOsc: OscillatorNode | null = null;
+  private fanTurbineOsc: OscillatorNode | null = null;
+  private fanGain: GainNode | null = null;
+  private fanAutoStopTimer: number | null = null;
+
+  private heartbeatTimer: number | null = null;
+  private miasmaNoiseNode: AudioNode | null = null;
+  private miasmaGain: GainNode | null = null;
+
+  private anomalyOsc1: OscillatorNode | null = null;
+  private anomalyOsc2: OscillatorNode | null = null;
+  private anomalyGain: GainNode | null = null;
+  private pryingNoiseNode: AudioNode | null = null;
+  private pryingGain: GainNode | null = null;
+
+  private muted: boolean = false;
+
+  /**
+   * ユーザー操作（タイトル画面クリック等）で AudioContext を初期化・再開する
+   */
+  public init(): void {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      this.ctx = new AudioCtx();
+    }
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  public setMuted(mute: boolean): void {
+    this.muted = mute;
+    if (this.muted) {
+      this.stopMotorDrone();
+      this.stopRapidVentilation();
+      this.stopMiasmaHeartbeat();
+      this.stopAnomalyPresence();
+      this.stopPryingLoop();
+    }
+  }
+
+  public isMuted(): boolean {
+    return this.muted;
+  }
+
+  /**
+   * ポーズ時に全オーディオコンテキストを一時停止する
+   */
+  public pauseAudio(): void {
+    if (this.ctx && this.ctx.state === 'running') {
+      this.ctx.suspend();
+    }
+  }
+
+  /**
+   * ポーズ解除時にオーディオコンテキストを再開する
+   */
+  public resumeAudio(): void {
+    if (!this.muted && this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  private ensureContext(): AudioContext | null {
+    if (this.muted) return null;
+    if (!this.ctx) {
+      this.init();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+    return this.ctx;
+  }
+
+  /**
+   * 1. 移動中の低いモーター駆動音（ドローン音＋ワイヤーの周期的な軋み）
+   */
+  public startMotorDrone(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    this.stopMotorDrone();
+
+    const now = ctx.currentTime;
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.16, now + 0.4);
+
+    // ローパスフィルターでくぐもった鉄箱の響きを作る
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(135, now);
+    filter.Q.setValueAtTime(4.0, now);
+
+    // 低周波モーター基本波
+    const osc1 = ctx.createOscillator();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(52, now);
+
+    // うなりを生む第2オシレーター
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(78.5, now);
+
+    // 周期的な揺れ（ガタゴト感）を作るLFO
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(2.6, now);
+
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.setValueAtTime(28, now);
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(filter.frequency);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    lfo.start(now);
+
+    this.motorOsc1 = osc1;
+    this.motorOsc2 = osc2;
+    this.motorLfo = lfo;
+    this.motorGain = masterGain;
+  }
+
+  public stopMotorDrone(): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (this.motorGain) {
+      try {
+        this.motorGain.gain.cancelScheduledValues(now);
+        this.motorGain.gain.setValueAtTime(Math.max(this.motorGain.gain.value, 0.001), now);
+        this.motorGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+      } catch {
+        // ignore
+      }
+    }
+    const osc1 = this.motorOsc1;
+    const osc2 = this.motorOsc2;
+    const lfo = this.motorLfo;
+    this.motorOsc1 = null;
+    this.motorOsc2 = null;
+    this.motorLfo = null;
+    this.motorGain = null;
+
+    setTimeout(() => {
+      try { osc1?.stop(); osc1?.disconnect(); } catch { /* noop */ }
+      try { osc2?.stop(); osc2?.disconnect(); } catch { /* noop */ }
+      try { lfo?.stop(); lfo?.disconnect(); } catch { /* noop */ }
+    }, 280);
+  }
+
+  /**
+   * 2. 階到着時のレトロなベル音（「チーン」）
+   * 倍音構成で古い金属ベルの響きを再現
+   */
+  public playArrivalChime(isAnomalyFloor: boolean = false): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 怪異階でも一見普通だが僅かにピッチが狂う演出も可能
+    const detuneFactor = isAnomalyFloor ? 0.985 : 1.0;
+    const partials = [
+      { freq: 1046.5 * detuneFactor, amp: 0.22, decay: 1.8 },
+      { freq: 2093.0 * detuneFactor, amp: 0.12, decay: 1.2 },
+      { freq: 3185.0 * detuneFactor, amp: 0.07, decay: 0.65 },
+      { freq: 4430.0 * detuneFactor, amp: 0.04, decay: 0.3 },
+    ];
+
+    partials.forEach(({ freq, amp, decay }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(amp, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + decay + 0.05);
+    });
+  }
+
+  /**
+   * 3-A. ボタン押下音（重みのある機械式スイッチ音）
+   */
+  public playButtonClick(variant: 'OPEN' | 'CLOSE' | 'SWITCH' | 'PAPER' = 'SWITCH'): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    if (variant === 'OPEN') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(520, now + 0.06);
+    } else if (variant === 'CLOSE') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(240, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.07);
+    } else if (variant === 'PAPER') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.05);
+    } else {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(180, now + 0.05);
+    }
+
+    gain.gain.setValueAtTime(0.14, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.08);
+  }
+
+  /**
+   * 3-B. 扉の開閉駆動音（金属が擦れるスライド音＋モーター音）
+   */
+  public playDoorSlide(durationSec: number = 0.45, pitchUp: boolean = true): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // ホワイトノイズバッファ生成（金属摩擦音）
+    const bufferSize = Math.floor(ctx.sampleRate * durationSec);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.setValueAtTime(pitchUp ? 280 : 420, now);
+    bandpass.frequency.linearRampToValueAtTime(pitchUp ? 460 : 220, now + durationSec);
+    bandpass.Q.setValueAtTime(3.2, now);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.09, now + 0.06);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
+
+    noise.connect(bandpass);
+    bandpass.connect(gain);
+    gain.connect(ctx.destination);
+
+    noise.start(now);
+    noise.stop(now + durationSec);
+  }
+
+  /**
+   * 怪異が扉をこじ開けようとする時の激しい金属打撃音・軋み摩擦音・衝撃波（「ドガンッ！！ キギギギ……！」）
+   */
+  public playDoorBang(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 1. 重低音の金属衝撃打撃波（エレベーターの鉄箱全体が激震する音）
+    const bassOsc = ctx.createOscillator();
+    bassOsc.type = 'sawtooth';
+    bassOsc.frequency.setValueAtTime(140, now);
+    bassOsc.frequency.exponentialRampToValueAtTime(28, now + 0.35);
+
+    const bassGain = ctx.createGain();
+    bassGain.gain.setValueAtTime(0.48, now);
+    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    bassOsc.connect(bassGain);
+    bassGain.connect(ctx.destination);
+    bassOsc.start(now);
+    bassOsc.stop(now + 0.42);
+
+    // 2. 金属板が叩きつけられる高音の鉄打撃クラスター
+    [540, 780, 1120].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq + idx * 45, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
+
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    });
+
+    // 3. 爪や鉄板が無理やりこじ開けられる金切り摩擦ノイズ（「ギギギギッ！」）
+    const bufferSize = Math.floor(ctx.sampleRate * 0.35);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (i % 20 < 10 ? 1 : -0.8);
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1800, now);
+    filter.frequency.linearRampToValueAtTime(650, now + 0.35);
+    filter.Q.setValueAtTime(6.0, now);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.24, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + 0.36);
+  }
+
+  /**
+   * 急速換気（FAN）3秒間の重く激しい排気ファン音（「ブォォォォ…」）とダクト振動音（「ガタガタガタ…」）
+   */
+  public startRapidVentilation(durationMs: number = 3000): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    this.stopRapidVentilation();
+
+    const now = ctx.currentTime;
+    const durationSec = durationMs / 1000;
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.linearRampToValueAtTime(0.24, now + 0.18);
+    masterGain.gain.setValueAtTime(0.24, now + Math.max(0.2, durationSec - 0.35));
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+
+    // 1. 「ブォォォォ…」という重く激しい排気気流ノイズ
+    const bufferSize = ctx.sampleRate * 2;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let lastOut = 0.0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      // ブラウンノイズ寄りの重厚な風切り音
+      data[i] = (lastOut + 0.08 * white) / 1.08;
+      lastOut = data[i];
+      data[i] *= 2.5;
+    }
+
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = buffer;
+    noiseSource.loop = true;
+
+    const exhaustFilter = ctx.createBiquadFilter();
+    exhaustFilter.type = 'bandpass';
+    exhaustFilter.frequency.setValueAtTime(140, now);
+    exhaustFilter.frequency.exponentialRampToValueAtTime(340, now + 0.3);
+    exhaustFilter.frequency.setValueAtTime(310, now + Math.max(0.35, durationSec - 0.4));
+    exhaustFilter.frequency.exponentialRampToValueAtTime(95, now + durationSec);
+    exhaustFilter.Q.setValueAtTime(1.4, now);
+
+    // 2. 重い排気タービン低音うなり
+    const turbineOsc = ctx.createOscillator();
+    turbineOsc.type = 'sawtooth';
+    turbineOsc.frequency.setValueAtTime(48, now);
+    turbineOsc.frequency.exponentialRampToValueAtTime(92, now + 0.25);
+    turbineOsc.frequency.setValueAtTime(88, now + Math.max(0.3, durationSec - 0.35));
+    turbineOsc.frequency.exponentialRampToValueAtTime(42, now + durationSec);
+
+    const turbineFilter = ctx.createBiquadFilter();
+    turbineFilter.type = 'lowpass';
+    turbineFilter.frequency.setValueAtTime(165, now);
+
+    const turbineGain = ctx.createGain();
+    turbineGain.gain.setValueAtTime(0.35, now);
+
+    // 3. 「ガタガタガタ…」とダクトや鉄箱が振動する音（13Hzの周期的金属ガタつき）
+    const rattleOsc = ctx.createOscillator();
+    rattleOsc.type = 'square';
+    rattleOsc.frequency.setValueAtTime(13.5, now);
+
+    const rattleResonator = ctx.createBiquadFilter();
+    rattleResonator.type = 'bandpass';
+    rattleResonator.frequency.setValueAtTime(480, now);
+    rattleResonator.Q.setValueAtTime(6.0, now);
+
+    const rattleGain = ctx.createGain();
+    rattleGain.gain.setValueAtTime(0.28, now);
+
+    noiseSource.connect(exhaustFilter);
+    exhaustFilter.connect(masterGain);
+
+    turbineOsc.connect(turbineFilter);
+    turbineFilter.connect(turbineGain);
+    turbineGain.connect(masterGain);
+
+    rattleOsc.connect(rattleResonator);
+    rattleResonator.connect(rattleGain);
+    rattleGain.connect(masterGain);
+
+    masterGain.connect(ctx.destination);
+
+    noiseSource.start(now);
+    turbineOsc.start(now);
+    rattleOsc.start(now);
+
+    this.fanNoiseNode = noiseSource;
+    this.fanTurbineOsc = turbineOsc;
+    this.fanRattleOsc = rattleOsc;
+    this.fanGain = masterGain;
+
+    this.fanAutoStopTimer = window.setTimeout(() => {
+      this.stopRapidVentilation();
+    }, durationMs);
+  }
+
+  public stopRapidVentilation(): void {
+    if (this.fanAutoStopTimer) {
+      window.clearTimeout(this.fanAutoStopTimer);
+      this.fanAutoStopTimer = null;
+    }
+    if (this.fanGain && this.ctx) {
+      const now = this.ctx.currentTime;
+      try {
+        this.fanGain.gain.cancelScheduledValues(now);
+        this.fanGain.gain.setValueAtTime(Math.max(0.001, this.fanGain.gain.value), now);
+        this.fanGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      } catch { /* ignore */ }
+    }
+    const noiseNode = this.fanNoiseNode;
+    const turbine = this.fanTurbineOsc;
+    const rattle = this.fanRattleOsc;
+    this.fanNoiseNode = null;
+    this.fanTurbineOsc = null;
+    this.fanRattleOsc = null;
+    this.fanGain = null;
+
+    setTimeout(() => {
+      try {
+        if (noiseNode && 'stop' in noiseNode && typeof (noiseNode as AudioScheduledSourceNode).stop === 'function') {
+          (noiseNode as AudioScheduledSourceNode).stop();
+        }
+        noiseNode?.disconnect();
+      } catch { /* ignore */ }
+      try { turbine?.stop(); turbine?.disconnect(); } catch { /* ignore */ }
+      try { rattle?.stop(); rattle?.disconnect(); } catch { /* ignore */ }
+    }, 200);
+  }
+
+  /**
+   * 非常ベル（BELL）押下時のけたたましいベル音
+   */
+  public playEmergencyBell(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    for (let i = 0; i < 6; i++) {
+      const start = now + i * 0.065;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(i % 2 === 0 ? 1580 : 1920, start);
+
+      gain.gain.setValueAtTime(0.16, start);
+      gain.gain.exponentialRampToValueAtTime(0.005, start + 0.06);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.062);
+    }
+  }
+
+  /**
+   * 4. クレーム発生時のインターホン警告音（ブザー）
+   */
+  public playComplaintBuzzer(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 2連ブザー「ブーーッ、ブーーッ」
+    [0, 0.34].forEach((offset) => {
+      const start = now + offset;
+      const osc = ctx.createOscillator();
+      const subOsc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(165, start);
+
+      subOsc.type = 'square';
+      subOsc.frequency.setValueAtTime(173, start); // 不快なうなり
+
+      gain.gain.setValueAtTime(0.18, start);
+      gain.gain.setValueAtTime(0.18, start + 0.22);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.28);
+
+      osc.connect(gain);
+      subOsc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(start);
+      subOsc.start(start);
+      osc.stop(start + 0.29);
+      subOsc.stop(start + 0.29);
+    });
+  }
+
+  /**
+   * 5. 怪異侵入・ゲームオーバー時の不協和音ノイズ（ジャンプスケア）
+   */
+  public playJumpscareNoise(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const duration = 1.45;
+
+    // 不協和音クラスター（三全音・短二度の密集）
+    const freqs = [92.5, 98.0, 138.6, 277.2, 293.7, 587.3, 622.3, 1174.6];
+    freqs.forEach((f) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f, now);
+      osc.frequency.linearRampToValueAtTime(f * (0.85 + Math.random() * 0.3), now + duration);
+
+      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    });
+
+    // 激しいホワイトノイズバースト
+    const bufferSize = Math.floor(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1);
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(900, now);
+    filter.Q.setValueAtTime(0.8, now);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.32, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+
+    noise.start(now);
+    noise.stop(now + duration);
+  }
+
+  /**
+   * 1階到達・ゲームクリア時の解放チャイム
+   */
+  public playClearChime(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((freq, idx) => {
+      const start = now + idx * 0.16;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, start);
+
+      gain.gain.setValueAtTime(0.18, start);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 1.4);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(start);
+      osc.stop(start + 1.45);
+    });
+  }
+
+  /**
+   * 10F・5F チェックポイント到達時の管理室通信チャイム（「ピポーン」）
+   */
+  public playCheckpointNotice(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const tones = [
+      { freq: 880, start: 0, duration: 0.22 },
+      { freq: 659.25, start: 0.22, duration: 0.45 },
+    ];
+
+    tones.forEach(({ freq, start, duration }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + start);
+
+      gain.gain.setValueAtTime(0.001, now + start);
+      gain.gain.linearRampToValueAtTime(0.18, now + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + start);
+      osc.stop(now + start + duration + 0.02);
+    });
+  }
+
+  /**
+   * 怪異・怪物が扉の隙間に姿を現した瞬間の恐怖演出音響
+   * @param isPrying 扉をこじ開けようと飛びついてくるタイプかどうか
+   */
+  public playMonsterArrival(isPrying: boolean = false): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 1. 到着時の不協和音ホラードローン（低周波のうなりと冷気のような帯域）
+    this.startAnomalyPresence();
+
+    // 2. 短二度・減五度の不気味なクラスターバースト（一瞬の恐怖インパクト）
+    [65.4, 69.3, 92.5, 138.6].forEach((freq) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, now);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.12, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.25);
+    });
+
+    // 3. こじ開け怪異の場合：到着して扉が開いた瞬間に「ドガァンッ！」と飛びついてくる金属打撃音を即座に再生
+    if (isPrying) {
+      this.playDoorBang();
+      this.startPryingLoop();
+    }
+  }
+
+  /**
+   * 怪異が扉の向こうに滞在している間の持続的ホラードローン（低音のうなり）
+   */
+  public startAnomalyPresence(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    this.stopAnomalyPresence();
+
+    const now = ctx.currentTime;
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.14, now + 0.4);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(110, now);
+
+    // 短二度の唸り（55Hz と 58.3Hz）
+    const osc1 = ctx.createOscillator();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(55, now);
+
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(58.3, now);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+
+    this.anomalyOsc1 = osc1;
+    this.anomalyOsc2 = osc2;
+    this.anomalyGain = masterGain;
+  }
+
+  public stopAnomalyPresence(): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (this.anomalyGain) {
+      try {
+        this.anomalyGain.gain.cancelScheduledValues(now);
+        this.anomalyGain.gain.setValueAtTime(Math.max(this.anomalyGain.gain.value, 0.001), now);
+        this.anomalyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+      } catch { /* ignore */ }
+    }
+    const o1 = this.anomalyOsc1;
+    const o2 = this.anomalyOsc2;
+    this.anomalyOsc1 = null;
+    this.anomalyOsc2 = null;
+    this.anomalyGain = null;
+    setTimeout(() => {
+      try { o1?.stop(); o1?.disconnect(); } catch { /* noop */ }
+      try { o2?.stop(); o2?.disconnect(); } catch { /* noop */ }
+    }, 320);
+  }
+
+  /**
+   * 怪異が扉をこじ開けようと力をかけ続けている間の持続的な金属軋み音ループ（「ギギ…ギギギ…」）
+   */
+  public startPryingLoop(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    if (this.pryingNoiseNode) return; // already active
+
+    const now = ctx.currentTime;
+    const bufferSize = ctx.sampleRate * 2;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      // 擦れる不規則な摩擦音波形
+      data[i] = (Math.random() * 2 - 1) * (i % 80 < 40 ? 1 : 0.3);
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+
+    // LFOでフィルター周波数を揺らして「ギギ…ギギ…」と周期的に軋むリアルな音にする
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sawtooth';
+    lfo.frequency.setValueAtTime(3.2, now);
+
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.setValueAtTime(650, now);
+    lfo.connect(lfoGain);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1200, now);
+    filter.Q.setValueAtTime(7.5, now);
+    lfoGain.connect(filter.frequency);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.2);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    source.start(now);
+    lfo.start(now);
+
+    this.pryingNoiseNode = source;
+    this.pryingGain = gain;
+  }
+
+  public stopPryingLoop(): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (this.pryingGain) {
+      try {
+        this.pryingGain.gain.cancelScheduledValues(now);
+        this.pryingGain.gain.setValueAtTime(Math.max(this.pryingGain.gain.value, 0.001), now);
+        this.pryingGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+      } catch { /* ignore */ }
+    }
+    const node = this.pryingNoiseNode;
+    this.pryingNoiseNode = null;
+    this.pryingGain = null;
+    setTimeout(() => {
+      try {
+        if (node && 'stop' in node && typeof (node as AudioScheduledSourceNode).stop === 'function') {
+          (node as AudioScheduledSourceNode).stop();
+        }
+        node?.disconnect();
+      } catch { /* noop */ }
+    }, 220);
+  }
+
+  /**
+   * 6. 扉を65%以上開けた瞬間、怪異が本性を現すグリッチ音・不協和音・関節の折れる音
+   */
+  public playPeekRevealGlitch(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 1) 首がガクッと折れる乾いた破砕ノイズバースト（「バキッ…ザザッ！」）
+    const snapLen = Math.floor(ctx.sampleRate * 0.22);
+    const snapBuf = ctx.createBuffer(1, snapLen, ctx.sampleRate);
+    const snapData = snapBuf.getChannelData(0);
+    for (let i = 0; i < snapLen; i++) {
+      // グリッチ的な断続ノイズ
+      const gate = (i % 1800) < 950 ? 1.0 : 0.15;
+      snapData[i] = (Math.random() * 2 - 1) * gate;
+    }
+
+    const snapSource = ctx.createBufferSource();
+    snapSource.buffer = snapBuf;
+
+    const snapFilter = ctx.createBiquadFilter();
+    snapFilter.type = 'bandpass';
+    snapFilter.frequency.setValueAtTime(1650, now);
+    snapFilter.frequency.exponentialRampToValueAtTime(320, now + 0.22);
+    snapFilter.Q.setValueAtTime(3.5, now);
+
+    const snapGain = ctx.createGain();
+    snapGain.gain.setValueAtTime(0.32, now);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    snapSource.connect(snapFilter);
+    snapFilter.connect(snapGain);
+    snapGain.connect(ctx.destination);
+    snapSource.start(now);
+    snapSource.stop(now + 0.23);
+
+    // 2) 背筋が凍る不協和音スティンガー（短二度＋三全音）
+    [110.0, 116.54, 155.56, 311.13, 659.25].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = idx % 2 === 0 ? 'sawtooth' : 'square';
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.linearRampToValueAtTime(freq * 0.94, now + 0.65);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.085, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.68);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.7);
+    });
+  }
+
+  /**
+   * 7. 扉を65%以上開けた際、怪しい影が「ただの善良な住人」だと判明する安堵音
+   */
+  public playPeekInnocentReveal(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    [440, 554.37].forEach((freq, idx) => {
+      const start = now + idx * 0.08;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, start);
+
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.11, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.48);
+    });
+  }
+
+  /**
+   * 8. 瘴気（MIASMA）発生時の不気味な噴出音と激しい心音ループ（「ドクン…ドクン…」）
+   */
+  public startMiasmaHeartbeat(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    this.stopMiasmaHeartbeat();
+
+    const now = ctx.currentTime;
+
+    // 1) 瘴気がシューッと立ち込める暗いガス噴出ノイズ
+    const bufferSize = ctx.sampleRate * 2;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.45;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(220, now);
+    filter.Q.setValueAtTime(3.2, now);
+
+    const mGain = ctx.createGain();
+    mGain.gain.setValueAtTime(0.001, now);
+    mGain.gain.linearRampToValueAtTime(0.09, now + 0.4);
+
+    source.connect(filter);
+    filter.connect(mGain);
+    mGain.connect(ctx.destination);
+    source.start(now);
+
+    this.miasmaNoiseNode = source;
+    this.miasmaGain = mGain;
+
+    // 2) 激しい心音（「ドクン・ドクン」）を周期再生
+    const triggerBeat = () => {
+      const c = this.ensureContext();
+      if (!c) return;
+      const t = c.currentTime;
+      [0, 0.18].forEach((offset, idx) => {
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = 'sine';
+        const startFreq = idx === 0 ? 72 : 62;
+        osc.frequency.setValueAtTime(startFreq, t + offset);
+        osc.frequency.exponentialRampToValueAtTime(26, t + offset + 0.16);
+
+        gain.gain.setValueAtTime(0.001, t + offset);
+        gain.gain.linearRampToValueAtTime(idx === 0 ? 0.36 : 0.26, t + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + offset + 0.17);
+
+        osc.connect(gain);
+        gain.connect(c.destination);
+        osc.start(t + offset);
+        osc.stop(t + offset + 0.18);
+      });
+    };
+
+    triggerBeat();
+    this.heartbeatTimer = window.setInterval(triggerBeat, 620);
+  }
+
+  public stopMiasmaHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      window.clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    if (this.miasmaGain && this.ctx) {
+      const now = this.ctx.currentTime;
+      try {
+        this.miasmaGain.gain.cancelScheduledValues(now);
+        this.miasmaGain.gain.setValueAtTime(Math.max(0.001, this.miasmaGain.gain.value), now);
+        this.miasmaGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+      } catch { /* ignore */ }
+    }
+    const node = this.miasmaNoiseNode;
+    this.miasmaNoiseNode = null;
+    this.miasmaGain = null;
+    setTimeout(() => {
+      try {
+        if (node && 'stop' in node && typeof (node as AudioScheduledSourceNode).stop === 'function') {
+          (node as AudioScheduledSourceNode).stop();
+        }
+        node?.disconnect();
+      } catch { /* ignore */ }
+    }, 220);
+  }
+
+  /**
+   * 9. 車内怪異の豹変＆ステンレス扉への鏡面映り込み演出音
+   */
+  public playMirrorGhostAppear(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 持続低音ドローン開始
+    this.startAnomalyPresence();
+
+    // 鏡面がキィィンと共鳴するような冷たい金属倍音＋不気味な急降下音
+    [1480, 1568, 2217].forEach((freq) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.linearRampToValueAtTime(freq * 0.97, now + 1.8);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.06, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.85);
+    });
+
+    // 蛍光灯がバチバチッと赤黒く明滅するスパークノイズ
+    const subOsc = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    subOsc.type = 'sawtooth';
+    subOsc.frequency.setValueAtTime(95, now);
+    subOsc.frequency.exponentialRampToValueAtTime(34, now + 0.7);
+    subGain.gain.setValueAtTime(0.22, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+    subOsc.connect(subGain);
+    subGain.connect(ctx.destination);
+    subOsc.start(now);
+    subOsc.stop(now + 0.78);
+  }
+
+  /**
+   * 10. 下降中イベント発生時にエレベーターがガタガタッと揺れて減速する衝撃音
+   */
+  public playElevatorJolt(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    [0, 0.11].forEach((offset) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(115, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(32, now + offset + 0.16);
+
+      gain.gain.setValueAtTime(0.28, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.18);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.19);
+    });
+  }
+}
+
+export const soundManager = new SoundManager();
+
