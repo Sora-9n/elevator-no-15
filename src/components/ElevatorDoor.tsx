@@ -413,8 +413,8 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
 
         {/* PREPARE（15F・10F・5F チェックポイント）時の業務指示書プレート */}
         {gameState === 'PREPARE' && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-none">
-            <div className="aged-paper border-2 border-stone-800 px-5 py-4 rounded-xs shadow-[0_15px_50px_rgba(0,0,0,0.98)] max-w-sm w-full font-mincho text-stone-900 relative">
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain pointer-events-none">
+            <div className="aged-paper border-2 border-stone-800 px-4 py-3 sm:px-5 sm:py-4 rounded-xs shadow-[0_15px_50px_rgba(0,0,0,0.98)] max-w-sm w-full font-mincho text-stone-900 relative my-auto shrink-0 max-h-[85dvh] overflow-y-auto overscroll-contain touch-pan-y pointer-events-auto">
               <div className="flex items-center justify-between border-b-2 border-stone-800 pb-2 mb-2.5">
                 <div className="flex items-center gap-1.5 text-stone-950 font-extrabold text-xs tracking-wider">
                   <ClipboardCheck className="w-4 h-4 text-red-900 shrink-0" />
@@ -426,8 +426,8 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
               </div>
               <p className="text-xs text-stone-900 leading-relaxed font-bold">
                 {floor === 15
-                  ? '左壁面ノ保安通達（三通）ヲ確認セヨ。査読完了後、右操作盤「▼ 下降開始」ニテ着務スベシ。'
-                  : '管理室ヨリ規程改定ノ追加通達（二通）ガ届イテイル。左壁面ノ未読文書ヲ確認後、降下ヲ再開セヨ。'}
+                  ? '左壁面の保安通達（3通）を確認してください。査読完了後、右操作盤の「▼ 下降開始」を押して着務してください。'
+                  : '管理室より規程改定の追加通達（2通）が届いています。左壁面の未読文書を確認後、下降を再開してください。'}
               </p>
             </div>
           </div>
@@ -443,14 +443,14 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                 <div className="bg-red-950/95 border-2 border-red-500 px-3.5 py-2 rounded-xs shadow-[0_0_28px_rgba(239,68,68,0.95)] flex items-center gap-2 animate-bounce font-mincho">
                   <Eye className="w-4 h-4 text-red-400 shrink-0" />
                   <span className="text-xs font-black text-red-100 whitespace-nowrap">
-                    【警告】偽装剥落・異形検知｜指ヲ離シ直チニ【閉扉】ニテ遮断セヨ
+                    【警告】偽装剥落・異形検知｜指を離し、直ちに【閉扉】で遮断せよ
                   </span>
                 </div>
               ) : (
                 <div className="bg-emerald-950/95 border-2 border-emerald-400 px-3.5 py-1.5 rounded-xs shadow-[0_0_20px_rgba(16,185,129,0.75)] flex items-center gap-2 font-mincho">
                   <Eye className="w-4 h-4 text-emerald-300 shrink-0" />
                   <span className="text-xs font-bold text-emerald-100 whitespace-nowrap">
-                    【照合】身元確認・正規住人｜全開ニテ乗車ヲ認可セヨ
+                    【照合】身元確認・正規住人｜扉を全開にして乗車を許可せよ
                   </span>
                 </div>
               )}
@@ -464,13 +464,13 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
               <div className="bg-purple-950/95 border-2 border-purple-400 px-4 py-2 rounded-xs shadow-[0_0_30px_rgba(147,51,234,0.95)] flex flex-col items-center gap-1 font-mincho">
                 <div className="flex items-center gap-2 text-purple-100 font-black text-xs sm:text-sm tracking-wider whitespace-nowrap">
                   <Wind className="w-4 h-4 text-emerald-300 animate-spin" />
-                  <span>【車内汚染】有毒瘴気ノ充満検知！！</span>
+                  <span>【車内汚染】有毒な瘴気が充満しています！</span>
                   <span className="font-seven-seg text-amber-300">
                     {(movingEvent.timeLeftMs / 1000).toFixed(1)}s
                   </span>
                 </div>
                 <span className="text-[11px] text-purple-200 font-bold whitespace-nowrap">
-                  右操作盤【急速換気】ニテ直チニ強制排気セヨ
+                  右操作盤【急速換気】で直ちに強制排気してください
                 </span>
               </div>
             )}
@@ -479,13 +479,13 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
               <div className="bg-red-950/95 border-2 border-red-500 px-4 py-2 rounded-xs shadow-[0_0_30px_rgba(239,68,68,0.95)] flex flex-col items-center gap-1 animate-bounce font-mincho">
                 <div className="flex items-center gap-2 text-red-100 font-black text-xs sm:text-sm tracking-wider whitespace-nowrap">
                   <BellRing className="w-4 h-4 text-red-400 animate-ping" />
-                  <span>【緊急警報】扉鏡面ニ背後怪異ノ影ヲ検知！！</span>
+                  <span>【緊急警報】扉の鏡面に怪異の影を検知！</span>
                   <span className="font-seven-seg text-amber-300">
                     {(movingEvent.timeLeftMs / 1000).toFixed(1)}s
                   </span>
                 </div>
                 <span className="text-[11px] text-red-200 font-bold whitespace-nowrap">
-                  右操作盤【非常ベル】ニテ直チニ緊急停止・強制排除セヨ
+                  右操作盤【非常ベル】で直ちに緊急停止し排除してください
                 </span>
               </div>
             )}
@@ -498,14 +498,14 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
             <div className="bg-red-950 border-2 border-red-500 px-4 py-2 rounded-xs shadow-[0_0_30px_rgba(239,68,68,0.95)] flex flex-col items-center gap-1">
               <div className="flex items-center gap-2 text-red-100 font-black text-xs sm:text-sm tracking-widest uppercase">
                 <Skull className="w-4 h-4 text-red-400 animate-spin" style={{ animationDuration: '3s' }} />
-                <span>【扉破壊警報】異形ニヨル抉開侵入ヲ検知！！</span>
+                <span>【扉破壊警報】異形による抉開侵入を検知！</span>
                 <AlertTriangle className="w-4 h-4 text-red-400" />
               </div>
 
               {/* 連打カウントダウンインジケーター */}
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="text-[11px] text-red-200 font-bold">
-                  【閉扉】ヲ連打シテ押シ戻セ！
+                  【閉】ボタンを連打して押し戻せ！
                 </span>
                 <div className="flex items-center gap-1 bg-black/80 px-2 py-0.5 rounded-xs border border-red-700">
                   <span className="text-xs font-mono text-red-400">残</span>

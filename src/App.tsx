@@ -1112,7 +1112,7 @@ export function App() {
       const nextComplaints = Math.min(MAX_COMPLAINTS, complaintsRef.current + 1);
       setComplaints(nextComplaints);
       setActiveSubtitle(
-        '「『ちょっと！ 異常もないのに風が強くてうるさい！ 管理室に通報するわよ！』【苦情発生】平時ノ不要排気稼働ニヨリ通報。」'
+        '「『ちょっと！ 異常もないのに風が強くてうるさい！ 管理室に通報するわよ！』【通報】平時の不要な強制排気により苦情通報。」'
       );
       showToast(
         'COMPLAINT',
@@ -1130,7 +1130,7 @@ export function App() {
       }
     } else {
       setActiveSubtitle(
-        '「【急速換気稼働】3秒間ノ強制排気中。平時ニ乗客同乗下デ稼働サセタ場合、苦情要因トナル。」'
+        '「【急速換気稼働】3秒間の強制排気中。異常がない平時の稼働は苦情の対象となります。」'
       );
     }
   };
@@ -1166,7 +1166,7 @@ export function App() {
       }
 
       setActiveSubtitle(
-        '「【非常停止作動】警報轟音ト急制動ニヨリ、背後ノ影ヲ車外シャフトへ強制投棄。」'
+        '「【非常停止作動】大音響の警報と急制動により、背後の影を車外シャフトへ強制排除。」'
       );
       return;
     }
@@ -1181,7 +1181,7 @@ export function App() {
       setCloseClicksRemaining(1);
       soundManager.stopPryingLoop();
       setActiveSubtitle(
-        '「【警報威嚇成功】非常ベルノ大音響ニ怪異ガ硬直。間髪入レズ閉ボタンニテ遮断セヨ。」'
+        '「【警報威嚇成功】非常ベルの大音響に怪異が硬直。直ちに【閉】ボタンで遮断せよ。」'
       );
     }
   };
@@ -1236,11 +1236,11 @@ export function App() {
                 />
               </div>
               <h2 className="text-xl font-extrabold text-stone-950 tracking-wider mb-2">
-                画面ヲ横向キニ回転セヨ
+                【警告】画面を横向きに回転してください
               </h2>
               <p className="text-xs text-stone-800 font-bold leading-relaxed mb-4">
-                第十五號昇降機 監視端末ハ「横画面表示（ランドスケープ）」専用規格トス。<br />
-                端末ノ回転ロックヲ解除シ、端末ヲ横向キニ保持セヨ。
+                当昇降機の監視端末は「横画面表示（ランドスケープ）」専用規格です。<br />
+                端末の画面回転ロックを解除し、本体を横向きにして保持してください。
               </p>
               <div className="bg-stone-900/10 p-2.5 rounded-xs border border-stone-700/60 text-[11px] font-bold text-stone-700">
                 ※横向きに回転すると自動的に検閲画面へ移行します
@@ -1403,59 +1403,59 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
           >
-            {/* 公文書・業務辞令書風の重厚なUI */}
-            <div className="max-w-xl w-full metal-panel-surface border-2 border-stone-700 p-3 shadow-[0_25px_70px_rgba(0,0,0,0.98)] relative">
-              <div className="aged-paper border-2 border-stone-800 p-6 text-stone-900 font-mincho relative shadow-inner">
+            {/* 公文書・業務辞令書風の重厚なUI（スマホ横画面でもはみ出さずスワイプ可能） */}
+            <div className="max-w-xl w-full max-h-[92dvh] flex flex-col metal-panel-surface border-2 border-stone-700 p-2 sm:p-3.5 shadow-[0_25px_70px_rgba(0,0,0,0.98)] relative my-auto shrink-0">
+              <div className="aged-paper border-2 border-stone-800 p-3.5 sm:p-6 text-stone-900 font-mincho relative shadow-inner overflow-y-auto overscroll-contain touch-pan-y min-h-0 flex-1">
                 {/* 上部：文書番号・朱印 */}
-                <div className="flex items-start justify-between border-b-2 border-stone-800 pb-3 mb-4">
+                <div className="flex items-start justify-between border-b-2 border-stone-800 pb-2.5 mb-3 sm:mb-4">
                   <div>
                     <span className="text-[11px] font-bold text-stone-700 tracking-widest block">
                       管理組合 保安課 発令（機密第拾伍號）
                     </span>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-950 tracking-wider mt-0.5">
+                    <h1 className="text-xl sm:text-3xl font-extrabold text-stone-950 tracking-wider mt-0.5">
                       第十五號昇降機
                     </h1>
                     <span className="text-xs font-extrabold text-red-900 tracking-widest block mt-0.5">
                       ― 夜間特別検閲業務 辞令書 ―
                     </span>
                   </div>
-                  <div className="border-2 border-red-800 text-red-800 font-extrabold text-xs px-2.5 py-1 rotate-[-5deg] shrink-0 text-center leading-tight">
+                  <div className="border-2 border-red-800 text-red-800 font-extrabold text-xs px-2 py-0.5 sm:px-2.5 sm:py-1 rotate-[-5deg] shrink-0 text-center leading-tight">
                     <div>保安課印</div>
                     <div className="text-[10px] border-t border-red-800 mt-0.5 pt-0.5">極秘扱</div>
                   </div>
                 </div>
 
                 {/* リード文 */}
-                <p className="text-xs sm:text-sm text-stone-900 font-bold mb-4 leading-relaxed">
-                  貴殿ニ、当棟「第十五號昇降機」ノ夜間検閲業務ヲ命ズル。拾伍階ヨリ壱階ヘ降下シッツ、各階ニテ乗車ヲ求メル者ノ身元ヲ厳格ニ選別セヨ。
+                <p className="text-xs sm:text-sm text-stone-900 font-bold mb-3 sm:mb-4 leading-relaxed">
+                  貴殿に、当ビル「第十五號昇降機」の夜間検閲業務を命じます。15階から1階へと降下しながら、各階で乗車を求める者の身元を厳格に照合・選別してください。
                 </p>
 
                 {/* 罫線枠の業務要綱（3箇条） */}
-                <div className="border-2 border-stone-800 divide-y divide-stone-700/80 bg-stone-900/5 text-xs leading-relaxed mb-5">
-                  <div className="p-2.5">
-                    <strong className="text-stone-950 block mb-0.5">
-                      第一条【扉操作ト身元検閲】
+                <div className="border-2 border-stone-800 divide-y divide-stone-700/80 bg-stone-900/5 text-xs leading-relaxed mb-4">
+                  <div className="p-2 sm:p-2.5">
+                    <strong className="text-stone-950 block mb-0.5 font-bold">
+                      【第一条：扉操作と身元照合】
                     </strong>
                     <span className="text-stone-800">
-                      「開扉」長押シニテ隙間ヲ広ゲ、胸元ノ名札・服装・眼光ヲ照合セヨ。正規居住者ハ全開ニテ収容シ、規程違反者ヤ異形ハ直チニ「閉扉」ニテ遮断スベシ。
+                      「開扉」ボタンを長押しして隙間を広げ、胸元の名札・服装・眼光を照合してください。正規居住者は全開にして乗車を許可し、規程違反者や怪異は直ちに「閉扉」を押して遮断・排除すること。（扉に手をかけて侵入を試みる個体には「閉扉」を連打してください）
                     </span>
                   </div>
-                  <div className="p-2.5">
-                    <strong className="text-stone-950 block mb-0.5">
-                      第二条【通達文書ノ改定】
+                  <div className="p-2 sm:p-2.5">
+                    <strong className="text-stone-950 block mb-0.5 font-bold">
+                      【第二条：通達文書の改定】
                     </strong>
                     <span className="text-stone-800">
-                      拾伍階・拾階・伍階ノ待機所ニテ、管理室ヨリ追加通達ガ下達サレル。新タナ張り紙ハ従前ノ規則ヲ上書キスルタメ、常ニ最新ノ通達ニ従ウコト。
+                      15階・10階・5階の待機所にて、管理室より新たな追加通達が下達されます。最新の張り紙は以前の規則を上書きするため、常に最新の通達に従って検閲を行ってください。
                     </span>
                   </div>
-                  <div className="p-2.5">
-                    <strong className="text-red-950 block mb-0.5">
-                      第三条【車内保安ト隔離処分】
+                  <div className="p-2 sm:p-2.5">
+                    <strong className="text-red-950 block mb-0.5 font-bold">
+                      【第三条：車内保安と隔離処分】
                     </strong>
                     <span className="text-stone-800">
-                      降下中ノ有毒瘴気ニハ「急速換気」、背後ニ迫ル影ニハ「非常ベル」ニテ対処セヨ。精神ノ崩壊、マタハ居住者カラノ苦情通報三件ニテ即座ニ隔離処分トス。
+                      下降中の有毒瘴気には「急速換気」、背後に迫る怪異には「非常ベル」で対処してください。精神が尽きるか、住人からの苦情通報が3回累積した時点で、直ちに隔離処分（業務失敗）となります。
                     </span>
                   </div>
                 </div>
@@ -1465,10 +1465,10 @@ export function App() {
                   type="button"
                   onPointerDown={() => soundManager.resumeAudio()}
                   onClick={startGame}
-                  className="w-full py-3.5 px-6 bg-stone-900 hover:bg-stone-800 border-2 border-amber-600/80 text-amber-400 font-mincho font-black tracking-widest text-sm sm:text-base rounded-xs shadow-[0_6px_20px_rgba(0,0,0,0.6)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 sm:py-3.5 px-4 sm:px-6 bg-stone-900 hover:bg-stone-800 border-2 border-amber-600/80 text-amber-400 font-mincho font-black tracking-widest text-xs sm:text-base rounded-xs shadow-[0_6px_20px_rgba(0,0,0,0.6)] transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-current" />
-                  <span>【着務宣誓】拾伍階 検問待機所ヘ入室スル</span>
+                  <span>【着務宣誓】15階 検問待機所へ入室する</span>
                 </button>
               </div>
             </div>
@@ -1481,9 +1481,9 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-red-950/90 backdrop-blur-xs flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-red-950/90 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
           >
-            <div className="max-w-lg w-full bg-stone-950 border-2 border-red-700 rounded-xs p-6 shadow-[0_0_80px_rgba(220,38,38,0.75)] font-mincho">
+            <div className="max-w-lg w-full max-h-[92dvh] overflow-y-auto overscroll-contain touch-pan-y bg-stone-950 border-2 border-red-700 rounded-xs p-4 sm:p-6 shadow-[0_0_80px_rgba(220,38,38,0.75)] font-mincho my-auto shrink-0">
               <div className="flex items-center justify-between border-b-2 border-red-900 pb-3 mb-4">
                 <div className="text-left">
                   <span className="text-xs font-bold text-red-400 tracking-widest block">
@@ -1517,7 +1517,7 @@ export function App() {
                 className="w-full py-3 px-6 bg-red-800 hover:bg-red-700 border border-red-500 text-stone-100 font-bold tracking-widest rounded-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>【再着務】拾伍階ヨリ検閲業務ヲやり直ス</span>
+                <span>【再着務】15階より検閲業務をやり直す</span>
               </button>
             </div>
           </motion.div>
@@ -1529,10 +1529,10 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/88 backdrop-blur-xs flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/88 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
           >
-            <div className="max-w-lg w-full metal-panel-surface border-2 border-stone-600 p-3 shadow-[0_0_70px_rgba(16,185,129,0.3)]">
-              <div className="aged-paper border-2 border-stone-800 p-6 text-stone-900 font-mincho">
+            <div className="max-w-lg w-full max-h-[92dvh] overflow-y-auto overscroll-contain touch-pan-y metal-panel-surface border-2 border-stone-600 p-2 sm:p-3 shadow-[0_0_70px_rgba(16,185,129,0.3)] my-auto shrink-0">
+              <div className="aged-paper border-2 border-stone-800 p-4 sm:p-6 text-stone-900 font-mincho">
                 <div className="flex items-center justify-between border-b-2 border-stone-800 pb-3 mb-4">
                   <div className="text-left">
                     <span className="text-xs font-bold text-stone-700 tracking-widest block">
@@ -1552,23 +1552,23 @@ export function App() {
                 </div>
 
                 <p className="text-xs sm:text-sm text-stone-900 font-bold mb-4 leading-relaxed text-left">
-                  重苦しい鉄扉が開き、壱階ロビーの冷たい夜気が流れ込んできた。貴殿は書き換わる規程と異形の偽装を見極め、本日の夜間検閲シフトを完遂した。
+                  重苦しい鉄扉が開き、1階ロビーの冷たい夜気が流れ込んできました。貴殿は次々と書き換わる規程と異形の偽装を見極め、本日の夜間検閲シフトを無事に完遂しました。
                 </p>
 
                 <div className="grid grid-cols-3 divide-x divide-stone-700 border-2 border-stone-800 bg-stone-900/5 mb-5 text-center text-xs">
-                  <div className="p-2.5">
+                  <div className="p-2 sm:p-2.5">
                     <span className="text-stone-700 font-bold block text-[10px]">残存精神安定度</span>
                     <span className="text-lg font-extrabold text-emerald-900">
                       {sanity} / {MAX_SANITY}
                     </span>
                   </div>
-                  <div className="p-2.5">
+                  <div className="p-2 sm:p-2.5">
                     <span className="text-stone-700 font-bold block text-[10px]">累積苦情通報</span>
                     <span className="text-lg font-extrabold text-amber-900">
                       {complaints} / {MAX_COMPLAINTS}
                     </span>
                   </div>
-                  <div className="p-2.5">
+                  <div className="p-2 sm:p-2.5">
                     <span className="text-stone-700 font-bold block text-[10px]">遮断排除 / 収容</span>
                     <span className="text-lg font-extrabold text-stone-950">
                       {repelledThreatCount} / {boardedSafeCount}
@@ -1583,7 +1583,7 @@ export function App() {
                   className="w-full py-3 px-6 bg-stone-900 hover:bg-stone-800 border-2 border-emerald-600/70 text-emerald-400 font-black tracking-widest rounded-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  <span>【再着務】拾伍階ヨリ次ノシフトニ就ク</span>
+                  <span>【再着務】15階より次のシフトに就く</span>
                 </button>
               </div>
             </div>
@@ -1596,9 +1596,9 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-60 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+            className="fixed inset-0 z-60 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 select-none overflow-y-auto overscroll-contain touch-pan-y"
           >
-            <div className="max-w-md w-full metal-panel-surface border-2 border-stone-600 rounded-xs p-6 shadow-[0_25px_70px_rgba(0,0,0,0.98)] text-center font-mincho relative">
+            <div className="max-w-md w-full max-h-[92dvh] overflow-y-auto overscroll-contain touch-pan-y metal-panel-surface border-2 border-stone-600 rounded-xs p-4 sm:p-6 shadow-[0_25px_70px_rgba(0,0,0,0.98)] text-center font-mincho relative my-auto shrink-0">
               <div className="flex items-center justify-between border-b border-stone-700 pb-2 mb-4">
                 <span className="text-xs font-bold text-amber-500 tracking-widest">
                   【業務中断】保安点検待機
@@ -1611,8 +1611,8 @@ export function App() {
                 昇降機 一時停止中
               </h2>
               <p className="text-xs text-stone-300 mb-6 leading-relaxed">
-                現在、昇降機の運行を一時凍結している。<br />
-                検閲業務へ復帰する際は、下記の復帰釦を押下せよ。
+                現在、昇降機の運行を一時停止しています。<br />
+                検閲業務へ復帰する際は、下記の復帰ボタンを押してください。
               </p>
 
               <button
@@ -1622,7 +1622,7 @@ export function App() {
                 className="w-full py-3 px-6 bg-amber-600 hover:bg-amber-500 text-stone-950 font-black tracking-widest rounded-xs shadow-[0_0_20px_rgba(245,158,11,0.4)] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Play className="w-4 h-4 fill-current" />
-                <span>【業務再開】検閲シフトヘ復帰スル</span>
+                <span>【業務再開】検閲シフトへ復帰する</span>
               </button>
             </div>
           </motion.div>

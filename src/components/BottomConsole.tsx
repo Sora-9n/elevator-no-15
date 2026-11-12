@@ -116,7 +116,7 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
         <div className="flex-1 flex items-center gap-2 overflow-x-auto">
           {activePassengers.length === 0 ? (
             <span className="text-xs text-stone-500 whitespace-nowrap">
-              車内収容者ナシ（規程違反なし）
+              同乗者なし（安全）
             </span>
           ) : (
             activePassengers.map((p, idx) => {

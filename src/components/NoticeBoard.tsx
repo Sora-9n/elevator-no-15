@@ -134,15 +134,15 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleCloseModal}
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-[2px] flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
           >
             {/* 検問中（JUDGING）に開いている場合は背後の迫る猶予警告を世界観に合った警告板で表示 */}
             {gameState === 'JUDGING' && (
-              <div className="mb-3 bg-stone-950/95 border-2 border-red-700 text-red-100 px-4 py-1.5 rounded-xs text-xs font-mincho font-bold flex items-center gap-3 shadow-[0_0_24px_rgba(185,28,28,0.85)] animate-pulse whitespace-nowrap">
+              <div className="mb-2 sm:mb-3 bg-stone-950/95 border-2 border-red-700 text-red-100 px-3.5 py-1.5 rounded-xs text-xs font-mincho font-bold flex items-center gap-2.5 shadow-[0_0_24px_rgba(185,28,28,0.85)] animate-pulse whitespace-nowrap shrink-0">
                 <span className="tracking-wider">
-                  【警戒】検閲中ニ付、文書照合中モ扉ノ外ニ対象ガ待機シテイル
+                  【警戒】検閲中につき、文書照合中も扉の外に対象が待機しています
                 </span>
-                <span className="border-l border-red-800 pl-3 font-seven-seg text-sm text-amber-400">
+                <span className="border-l border-red-800 pl-2.5 font-seven-seg text-sm text-amber-400">
                   猶予 {(judgingTimeLeftMs / 1000).toFixed(1)} 秒
                 </span>
               </div>
@@ -153,7 +153,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.92, y: 12 }}
               onClick={(e) => e.stopPropagation()}
-              className={`max-w-lg w-full rounded-xs p-6 shadow-[0_20px_60px_rgba(0,0,0,0.95)] border-2 relative ${
+              className={`max-w-lg w-full max-h-[88dvh] overflow-y-auto overscroll-contain touch-pan-y rounded-xs p-3.5 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.95)] border-2 relative my-auto shrink-0 ${
                 selectedRule?.isCorrupted
                   ? 'bg-stone-950 border-red-700 text-red-100'
                   : 'aged-paper border-stone-700 text-stone-900'
@@ -163,7 +163,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
                 id="close-notice-modal-btn"
                 type="button"
                 onClick={handleCloseModal}
-                className={`absolute top-3 right-3 p-1.5 rounded-xs transition-colors cursor-pointer ${
+                className={`absolute top-3 right-3 p-1.5 rounded-xs transition-colors cursor-pointer z-10 ${
                   selectedRule?.isCorrupted
                     ? 'bg-red-900/40 hover:bg-red-800/60 text-red-200'
                     : 'bg-stone-900/15 hover:bg-stone-900/30 text-stone-900'
@@ -262,7 +262,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
               ) : (
                 <div className="text-stone-900 font-mincho">
                   {/* 手引書ヘッダー（公文書・朱印風デザイン） */}
-                  <div className="flex items-center justify-between border-b-2 border-stone-800 pb-3 mb-3.5 pr-8">
+                  <div className="flex items-center justify-between border-b-2 border-stone-800 pb-2.5 mb-3 pr-8">
                     <div>
                       <span className="text-[11px] font-bold text-stone-700 tracking-wider block">
                         管理組合 保安課 編纂 — 乗務員必携（機密第15號）
@@ -271,72 +271,72 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
                         第十五號昇降機 運行手引書
                       </h3>
                     </div>
-                    <div className="border-2 border-red-800 text-red-800 font-extrabold text-xs px-2 py-1 rotate-[-4deg] shrink-0 whitespace-nowrap">
+                    <div className="border-2 border-red-800 text-red-800 font-extrabold text-xs px-2 py-0.5 rotate-[-4deg] shrink-0 whitespace-nowrap">
                       取扱注意
                     </div>
                   </div>
 
-                  {/* 罫線枠の条文テーブル */}
+                  {/* 罫線枠の条文テーブル（読みやすく整理された文章） */}
                   <div className="border-2 border-stone-800 divide-y divide-stone-700/80 bg-stone-900/5 text-xs leading-relaxed">
-                    <div className="p-2.5">
+                    <div className="p-2 sm:p-2.5">
                       <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>壱、扉ノ開閉ト覗キ込ミ検閲</span>
+                        <span>【第一条：扉の開閉と覗き込み検閲】</span>
                         <span className="text-[10px] font-bold text-red-900 border border-red-800/60 px-1.5 py-0.2">
                           基本業務
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        到着時、扉ハ僅カナ隙間ノミ開ク。「開」ヲ長押シシテ隙間ヲ広ゲ、胸元ノ名札ヤ荷物ヲ確認セヨ。扉ヲ大キク開ケタ際ニ本性ヲ現ス異形モ存在スル。異常ヲ認メタラ直チニ指ヲ離シ、「閉」ニテ遮断セヨ。（扉ニ手ヲ掛ケ抵抗スル個体ニハ「閉」ヲ連打セヨ）
+                        到着時、扉はわずかな隙間（12%）しか開きません。「開扉」ボタンを長押しして隙間を広げ、胸元の名札や荷物、表情を慎重に確認してください。扉を大きく開けた瞬間に本性を現す怪異も存在します。異変を認めた場合は直ちに指を離し、「閉扉」を押して遮断してください。（扉に手をかけて侵入を試みる個体に対しては、「閉扉」を力強く連打して押し戻してください）
                       </p>
                     </div>
 
-                    <div className="p-2.5">
+                    <div className="p-2 sm:p-2.5">
                       <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>弐、急速換気装置ノ運用</span>
+                        <span>【第二条：急速換気装置の運用】</span>
                         <span className="text-[10px] font-bold text-stone-800 border border-stone-700 px-1.5 py-0.2">
                           車内設備
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        降下中、床下ヨリ有毒ナ瘴気ガ湧キ出タ際、マタハ同乗者ヨリ換気ノ要望ガアッタ際ハ、直チニ「急速換気」ヲ起動セヨ。※異常ガナイ平時ニ稼働サセルト、同乗者カラノ苦情通報トナルタメ厳禁。
+                        下降中、床下から有毒な瘴気が立ち込めた場合や、同乗者から換気の要望があった場合は、直ちに「急速換気」を起動してください（3秒間強制排気されます）。※車内に異常がない平時に作動させると、乗客から「風が強くて寒い」と苦情通報（クレーム）の対象となるため厳禁です。
                       </p>
                     </div>
 
-                    <div className="p-2.5">
+                    <div className="p-2 sm:p-2.5">
                       <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>参、非常ベルニヨル緊急排除</span>
+                        <span>【第三条：非常ベルによる緊急排除】</span>
                         <span className="text-[10px] font-bold text-red-900 border border-red-800/60 px-1.5 py-0.2">
                           低層警戒
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        低層階（伍階以下）ノ降下中、正面扉ノ鏡面ニ「背後ニ立ツ異形」ガ映リ込ム事案ガ報告サレテイル。確認次第、直チニ「非常ベル」ヲ鳴ラシ、緊急制動ニテ車外ヘ排除セヨ。
+                        5階以下の低層階を下降中、閉まった正面扉の鏡面に「背後に立つ怪異」が映り込む怪奇現象が報告されています。鏡面に影を確認した際は、直ちに「非常ベル」を押下し、緊急制動によって怪異を車外シャフトへ強制排除してください。
                       </p>
                     </div>
 
-                    <div className="p-2.5">
+                    <div className="p-2 sm:p-2.5">
                       <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>肆、規程ノ改定ト文書照合</span>
+                        <span>【第四条：通達の改定と文書照合】</span>
                         <span className="text-[10px] font-bold text-stone-800 border border-stone-700 px-1.5 py-0.2">
                           注意事項
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        拾階・伍階ニテ追加サレル通達ハ、従前ノ規則ヲ上書キスル。検閲中ニ文書ヲ開イテイル間モ、外ノ訪問者ハ僅カズツ扉ニ迫ッテイル。速ヤカニ照合ヲ終エヨ。
+                        10階および5階の待機所で追加される通達は、従前の規則を上書きします。検閲中に張り紙を開いて確認している間も、外の訪問者は少しずつ扉へと迫っています。速やかに照合を終えてください。
                       </p>
                     </div>
                   </div>
 
-                  <div className="pt-3 mt-2 flex items-center justify-between">
+                  <div className="pt-2.5 mt-2 flex items-center justify-between">
                     <span className="text-[10px] text-stone-700 font-bold">
-                      ※手引書ノ紛失・汚損ハ懲戒対象トス
+                      ※手引書の紛失・汚損は懲戒対象とします
                     </span>
                     <button
                       type="button"
                       onClick={handleCloseModal}
                       className="px-4 py-1.5 rounded-xs bg-stone-900 text-stone-100 text-xs font-bold tracking-wider hover:bg-stone-800 cursor-pointer"
                     >
-                      手引書ヲ閉ジル
+                      手引書を閉じる
                     </button>
                   </div>
                 </div>
