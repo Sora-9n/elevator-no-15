@@ -25,6 +25,13 @@ class SoundManager {
   private pryingNoiseNode: AudioNode | null = null;
   private pryingGain: GainNode | null = null;
 
+  private cabinRattleNoiseNode: AudioNode | null = null;
+  private cabinRattleLfo1: OscillatorNode | null = null;
+  private cabinRattleLfo2: OscillatorNode | null = null;
+  private cabinRattleSubOsc: OscillatorNode | null = null;
+  private cabinRattleGain: GainNode | null = null;
+  private cabinCreakTimer: number | null = null;
+
   private doorNodes: AudioScheduledSourceNode[] = [];
   private doorMasterGain: GainNode | null = null;
 
@@ -43,15 +50,18 @@ class SoundManager {
     }
   }
 
-  public setMuted(mute: boolean): void {
+  public setMuted(mute: boolean, isGameActive: boolean = true): void {
     this.muted = mute;
     if (this.muted) {
+      this.stopCabinRattle();
       this.stopMotorDrone();
       this.stopDoorMotor();
       this.stopRapidVentilation();
       this.stopMiasmaHeartbeat();
       this.stopAnomalyPresence();
       this.stopPryingLoop();
+    } else if (isGameActive) {
+      this.startCabinRattle();
     }
   }
 
@@ -101,12 +111,12 @@ class SoundManager {
 
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.001, now);
-    masterGain.gain.exponentialRampToValueAtTime(0.16, now + 0.4);
+    masterGain.gain.exponentialRampToValueAtTime(0.20, now + 0.4);
 
     // ローパスフィルターでくぐもった鉄箱の響きを作る
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(135, now);
+    filter.frequency.setValueAtTime(145, now);
     filter.Q.setValueAtTime(4.0, now);
 
     // 低周波モーター基本波
@@ -119,13 +129,13 @@ class SoundManager {
     osc2.type = 'triangle';
     osc2.frequency.setValueAtTime(78.5, now);
 
-    // 周期的な揺れ（ガタゴト感）を作るLFO
+    // 周期的な揺れ（ガタゴト感）を作るLFO（振幅・周波数を強化してガタガタ感を明確に）
     const lfo = ctx.createOscillator();
     lfo.type = 'sine';
-    lfo.frequency.setValueAtTime(2.6, now);
+    lfo.frequency.setValueAtTime(3.4, now);
 
     const lfoGain = ctx.createGain();
-    lfoGain.gain.setValueAtTime(28, now);
+    lfoGain.gain.setValueAtTime(45, now);
 
     lfo.connect(lfoGain);
     lfoGain.connect(filter.frequency);
@@ -173,8 +183,161 @@ class SoundManager {
   }
 
   /**
+   * 1-B. 常時微小に鳴り続ける不穏なガタガタ・振動・きしみ環境音
+   * 暗いシャフトに吊られた金属箱の微弱な振動、不規則なワイヤーのきしみ、低周波のうなり
+   */
+  public startCabinRattle(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    this.stopCabinRattle();
+
+    const now = ctx.currentTime;
+
+    // 全体ゲイン（邪魔にならず、しかし静寂の中で確実に不安を煽る微小なガタガタ音量）
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.065, now + 0.6);
+
+    // 1. 籠の微細な金属ガタつき（ブラウンノイズ ＋ 195Hz帯域フィルター ＋ 3.6Hz揺らぎLFO）
+    const bufferSize = ctx.sampleRate * 2;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let lastOut = 0.0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      lastOut = (lastOut + 0.05 * white) / 1.05;
+      data[i] = lastOut * 2.8;
+    }
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = buffer;
+    noiseSource.loop = true;
+
+    const rattleFilter = ctx.createBiquadFilter();
+    rattleFilter.type = 'bandpass';
+    rattleFilter.frequency.setValueAtTime(195, now);
+    rattleFilter.Q.setValueAtTime(4.5, now);
+
+    // 不安感を醸し出すガタつき揺らぎLFO
+    const lfo1 = ctx.createOscillator();
+    lfo1.type = 'sine';
+    lfo1.frequency.setValueAtTime(3.6, now);
+
+    const lfo1Gain = ctx.createGain();
+    lfo1Gain.gain.setValueAtTime(38, now);
+    lfo1.connect(lfo1Gain);
+    lfo1Gain.connect(rattleFilter.frequency);
+
+    // 2. シャフト深部の超低周波のうなり（43Hzサブサイン波）
+    const subOsc = ctx.createOscillator();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(43, now);
+
+    const subGain = ctx.createGain();
+    subGain.gain.setValueAtTime(0.35, now);
+    subOsc.connect(subGain);
+    subGain.connect(masterGain);
+
+    noiseSource.connect(rattleFilter);
+    rattleFilter.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    noiseSource.start(now);
+    lfo1.start(now);
+    subOsc.start(now);
+
+    this.cabinRattleNoiseNode = noiseSource;
+    this.cabinRattleLfo1 = lfo1;
+    this.cabinRattleSubOsc = subOsc;
+    this.cabinRattleGain = masterGain;
+
+    this.scheduleNextCabinCreak();
+  }
+
+  private scheduleNextCabinCreak(): void {
+    if (this.cabinCreakTimer) {
+      window.clearTimeout(this.cabinCreakTimer);
+      this.cabinCreakTimer = null;
+    }
+    if (!this.cabinRattleGain || this.muted) return;
+
+    // 2.8秒〜5.2秒ごとに不規則に発生する微細なワイヤーのきしみ・鉄板のたわみ音
+    const delayMs = 2800 + Math.random() * 2400;
+    this.cabinCreakTimer = window.setTimeout(() => {
+      this.playSubtleCabinCreak();
+      this.scheduleNextCabinCreak();
+    }, delayMs);
+  }
+
+  private playSubtleCabinCreak(): void {
+    if (this.muted || !this.ctx || !this.cabinRattleGain) return;
+    const now = this.ctx.currentTime;
+
+    const creakOsc = this.ctx.createOscillator();
+    creakOsc.type = Math.random() < 0.5 ? 'sawtooth' : 'triangle';
+    const baseFreq = 260 + Math.random() * 120;
+    creakOsc.frequency.setValueAtTime(baseFreq, now);
+    creakOsc.frequency.exponentialRampToValueAtTime(baseFreq * (0.8 + Math.random() * 0.4), now + 0.18);
+
+    const creakFilter = this.ctx.createBiquadFilter();
+    creakFilter.type = 'bandpass';
+    creakFilter.frequency.setValueAtTime(baseFreq, now);
+    creakFilter.Q.setValueAtTime(8.0, now);
+
+    const creakGain = this.ctx.createGain();
+    creakGain.gain.setValueAtTime(0.001, now);
+    creakGain.gain.linearRampToValueAtTime(0.022, now + 0.03);
+    creakGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+
+    creakOsc.connect(creakFilter);
+    creakFilter.connect(creakGain);
+    creakGain.connect(this.ctx.destination);
+
+    creakOsc.start(now);
+    creakOsc.stop(now + 0.25);
+  }
+
+  public stopCabinRattle(): void {
+    if (this.cabinCreakTimer) {
+      window.clearTimeout(this.cabinCreakTimer);
+      this.cabinCreakTimer = null;
+    }
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (this.cabinRattleGain) {
+      try {
+        this.cabinRattleGain.gain.cancelScheduledValues(now);
+        this.cabinRattleGain.gain.setValueAtTime(Math.max(this.cabinRattleGain.gain.value, 0.001), now);
+        this.cabinRattleGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+      } catch { /* ignore */ }
+    }
+    const noiseNode = this.cabinRattleNoiseNode;
+    const lfo1 = this.cabinRattleLfo1;
+    const lfo2 = this.cabinRattleLfo2;
+    const subOsc = this.cabinRattleSubOsc;
+    const gain = this.cabinRattleGain;
+    this.cabinRattleNoiseNode = null;
+    this.cabinRattleLfo1 = null;
+    this.cabinRattleLfo2 = null;
+    this.cabinRattleSubOsc = null;
+    this.cabinRattleGain = null;
+
+    setTimeout(() => {
+      try {
+        if (noiseNode && 'stop' in noiseNode && typeof (noiseNode as AudioScheduledSourceNode).stop === 'function') {
+          (noiseNode as AudioScheduledSourceNode).stop();
+        }
+        noiseNode?.disconnect();
+      } catch { /* ignore */ }
+      try { lfo1?.stop(); lfo1?.disconnect(); } catch { /* ignore */ }
+      try { lfo2?.stop(); lfo2?.disconnect(); } catch { /* ignore */ }
+      try { subOsc?.stop(); subOsc?.disconnect(); } catch { /* ignore */ }
+      try { gain?.disconnect(); } catch { /* ignore */ }
+    }, 320);
+  }
+
+  /**
    * 2. 階到着時のレトロなベル音（「チーン」）
-   * 倍音構成で古い金属ベルの響きを再現
+   * 倍音構成で古い金属ベルの響きを再現（音量を控えめに調整）
    */
   public playArrivalChime(isAnomalyFloor: boolean = false): void {
     const ctx = this.ensureContext();
@@ -184,10 +347,10 @@ class SoundManager {
     // 怪異階でも一見普通だが僅かにピッチが狂う演出も可能
     const detuneFactor = isAnomalyFloor ? 0.985 : 1.0;
     const partials = [
-      { freq: 1046.5 * detuneFactor, amp: 0.22, decay: 1.8 },
-      { freq: 2093.0 * detuneFactor, amp: 0.12, decay: 1.2 },
-      { freq: 3185.0 * detuneFactor, amp: 0.07, decay: 0.65 },
-      { freq: 4430.0 * detuneFactor, amp: 0.04, decay: 0.3 },
+      { freq: 1046.5 * detuneFactor, amp: 0.10, decay: 1.8 },
+      { freq: 2093.0 * detuneFactor, amp: 0.05, decay: 1.2 },
+      { freq: 3185.0 * detuneFactor, amp: 0.028, decay: 0.65 },
+      { freq: 4430.0 * detuneFactor, amp: 0.014, decay: 0.3 },
     ];
 
     partials.forEach(({ freq, amp, decay }) => {
@@ -749,14 +912,14 @@ class SoundManager {
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1. 重低音の金属衝撃打撃波（エレベーターの鉄箱全体が激震する音）
+    // 1. 重低音の金属衝撃打撃波（エレベーターの鉄箱全体が激震する音、耳に刺さらないよう音量バランス調整）
     const bassOsc = ctx.createOscillator();
     bassOsc.type = 'sawtooth';
     bassOsc.frequency.setValueAtTime(140, now);
     bassOsc.frequency.exponentialRampToValueAtTime(28, now + 0.35);
 
     const bassGain = ctx.createGain();
-    bassGain.gain.setValueAtTime(0.48, now);
+    bassGain.gain.setValueAtTime(0.22, now);
     bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
 
     bassOsc.connect(bassGain);
@@ -772,7 +935,7 @@ class SoundManager {
       osc.frequency.setValueAtTime(freq + idx * 45, now);
       osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
 
-      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.setValueAtTime(0.07, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
 
       osc.connect(gain);
@@ -798,7 +961,7 @@ class SoundManager {
     filter.Q.setValueAtTime(6.0, now);
 
     const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.24, now);
+    noiseGain.gain.setValueAtTime(0.10, now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
     noise.connect(filter);

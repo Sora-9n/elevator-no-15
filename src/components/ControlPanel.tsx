@@ -155,7 +155,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     '0 0 18px rgba(239,68,68,0.85)',
                   ],
                 }
-              : { scale: 1 }
+              : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
           }
           transition={
             isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
@@ -163,12 +163,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               : { duration: 0.15 }
           }
           whileTap={isJudging ? { scale: 0.94 } : undefined}
-          className={`relative w-full py-3.5 px-2.5 rounded border-2 flex flex-col items-center justify-center gap-1 transition-colors whitespace-nowrap overflow-hidden ${
+          className={`relative w-full py-3.5 px-2.5 rounded border flex flex-col items-center justify-center gap-1 transition-colors whitespace-nowrap overflow-hidden ${
             !isJudging
               ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
               : isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
               ? 'bg-red-900 hover:bg-red-800 border-red-400 text-white cursor-pointer ring-2 ring-red-400/90'
-              : 'bg-stone-900 hover:bg-stone-800 border-stone-600 text-stone-100 shadow-md cursor-pointer'
+              : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-200 cursor-pointer'
           }`}
         >
           {isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0 && (
@@ -207,18 +207,18 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     '0 0 16px rgba(168,85,247,0.85)',
                   ],
                 }
-              : { scale: 1 }
+              : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
           }
           transition={
             needFanAction && !isFanOn
               ? { duration: 0.5, repeat: Infinity, ease: 'easeInOut' }
               : { duration: 0.15 }
           }
-          className={`relative py-2 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer whitespace-nowrap overflow-hidden ${
+          className={`relative py-2 px-1.5 rounded border flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer whitespace-nowrap overflow-hidden ${
             needFanAction && !isFanOn
               ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90'
               : isFanOn
-              ? 'bg-emerald-950/90 border-emerald-400 text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.65)]'
+              ? 'bg-stone-800 border-emerald-500 text-emerald-200'
               : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-300'
           }`}
         >
@@ -240,7 +240,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
           <span
             className={`relative z-10 text-[10px] font-mono ${
-              needFanAction && !isFanOn ? 'text-amber-200 font-bold' : 'opacity-85'
+              needFanAction && !isFanOn
+                ? 'text-amber-200 font-bold'
+                : isFanOn
+                ? 'text-emerald-300'
+                : 'text-stone-400'
             }`}
           >
             {isFanOn
@@ -265,17 +269,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     '0 0 18px rgba(239,68,68,0.9)',
                   ],
                 }
-              : { scale: 1 }
+              : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
           }
           transition={
             needBellAction
               ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
               : { duration: 0.15 }
           }
-          className={`relative py-2 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer whitespace-nowrap overflow-hidden ${
+          className={`relative py-2 px-1.5 rounded border flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer whitespace-nowrap overflow-hidden ${
             needBellAction
               ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90'
-              : 'border-red-900/80 bg-stone-950 hover:bg-red-950/70 active:scale-95 text-red-300'
+              : 'bg-stone-900 hover:bg-stone-800 border-stone-700 active:scale-95 text-stone-300'
           }`}
         >
           {needBellAction && (
@@ -284,14 +288,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <div className="relative z-10 flex items-center gap-1">
             <BellRing
               className={`w-3.5 h-3.5 shrink-0 ${
-                needBellAction ? 'text-amber-200 animate-bounce' : 'text-red-500'
+                needBellAction ? 'text-amber-200 animate-bounce' : 'text-stone-400'
               }`}
             />
             <span className="text-xs font-bold">非常ベル</span>
           </div>
           <span
             className={`relative z-10 text-[10px] font-mono ${
-              needBellAction ? 'text-amber-200 font-bold' : 'opacity-90'
+              needBellAction ? 'text-amber-200 font-bold' : 'text-stone-400'
             }`}
           >
             {needBellAction ? '★防衛レーザー照射' : '防衛レーザー照射'}

@@ -148,6 +148,19 @@ export function App() {
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
+  // TITLE / GAMEOVER / CLEAR 画面では環境音・ループ音を完全に停止
+  useEffect(() => {
+    if (gameState === 'TITLE' || gameState === 'GAMEOVER' || gameState === 'CLEAR') {
+      soundManager.stopCabinRattle();
+      soundManager.stopMotorDrone();
+      soundManager.stopDoorMotor();
+      soundManager.stopRapidVentilation();
+      soundManager.stopMiasmaHeartbeat();
+      soundManager.stopAnomalyPresence();
+      soundManager.stopPryingLoop();
+    }
+  }, [gameState]);
+
   // 画面上部のトースト通知（3秒表示）
   const showToast = useCallback(
     (type: ToastAlert['type'], title: string, message: string) => {
@@ -171,7 +184,10 @@ export function App() {
   const handleToggleMute = () => {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
-    soundManager.setMuted(nextMuted);
+    soundManager.setMuted(
+      nextMuted,
+      gameState !== 'TITLE' && gameState !== 'GAMEOVER' && gameState !== 'CLEAR'
+    );
   };
 
   // 一時停止（ポーズ）切替
@@ -206,6 +222,7 @@ export function App() {
     soundManager.stopMiasmaHeartbeat();
     soundManager.stopAnomalyPresence();
     soundManager.stopPryingLoop();
+    soundManager.startCabinRattle();
 
     recentVisitorIdsRef.current = [];
     decisionLockedRef.current = false;
