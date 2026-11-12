@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, ClipboardCheck, Skull, Wind, BellRing, Eye } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, Skull, Wind, BellRing } from 'lucide-react';
 import type { GameState, MovingCabinEvent, VisitorData } from '../types/game';
 import { VisitorView } from './VisitorView';
 import { PryingHand } from './PryingHand';
@@ -512,21 +512,6 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
             </div>
           </div>
         )}
-
-        {/* 65%覗き込み変化（罠パターン）発生時の視覚アラート（※善良な住人だった場合のポップアップは表示しない） */}
-        {gameState === 'JUDGING' &&
-          isPeekTransformed &&
-          currentVisitor?.peekTransformation?.type === 'REVEAL_THREAT' &&
-          !isPryingDoor && (
-            <div className="absolute bottom-4 inset-x-3 z-30 flex flex-col items-center pointer-events-none">
-              <div className="bg-red-950/95 border-2 border-red-500 px-3.5 py-2 rounded-xs shadow-[0_0_28px_rgba(239,68,68,0.95)] flex items-center gap-2 animate-bounce font-mincho">
-                <Eye className="w-4 h-4 text-red-400 shrink-0" />
-                <span className="text-xs font-black text-red-100 whitespace-nowrap">
-                  【警告】偽装剥落・異形検知｜指を離し、直ちに【閉扉】で遮断せよ
-                </span>
-              </div>
-            </div>
-          )}
 
         {/* 下降中（MOVING）の車内異変アラートバー（瘴気／鏡面怪異） */}
         {gameState === 'MOVING' && movingEvent && movingEvent.status === 'ACTIVE' && (
