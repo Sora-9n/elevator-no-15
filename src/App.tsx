@@ -71,7 +71,7 @@ export function App() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [activeSubtitle, setActiveSubtitle] = useState<string>(
-    '「【第十五號昇降機】夜間検問業務ヲ開始セヨ。規程外ノ存在ヲ車内ニ招キ入レテハナラナイ。」'
+    '「【第十五號昇降機】夜間運行業務を開始してください。規程に反する存在を車内に招き入れてはなりません。」'
   );
   const [eventOutcome, setEventOutcome] = useState<EventOutcome | null>(null);
   const [toastAlert, setToastAlert] = useState<ToastAlert | null>(null);
@@ -113,6 +113,7 @@ export function App() {
   const movingEventRef = useRef<MovingCabinEvent | null>(null);
   const floorsSinceLastMovingEventRef = useRef<number>(1);
   const mirrorGhostTriggeredCountRef = useRef<number>(0);
+  const miasmaTriggeredCountRef = useRef<number>(0);
   const fanTimerRef = useRef<number | null>(null);
   const sanityRef = useRef<number>(MAX_SANITY);
   const complaintsRef = useRef<number>(0);
@@ -234,8 +235,12 @@ export function App() {
     setIsInspectingModalOpen(false);
     setToastAlert(null);
 
+    mirrorGhostTriggeredCountRef.current = 0;
+    miasmaTriggeredCountRef.current = 0;
+    floorsSinceLastMovingEventRef.current = 1;
+
     setActiveSubtitle(
-      '「【15F 待機中】左パネルノ管理組合規程（3枚）ヲ査読シ、右操作盤『▼ 下降開始』ニテ着務セヨ。」'
+      '「【15F 待機中】左パネルの管理組合規程（3枚）を確認し、右操作盤の『▼ 下降開始』を押して業務を開始してください。」'
     );
     setGameState('PREPARE');
   };
@@ -283,8 +288,8 @@ export function App() {
             decision === 'TIMEOUT_BOARD' ? '【時間超過】強制開扉／' : '';
           outcome = {
             type: 'MISTAKE_BOARDED_THREAT',
-            title: '【侵入許諾】危険個体収容',
-            detail: `${timeoutPrefix}精神安定度 -${visitor.sanityDamage}`,
+            title: '【侵入許可】怪異を乗車させてしまった',
+            detail: `${timeoutPrefix}精神力 -${visitor.sanityDamage}`,
             sanityDelta: -visitor.sanityDamage,
             complaintDelta: 0,
           };
@@ -292,7 +297,7 @@ export function App() {
           showToast(
             'DANGER',
             '【侵入検知】精神汚染発生',
-            '規程外個体が車内侵入。精神力削剥。'
+            `危険な存在が車内に侵入しました。精神力 -${visitor.sanityDamage}。`
           );
         } else {
           // 正規の住人・職員を乗せた（1〜2階で自動降車、車内は最大2名まで）
@@ -338,8 +343,8 @@ export function App() {
           setRepelledThreatCount((prev) => prev + 1);
           outcome = {
             type: 'SAFE_REJECTED_THREAT',
-            title: '【排除成功】規程外対象を遮断',
-            detail: `${floor}F通過完了`,
+            title: '【排除成功】危険な対象を遮断',
+            detail: `${floor}F 通過完了`,
             sanityDelta: 0,
             complaintDelta: 0,
           };
@@ -353,7 +358,7 @@ export function App() {
 
           outcome = {
             type: 'MISTAKE_REJECTED_RESIDENT',
-            title: '【規程違反】不当遮断通報',
+            title: '【通報】正規の住人を締め出した',
             detail: `苦情累積 ${nextComplaints}/${MAX_COMPLAINTS}`,
             sanityDelta: 0,
             complaintDelta: 1,
@@ -361,8 +366,8 @@ export function App() {
           setActiveSubtitle(visitor.rejectedDialogue);
           showToast(
             'COMPLAINT',
-            `【通報】不当遮断苦情 (${nextComplaints}/${MAX_COMPLAINTS})`,
-            '正規居住者より「不当閉扉」と管理室へ通報。3件で隔離処分。'
+            `【通報】不当閉鎖苦情 (${nextComplaints}/${MAX_COMPLAINTS})`,
+            '正規住人を締め出したため管理室へ通報されました（累積3件で業務停止）。'
           );
         }
       }
@@ -410,7 +415,7 @@ export function App() {
         setDoorOpenPercent(100);
         setScreenShake('NONE');
         setActivePassengers([]);
-        setActiveSubtitle('「【業務完了】1階エントランス到達。全検問シフト終了。生存ヲ確認。」');
+        setActiveSubtitle('「【業務完了】1階エントランスに到達しました。すべての運行シフトを完了し、生還を確認しました。」');
         setGameState('CLEAR');
         return;
       }
@@ -446,20 +451,20 @@ export function App() {
         if (nextFloor === 10) {
           showToast(
             'INFO',
-            '【検問待機所】10F 停止中',
-            '管理室より最新規程が下達。査読後、下降再開セヨ。'
+            '【待機所】10F 停止中',
+            '管理室より最新規程が届きました。確認後、運行を再開してください。'
           );
           setActiveSubtitle(
-            '「【10F 検問所停止】追加規程（2枚）ヲ査読シ、『▼ 下降再開』ニテ着務ヲ継続セヨ。」'
+            '「【10F 待機所】追加規程（2枚）を確認し、『▼ 下降再開』を押して運行を継続してください。」'
           );
         } else {
           showToast(
             'INFO',
-            '【検問待機所】5F 停止中',
-            '低層階緊急規程が下達。査読後、下降再開セヨ。'
+            '【待機所】5F 停止中',
+            '低層階の緊急告示が届きました。確認後、運行を再開してください。'
           );
           setActiveSubtitle(
-            '「【5F 検問所停止】低層階緊急告示（2枚）ヲ査読シ、『▼ 下降再開』ニテ着務ヲ継続セヨ。」'
+            '「【5F 待機所】低層階の緊急告示（2枚）を確認し、『▼ 下降再開』を押して運行を継続してください。」'
           );
         }
 
@@ -520,15 +525,21 @@ export function App() {
       floor <= 5 &&
       mirrorGhostTriggeredCountRef.current < 1 &&
       (sleeperPassenger ||
-        (passengers.length > 0 && quietStreak >= 2 && Math.random() < 0.38))
+        (passengers.length > 0 && (quietStreak >= 1 && Math.random() < 0.65 || floor <= 3)) ||
+        (passengers.length === 0 && floor <= 4 && (quietStreak >= 1 && Math.random() < 0.60 || floor === 3)))
     ) {
-      // 車内怪異の豹変＆ステンレス扉への鏡面映り込みイベント（5階以下の低層階のみ・最大1回発生・非常ベル対応）
+      // 非常ベル対応イベント（5階以下・鏡面怪異）：出現確率を底上げ（同乗者がいない場合でも鏡に怪異が映る）
       mirrorGhostTriggeredCountRef.current += 1;
-      const targetPassenger = sleeperPassenger || passengers[0];
-      const ghostPrompts = [
-        '「『……ねえ、私、もう死んでるのに何階へ行くの？ ……後ろ、向かないでね』――扉の鏡面に異様な影。直ちに非常ベルを押下セヨ。」',
-        '「『……クスクス、あなたのすぐ後ろ、すごく冷たいでしょう？』――閉まった金属扉に背後の怪異が映り込んでいる。直ちに非常ベルを押せ。」',
-      ];
+      const targetPassenger = sleeperPassenger || (passengers.length > 0 ? passengers[0] : null);
+      const ghostPrompts = targetPassenger
+        ? [
+            '「『……ねえ、もう死んでるのに何階へ行くの？ ……後ろ、振り向かないでね』――扉の鏡面に怪異の影！ 直ちに非常ベルを押してください！」',
+            '「『……クスクス、あなたのすぐ後ろ、すごく冷たいでしょう？』――閉まった金属扉に怪異が映り込んでいます！ 直ちに非常ベルを押してください！」',
+          ]
+        : [
+            '「『……ふふ、ひとりぼっちだと思った？ あなたの後ろ、立ってるよ』――誰もいないはずの扉の鏡面に異様な影！ 直ちに非常ベルを押してください！」',
+            '「『……クスクス、後ろ……振り向かないでね』――金属扉の鏡面に巨大な人影が接近中！ 直ちに非常ベルを押してください！」',
+          ];
       scheduledEvent = {
         id: `mirror-${Date.now()}`,
         type: 'MIRROR_GHOST',
@@ -537,13 +548,15 @@ export function App() {
         maxTimeMs: EVENT_MOVING_WINDOW_MS,
         status: 'ACTIVE',
         promptText: ghostPrompts[Math.floor(Math.random() * ghostPrompts.length)],
-        targetPassengerId: targetPassenger.visitor.id,
+        targetPassengerId: targetPassenger?.visitor.id,
       };
     } else if (
       floor < 15 &&
-      ((quietStreak >= 1 && Math.random() < 0.35) || quietStreak >= 3)
+      miasmaTriggeredCountRef.current < 2 &&
+      ((quietStreak >= 2 && Math.random() < 0.20) || quietStreak >= 5)
     ) {
-      // 瘴気の発生（ホラー異変・急速換気対応）：約35%確率（3階連続で何もなければ確定発生）
+      // 瘴気の発生（急速換気対応）：頻度を抑制（1ゲーム全体で1〜2回程度）
+      miasmaTriggeredCountRef.current += 1;
       scheduledEvent = {
         id: `miasma-${Date.now()}`,
         type: 'MIASMA',
@@ -552,7 +565,7 @@ export function App() {
         maxTimeMs: EVENT_MOVING_WINDOW_MS,
         status: 'ACTIVE',
         promptText:
-          '「【車内異常】床下ヨリ黒紫ノ腐敗ガスガ噴出。視界歪曲……急速換気ニテ直チニ強制排気セヨ。」',
+          '「【車内異常】床下から黒紫色の有毒ガスが噴出！ 直ちに急速換気ボタンを押して排気してください！」',
       };
     }
 
@@ -561,10 +574,10 @@ export function App() {
       floorsSinceLastMovingEventRef.current += 1;
       if (passengers.length > 0) {
         setActiveSubtitle(
-          `「【下降巡航】${floor - 1}階へ降下中……（車内収容者 ${passengers.length} 名・生体反応安定）」`
+          `「【下降巡航】${floor - 1}階へ降下中……（車内同乗者 ${passengers.length} 名・異常なし）」`
         );
       } else {
-        setActiveSubtitle(`「【下降巡航】${floor - 1}階へ降下中……（車内観測：異常ナシ）」`);
+        setActiveSubtitle(`「【下降巡航】${floor - 1}階へ降下中……（車内異常なし）」`);
       }
 
       let quietRemaining = QUIET_MOVING_DURATION_MS;
@@ -582,7 +595,7 @@ export function App() {
 
     // イベントが発生する下降回（降下時間を長く重厚にする）
     floorsSinceLastMovingEventRef.current = 0;
-    setActiveSubtitle(`「【異常降下】${floor - 1}階へ下降中……（シャフト駆動音変調）」`);
+    setActiveSubtitle(`「【異常降下】${floor - 1}階へ下降中……（シャフト駆動音に変調が発生）」`);
 
     let countdownInterval: number | null = null;
     let finishInterval: number | null = null;
@@ -609,15 +622,15 @@ export function App() {
           soundManager.startMiasmaHeartbeat();
           showToast(
             'DANGER',
-            '【警報】有毒瘴気の充満',
-            '急速換気を起動せよ。放置すれば精神を侵される。'
+            '【警報】有毒ガスの充満',
+            '直ちに急速換気を起動してください。放置すると精神力を削られます。'
           );
         } else if (scheduledEvent.type === 'MIRROR_GHOST') {
           soundManager.playMirrorGhostAppear();
           showToast(
             'DANGER',
             '【異常】背後侵蝕',
-            '直ちに非常ベルを押せ。決して振り返るな。'
+            '直ちに非常ベルを押してください。決して振り返ってはいけません。'
           );
         }
 
@@ -679,12 +692,12 @@ export function App() {
               const nextSanity = Math.max(0, sanityRef.current - 1);
               setSanity(nextSanity);
               setActiveSubtitle(
-                '「【呼吸器損壊】毒性瘴気を大量吸引……視界狭窄、精神安定度 -1。」'
+                '「【呼吸困難】有毒ガスを吸い込んでしまった……激しい眩暈により精神力 -1。」'
               );
               showToast(
                 'DANGER',
                 '【精神汚染】毒素吸引',
-                '有毒瘴気を吸引。精神力 -1。'
+                '有毒ガスを吸入。精神力 -1。'
               );
             } else if (currentEv.type === 'MIRROR_GHOST') {
               soundManager.playJumpscareNoise();
@@ -698,12 +711,12 @@ export function App() {
                 );
               }
               setActiveSubtitle(
-                '「『見つけた』――扉の鏡面から伸びた影に頸部を貫かれた。精神安定度 -1。」'
+                '「『見ィつけた』――扉の鏡面から伸びた冷たい影に襲われた。精神力 -1。」'
               );
               showToast(
                 'DANGER',
-                '【致命的襲撃】頸部把持',
-                '背後の怪異が首筋を貫いた。精神力 -1。'
+                '【背後侵蝕】怪異の襲撃',
+                '背後の怪異に襲われました。精神力 -1。'
               );
             } else if (currentEv.type === 'PASSENGER_REQUEST') {
               soundManager.playComplaintBuzzer();
@@ -779,7 +792,7 @@ export function App() {
 
     doorPercentRef.current = 12;
     setDoorOpenPercent(12);
-    setActiveSubtitle(`「【${floor}F 接車】扉隙間開放。対象ノ身元ヲ照合セヨ。」`);
+    setActiveSubtitle(`「【${floor}F 到着】扉がわずかに開きました。相手の身元を規程と照合してください。」`);
 
     let arrivingRemaining = ARRIVING_DURATION_MS;
     const timer = window.setInterval(() => {
@@ -995,7 +1008,7 @@ export function App() {
         }
       }, 120);
       setActiveSubtitle(
-        `「【扉破壊警報】異形ガ隙間ヲ抉開中。閉ボタンヲ連打シテ強制密閉セヨ（残 ${nextRemaining} 回）。」`
+        `「【扉破壊警報】怪異が扉をこじ開けようとしています！ 閉ボタンを連打して押し返してください！（残り ${nextRemaining} 回）」`
       );
     } else {
       resolveJudgingDecision('REJECT');
@@ -1043,7 +1056,7 @@ export function App() {
       movingEventRef.current = resolvedEv;
       setMovingEvent(resolvedEv);
       setActiveSubtitle(
-        '「【急速換気稼働】重排気ファン起動。ダクトへ毒素ヲ吸引・空気清浄完了。」'
+        '「【急速換気稼働】強力な排気ファンが起動。毒素をダクトへ排出し、車内の空気を浄化しました。」'
       );
       return;
     }
@@ -1090,7 +1103,7 @@ export function App() {
       const nextComplaints = Math.min(MAX_COMPLAINTS, complaintsRef.current + 1);
       setComplaints(nextComplaints);
       setActiveSubtitle(
-        '「『ちょっと！ 異常もないのに風が強くてうるさい！ 管理室に通報するわよ！』【通報】平時の不要な強制排気により苦情通報。」'
+        '「『ちょっと！ 異常もないのに風が強くてうるさいわ！ 管理室に通報するからね！』【通報】不要な換気により苦情が発生しました。」'
       );
       showToast(
         'COMPLAINT',
@@ -1108,7 +1121,7 @@ export function App() {
       }
     } else {
       setActiveSubtitle(
-        '「【急速換気稼働】3秒間の強制排気中。異常がない平時の稼働は苦情の対象となります。」'
+        '「【急速換気稼働】強制排気中。異常がない平時の稼働は苦情の対象となります。」'
       );
     }
   };
@@ -1144,7 +1157,7 @@ export function App() {
       }
 
       setActiveSubtitle(
-        '「【非常停止作動】大音響の警報と急制動により、背後の影を車外シャフトへ強制排除。」'
+        '「【非常ベル作動】大音量の警鐘と急ブレーキにより、背後に忍び寄った怪異を車外へ振り落としました。」'
       );
       return;
     }
@@ -1159,7 +1172,7 @@ export function App() {
       setCloseClicksRemaining(1);
       soundManager.stopPryingLoop();
       setActiveSubtitle(
-        '「【警報威嚇成功】非常ベルの大音響に怪異が硬直。直ちに【閉】ボタンで遮断せよ。」'
+        '「【警報作動】非常ベルの轟音に怪異が怯みました！ 直ちに【閉】ボタンを押して扉を閉めてください！」'
       );
     }
   };

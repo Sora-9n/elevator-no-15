@@ -72,7 +72,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
         {/* 手前のレイヤー：左側の金属扉 */}
         <motion.div
           id="elevator-door-left"
-          className={`absolute top-0 bottom-0 left-0 w-1/2 metal-door-surface border-r-[4px] z-20 flex flex-col justify-center p-4 shadow-[14px_0_35px_rgba(0,0,0,0.95)] overflow-visible ${
+          className={`absolute top-0 bottom-0 left-0 w-1/2 metal-door-surface border-r-[4px] z-20 flex flex-col justify-center overflow-visible shadow-[14px_0_35px_rgba(0,0,0,0.95)] ${
             isPryingDoor
               ? 'border-red-600 shadow-[14px_0_40px_rgba(220,38,38,0.6)]'
               : 'border-stone-950'
@@ -85,7 +85,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
             damping: 24,
           }}
         >
-          <div className="w-full h-3/5 border border-stone-800/45 bg-black/15 rounded-xs" />
+          <div className="mx-4 h-3/5 border border-stone-800/45 bg-black/15 rounded-xs" />
           <div
             className={`absolute top-0 bottom-0 right-0 w-2.5 shadow-xl transition-colors ${
               isPryingDoor ? 'bg-red-800 shadow-[0_0_12px_rgba(239,68,68,0.9)]' : 'bg-stone-950'
@@ -106,7 +106,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
         {/* 手前のレイヤー：右側の金属扉 */}
         <motion.div
           id="elevator-door-right"
-          className={`absolute top-0 bottom-0 right-0 w-1/2 metal-door-surface border-l-[4px] z-20 flex flex-col justify-center p-4 shadow-[-14px_0_35px_rgba(0,0,0,0.95)] overflow-visible ${
+          className={`absolute top-0 bottom-0 right-0 w-1/2 metal-door-surface border-l-[4px] z-20 flex flex-col justify-center overflow-visible shadow-[-14px_0_35px_rgba(0,0,0,0.95)] ${
             isPryingDoor
               ? 'border-red-600 shadow-[-14px_0_40px_rgba(220,38,38,0.6)]'
               : 'border-stone-950'
@@ -119,7 +119,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
             damping: 24,
           }}
         >
-          <div className="w-full h-3/5 border border-stone-800/45 bg-black/15 rounded-xs" />
+          <div className="mx-4 h-3/5 border border-stone-800/45 bg-black/15 rounded-xs" />
           <div
             className={`absolute top-0 bottom-0 left-0 w-2.5 shadow-xl transition-colors ${
               isPryingDoor ? 'bg-red-800 shadow-[0_0_12px_rgba(239,68,68,0.9)]' : 'bg-stone-950'

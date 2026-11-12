@@ -127,7 +127,7 @@ export const INITIAL_VISITORS: VisitorData[] = [
     category: 'RULE_VIOLATOR',
     isThreat: true,
     chapter: 1,
-    dialogue: '「こんばんは、おنده届け物の帰りなんで、下まで乗せてもらえますか。」',
+    dialogue: '「こんばんは、お届け物の帰りなんで、下まで乗せてもらえますか。」',
     enteredDialogue: '「……ククッ、名札も見ずに開けちまうんだなァ。」',
     rejectedDialogue: '「……チッ、名札がないのに気づかれたか。」',
     appearance: {
