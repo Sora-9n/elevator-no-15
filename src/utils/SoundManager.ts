@@ -940,28 +940,112 @@ class SoundManager {
   }
 
   /**
-   * 非常ベル（BELL）押下時のけたたましいベル音
+   * 非常ベル／緊急照射（BELL）押下時の重厚な警報サイレン＆高圧滅菌レーザー照射音
+   * - 旧式ビルの不気味な重低音機械式クラクションと高圧コンデンサ放電・アーク閃光音を合成
    */
   public playEmergencyBell(): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    for (let i = 0; i < 6; i++) {
-      const start = now + i * 0.065;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(i % 2 === 0 ? 1580 : 1920, start);
+    // 1. 重厚な機械式ソレノイド投入音（「ガツンッ！」という硬質な鉄の打撃）
+    const clunkOsc = ctx.createOscillator();
+    const clunkGain = ctx.createGain();
+    clunkOsc.type = 'triangle';
+    clunkOsc.frequency.setValueAtTime(160, now);
+    clunkOsc.frequency.exponentialRampToValueAtTime(38, now + 0.09);
+    clunkGain.gain.setValueAtTime(0.32, now);
+    clunkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    clunkOsc.connect(clunkGain);
+    clunkGain.connect(ctx.destination);
+    clunkOsc.start(now);
+    clunkOsc.stop(now + 0.11);
 
-      gain.gain.setValueAtTime(0.16, start);
-      gain.gain.exponentialRampToValueAtTime(0.005, start + 0.06);
+    // 2. 不協和音の旧式防空・非常クラクション（「ブォォォン！ブォォォン！」と唸る重苦しい警報）
+    [0, 0.36].forEach((offset) => {
+      const start = now + offset;
+      const horn1 = ctx.createOscillator();
+      const horn2 = ctx.createOscillator();
+      const subHorn = ctx.createOscillator();
+      const hornFilter = ctx.createBiquadFilter();
+      const hornGain = ctx.createGain();
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.062);
+      // 短二度・増四度の不気味な重工業クラクション周波数
+      horn1.type = 'sawtooth';
+      horn1.frequency.setValueAtTime(248, start);
+      horn1.frequency.linearRampToValueAtTime(232, start + 0.32);
+
+      horn2.type = 'sawtooth';
+      horn2.frequency.setValueAtTime(352, start); // トライトーン（悪魔の音程）
+      horn2.frequency.linearRampToValueAtTime(330, start + 0.32);
+
+      subHorn.type = 'square';
+      subHorn.frequency.setValueAtTime(124, start);
+
+      hornFilter.type = 'bandpass';
+      hornFilter.frequency.setValueAtTime(520, start);
+      hornFilter.Q.setValueAtTime(1.8, start);
+
+      hornGain.gain.setValueAtTime(0.001, start);
+      hornGain.gain.linearRampToValueAtTime(0.22, start + 0.03);
+      hornGain.gain.setValueAtTime(0.22, start + 0.24);
+      hornGain.gain.exponentialRampToValueAtTime(0.001, start + 0.33);
+
+      horn1.connect(hornFilter);
+      horn2.connect(hornFilter);
+      subHorn.connect(hornFilter);
+      hornFilter.connect(hornGain);
+      hornGain.connect(ctx.destination);
+
+      horn1.start(start);
+      horn2.start(start);
+      subHorn.start(start);
+      horn1.stop(start + 0.34);
+      horn2.stop(start + 0.34);
+      subHorn.stop(start + 0.34);
+    });
+
+    // 3. 高圧紫外線・防衛レーザー照射の電磁パルス放電音（「バチィィン！ジジジッ…ブゥゥン」）
+    const zapStart = now + 0.04;
+    const zapOsc = ctx.createOscillator();
+    const zapGain = ctx.createGain();
+    zapOsc.type = 'sawtooth';
+    zapOsc.frequency.setValueAtTime(1650, zapStart);
+    zapOsc.frequency.exponentialRampToValueAtTime(65, zapStart + 0.45);
+    zapGain.gain.setValueAtTime(0.18, zapStart);
+    zapGain.gain.exponentialRampToValueAtTime(0.001, zapStart + 0.48);
+    zapOsc.connect(zapGain);
+    zapGain.connect(ctx.destination);
+    zapOsc.start(zapStart);
+    zapOsc.stop(zapStart + 0.5);
+
+    // 4. アーク放電スパーク・怪異が焼灼されるノイズバースト
+    const bufferSize = Math.floor(ctx.sampleRate * 0.55);
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      // バチバチと弾ける高圧放電テクスチャ
+      const crackle = Math.random() > 0.82 ? 1.8 : 0.45;
+      data[i] = (Math.random() * 2 - 1) * crackle;
     }
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.setValueAtTime(1850, zapStart);
+    bandpass.frequency.exponentialRampToValueAtTime(420, zapStart + 0.5);
+    bandpass.Q.setValueAtTime(1.4, zapStart);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.24, zapStart);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, zapStart + 0.52);
+
+    noise.connect(bandpass);
+    bandpass.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.start(zapStart);
+    noise.stop(zapStart + 0.54);
   }
 
   /**

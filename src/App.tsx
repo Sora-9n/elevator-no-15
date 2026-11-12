@@ -533,12 +533,12 @@ export function App() {
       const targetPassenger = sleeperPassenger || (passengers.length > 0 ? passengers[0] : null);
       const ghostPrompts = targetPassenger
         ? [
-            '「『……ねえ、もう死んでるのに何階へ行くの？ ……後ろ、振り向かないでね』――扉の鏡面に怪異の影！ 直ちに非常ベルを押してください！」',
-            '「『……クスクス、あなたのすぐ後ろ、すごく冷たいでしょう？』――閉まった金属扉に怪異が映り込んでいます！ 直ちに非常ベルを押してください！」',
+            '「『……ねえ、もう死んでるのに何階へ行くの？ ……後ろ、振り向かないでね』――扉の鏡面に怪異の影！ 直ちに【非常ベル】で防衛レーザーを照射してください！」',
+            '「『……クスクス、あなたのすぐ後ろ、すごく冷たいでしょう？』――金属扉に怪異が映り込んでいます！ 直ちに【非常ベル】で防衛レーザーを照射してください！」',
           ]
         : [
-            '「『……ふふ、ひとりぼっちだと思った？ あなたの後ろ、立ってるよ』――誰もいないはずの扉の鏡面に異様な影！ 直ちに非常ベルを押してください！」',
-            '「『……クスクス、後ろ……振り向かないでね』――金属扉の鏡面に巨大な人影が接近中！ 直ちに非常ベルを押してください！」',
+            '「『……ふふ、ひとりぼっちだと思った？ あなたの後ろ、立ってるよ』――扉の鏡面に異様な影！ 直ちに【非常ベル】で防衛レーザーを照射してください！」',
+            '「『……クスクス、後ろ……振り向かないでね』――金属扉の鏡面に巨大な人影が接近中！ 直ちに【非常ベル】で防衛レーザーを照射してください！」',
           ];
       scheduledEvent = {
         id: `mirror-${Date.now()}`,
@@ -597,8 +597,8 @@ export function App() {
     floorsSinceLastMovingEventRef.current = 0;
     setActiveSubtitle(`「【異常降下】${floor - 1}階へ下降中……（シャフト駆動音に変調が発生）」`);
 
-    let countdownInterval: number | null = null;
-    let finishInterval: number | null = null;
+    let countdownInterval: number | null | undefined = null;
+    let finishInterval: number | null | undefined = null;
     let onsetRemaining = 850;
     let onsetTriggered = false;
 
@@ -629,8 +629,8 @@ export function App() {
           soundManager.playMirrorGhostAppear();
           showToast(
             'DANGER',
-            '【異常】背後侵蝕',
-            '直ちに非常ベルを押してください。決して振り返ってはいけません。'
+            '【異常】背後侵蝕・怪異接近',
+            '非常ベルを押し、緊急防衛レーザー（高圧紫外線）で怪異を焼灼せよ。'
           );
         }
 
@@ -644,13 +644,13 @@ export function App() {
           const currentEv = movingEventRef.current;
           if (!currentEv) return;
 
-          // プレイヤーが既に対処成功（RESOLVED）した場合：余韻を持たせて長く下降
+          // プレイヤーが既に対処成功（RESOLVED）した場合：十分な余韻と静寂をおいてから次の階へ到着（3.2秒）
           if (currentEv.status === 'RESOLVED') {
             if (countdownInterval) {
               window.clearInterval(countdownInterval);
               countdownInterval = null;
             }
-            let successRemaining = 1800; // 成功後の降下時間を1.8秒に延長
+            let successRemaining = 3200; // イベント終了後、次の階に着くまでたっぷり間をおく
             finishInterval = window.setInterval(() => {
               if (isPausedRef.current) return;
               successRemaining -= 50;
@@ -671,7 +671,7 @@ export function App() {
           const nextTime = Math.max(0, currentEv.timeLeftMs - delta);
 
           if (nextTime <= 0) {
-            // 制限時間切れ（FAILED）：余韻を持たせて長く下降
+            // 制限時間切れ（FAILED）：十分な余韻を持たせてから次の階へ到着（3.4秒）
             if (countdownInterval) {
               window.clearInterval(countdownInterval);
               countdownInterval = null;
@@ -743,7 +743,7 @@ export function App() {
               );
             }
 
-            let failRemaining = 2000; // 失敗後の降下時間を2.0秒に延長
+            let failRemaining = 3400; // 失敗後の降下時間も3.4秒に延長して余韻を確保
             finishInterval = window.setInterval(() => {
               if (isPausedRef.current) return;
               failRemaining -= 50;
@@ -1157,7 +1157,7 @@ export function App() {
       }
 
       setActiveSubtitle(
-        '「【非常ベル作動】大音量の警鐘と急ブレーキにより、背後に忍び寄った怪異を車外へ振り落としました。」'
+        '「【防衛レーザー照射】天井から高圧紫外線レーザーが掃射され、背後の怪異を閃光とともに焼き払いました。」'
       );
       return;
     }
@@ -1172,7 +1172,7 @@ export function App() {
       setCloseClicksRemaining(1);
       soundManager.stopPryingLoop();
       setActiveSubtitle(
-        '「【警報作動】非常ベルの轟音に怪異が怯みました！ 直ちに【閉】ボタンを押して扉を閉めてください！」'
+        '「【防衛レーザー威嚇】高圧アーク閃光と轟音に怪異が怯みました！ 直ちに【閉】ボタンを押して扉を閉めてください！」'
       );
     }
   };
@@ -1446,7 +1446,7 @@ export function App() {
                       【第三条：車内保安と隔離処分】
                     </strong>
                     <span className="text-stone-800">
-                      下降中の有毒瘴気には「急速換気」、背後に迫る怪異には「非常ベル」で対処してください。精神が尽きるか、住人からの苦情通報が3回累積した時点で、直ちに隔離処分（業務失敗）となります。
+                      下降中の有毒瘴気には「急速換気」、背後に迫る怪異には「非常ベル（緊急防衛レーザー照射）」で対処してください。精神が尽きるか、住人からの苦情通報が3回累積した時点で、直ちに隔離処分（業務失敗）となります。
                     </span>
                   </div>
                 </div>

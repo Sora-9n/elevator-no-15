@@ -298,6 +298,65 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                 </svg>
               </motion.div>
 
+              {/* ★ 緊急照射（RESOLVED）時の天井防衛レーザー・高圧紫外線アーク閃光エフェクト */}
+              <AnimatePresence>
+                {movingEvent.status === 'RESOLVED' && (
+                  <motion.div
+                    key="uv-laser-purge"
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: [1, 0.9, 1, 0] }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.75, ease: 'easeOut' }}
+                    className="absolute inset-0 z-30 pointer-events-none overflow-hidden"
+                  >
+                    {/* 強烈な青白いアーク閃光フラッシュ */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          'radial-gradient(circle at 50% 25%, rgba(224, 242, 254, 0.85) 0%, rgba(56, 189, 248, 0.45) 45%, rgba(2, 6, 23, 0) 90%)',
+                        mixBlendMode: 'screen',
+                      }}
+                    />
+
+                    {/* 天井から車内を縦断して怪異を焼き払うレーザー光線群 */}
+                    <svg viewBox="0 0 360 440" className="w-full h-full">
+                      <defs>
+                        <linearGradient id="purgeLaserBeam" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+                          <stop offset="35%" stopColor="#38bdf8" stopOpacity="0.95" />
+                          <stop offset="85%" stopColor="#0284c7" stopOpacity="0.7" />
+                          <stop offset="100%" stopColor="#0369a1" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+
+                      {/* 交差・掃射する高出力防衛レーザー */}
+                      <line x1="60" y1="0" x2="230" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="6" />
+                      <line x1="60" y1="0" x2="230" y2="440" stroke="#ffffff" strokeWidth="2" />
+
+                      <line x1="180" y1="0" x2="210" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="10" />
+                      <line x1="180" y1="0" x2="210" y2="440" stroke="#ffffff" strokeWidth="3.5" />
+
+                      <line x1="300" y1="0" x2="170" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="7" />
+                      <line x1="300" y1="0" x2="170" y2="440" stroke="#ffffff" strokeWidth="2.5" />
+
+                      <line x1="240" y1="0" x2="250" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="5" />
+
+                      {/* 水平走査レーザーライン */}
+                      <motion.line
+                        x1="0"
+                        x2="360"
+                        stroke="#7dd3fc"
+                        strokeWidth="4"
+                        initial={{ y1: 10, y2: 10 }}
+                        animate={{ y1: 420, y2: 420 }}
+                        transition={{ duration: 0.45, ease: 'linear' }}
+                      />
+                    </svg>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* 画面外周から侵食する赤黒いノイズビネット */}
               <div
                 className="absolute inset-0 pointer-events-none"
@@ -454,27 +513,18 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
           </div>
         )}
 
-        {/* 65%覗き込み変化（罠パターン／フェイク善良パターン）発生時の視覚アラート */}
+        {/* 65%覗き込み変化（罠パターン）発生時の視覚アラート（※善良な住人だった場合のポップアップは表示しない） */}
         {gameState === 'JUDGING' &&
           isPeekTransformed &&
-          currentVisitor?.peekTransformation &&
+          currentVisitor?.peekTransformation?.type === 'REVEAL_THREAT' &&
           !isPryingDoor && (
             <div className="absolute bottom-4 inset-x-3 z-30 flex flex-col items-center pointer-events-none">
-              {currentVisitor.peekTransformation.type === 'REVEAL_THREAT' ? (
-                <div className="bg-red-950/95 border-2 border-red-500 px-3.5 py-2 rounded-xs shadow-[0_0_28px_rgba(239,68,68,0.95)] flex items-center gap-2 animate-bounce font-mincho">
-                  <Eye className="w-4 h-4 text-red-400 shrink-0" />
-                  <span className="text-xs font-black text-red-100 whitespace-nowrap">
-                    【警告】偽装剥落・異形検知｜指を離し、直ちに【閉扉】で遮断せよ
-                  </span>
-                </div>
-              ) : (
-                <div className="bg-emerald-950/95 border-2 border-emerald-400 px-3.5 py-1.5 rounded-xs shadow-[0_0_20px_rgba(16,185,129,0.75)] flex items-center gap-2 font-mincho">
-                  <Eye className="w-4 h-4 text-emerald-300 shrink-0" />
-                  <span className="text-xs font-bold text-emerald-100 whitespace-nowrap">
-                    【照合】身元確認・正規住人｜扉を全開にして乗車を許可せよ
-                  </span>
-                </div>
-              )}
+              <div className="bg-red-950/95 border-2 border-red-500 px-3.5 py-2 rounded-xs shadow-[0_0_28px_rgba(239,68,68,0.95)] flex items-center gap-2 animate-bounce font-mincho">
+                <Eye className="w-4 h-4 text-red-400 shrink-0" />
+                <span className="text-xs font-black text-red-100 whitespace-nowrap">
+                  【警告】偽装剥落・異形検知｜指を離し、直ちに【閉扉】で遮断せよ
+                </span>
+              </div>
             </div>
           )}
 
@@ -506,7 +556,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                   </span>
                 </div>
                 <span className="text-[11px] text-red-200 font-bold whitespace-nowrap">
-                  右操作盤【非常ベル】で直ちに緊急停止し排除してください
+                  右操作盤【非常ベル】で防衛レーザー（高圧紫外線）を照射し焼灼せよ
                 </span>
               </div>
             )}

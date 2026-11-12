@@ -304,13 +304,13 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
 
                     <div className="p-2 sm:p-2.5">
                       <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>【第三条：非常ベルによる緊急排除】</span>
+                        <span>【第三条：非常ベル連動・緊急防衛レーザー】</span>
                         <span className="text-[10px] font-bold text-red-900 border border-red-800/60 px-1.5 py-0.2">
                           低層警戒
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        5階以下の低層階を下降中、閉まった正面扉の鏡面に「背後に立つ怪異」が映り込む怪奇現象が報告されています。鏡面に影を確認した際は、直ちに「非常ベル」を押下し、緊急制動によって怪異を車外シャフトへ強制排除してください。
+                        5階以下の低層階を下降中、閉まった正面扉の鏡面に「背後に立つ怪異」が映り込む現象が報告されています。鏡面に影を確認した際は、直ちに「非常ベル」を押下してください。天井の緊急防衛システム（高圧紫外線レーザー）が作動し、車内の怪異を閃光照射によって焼灼・消滅させます。
                       </p>
                     </div>
 

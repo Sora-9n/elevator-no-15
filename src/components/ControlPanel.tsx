@@ -220,7 +220,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <span className="text-xs font-bold">非常ベル</span>
           </div>
           <span className="text-[10px] font-mono opacity-90">
-            {needBellAction ? '★非常停止・排除' : '非常停止/威嚇'}
+            {needBellAction ? '★防衛レーザー照射' : '防衛レーザー照射'}
           </span>
         </button>
       </div>
