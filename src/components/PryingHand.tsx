@@ -17,7 +17,7 @@ export const PryingHand: React.FC<PryingHandProps> = ({ side, closeClicksRemaini
   const isLeft = side === 'left';
 
   return (
-    <motion.div
+    <div
       className="absolute pointer-events-none z-30 overflow-visible select-none"
       style={{
         // 左扉は上め（43%）、右扉は下め（49%）に配置して自然な人間・怪異の力比べの左右非対称性を表現
@@ -32,17 +32,19 @@ export const PryingHand: React.FC<PryingHandProps> = ({ side, closeClicksRemaini
               transform: 'translateY(-50%) translateX(-26.92%) scaleX(-1)',
             }),
       }}
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-      }}
-      exit={{
-        opacity: 0,
-        scale: 0.8,
-        transition: { duration: 0.15 },
-      }}
     >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.85 }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+        }}
+        exit={{
+          opacity: 0,
+          scale: 0.8,
+          transition: { duration: 0.15 },
+        }}
+      >
       {/* 怪異の腕の激しい抵抗・緊張の微細な振動（身悶えと怪力の震え） */}
       <motion.div
         key={closeClicksRemaining}
@@ -455,6 +457,7 @@ export const PryingHand: React.FC<PryingHandProps> = ({ side, closeClicksRemaini
           />
         </svg>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 };
