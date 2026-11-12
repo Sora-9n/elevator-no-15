@@ -145,19 +145,45 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           type="button"
           disabled={!isJudging}
           onClick={onPressClose}
-          whileTap={isJudging ? { scale: 0.95 } : undefined}
-          className={`w-full py-3.5 px-2.5 rounded border-2 flex flex-col items-center justify-center gap-1 transition-all whitespace-nowrap ${
+          animate={
+            isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
+              ? {
+                  scale: [1, 1.03, 1],
+                  boxShadow: [
+                    '0 0 18px rgba(239,68,68,0.85)',
+                    '0 0 38px rgba(239,68,68,1)',
+                    '0 0 18px rgba(239,68,68,0.85)',
+                  ],
+                }
+              : { scale: 1 }
+          }
+          transition={
+            isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
+              ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
+              : { duration: 0.15 }
+          }
+          whileTap={isJudging ? { scale: 0.94 } : undefined}
+          className={`relative w-full py-3.5 px-2.5 rounded border-2 flex flex-col items-center justify-center gap-1 transition-colors whitespace-nowrap overflow-hidden ${
             !isJudging
               ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
               : isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
-              ? 'bg-red-950 border-red-500 text-red-100 shadow-[0_0_18px_rgba(239,68,68,0.75)] cursor-pointer'
+              ? 'bg-red-900 hover:bg-red-800 border-red-400 text-white cursor-pointer ring-2 ring-red-400/90'
               : 'bg-stone-900 hover:bg-stone-800 border-stone-600 text-stone-100 shadow-md cursor-pointer'
           }`}
         >
-          <span className="text-sm sm:text-base font-mincho font-black tracking-widest whitespace-nowrap">
+          {isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0 && (
+            <span className="absolute inset-0 bg-red-500/25 animate-ping pointer-events-none" />
+          )}
+          <span className="relative z-10 text-sm sm:text-base font-mincho font-black tracking-widest whitespace-nowrap">
             ＞＜ 閉扉
           </span>
-          <span className="text-[11px] text-stone-300 whitespace-nowrap">
+          <span
+            className={`relative z-10 text-[11px] whitespace-nowrap font-bold ${
+              isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
+                ? 'text-amber-200'
+                : 'text-stone-300 font-normal'
+            }`}
+          >
             {isJudging && requiredCloseClicks > 1
               ? `★抉開抵抗！残${closeClicksRemaining}回連打`
               : '押下：強制閉扉 / 遮断排除'}
@@ -167,62 +193,110 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
       {/* 下部：小さく2列で「急速換気」と「非常ベル」 */}
       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-800 shrink-0">
-        <button
+        <motion.button
           id="btn-cabin-fan"
           type="button"
           onClick={onToggleFan}
-          className={`py-2 px-1.5 rounded border flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer whitespace-nowrap ${
+          animate={
             needFanAction && !isFanOn
-              ? 'bg-purple-950/95 border-purple-400 text-purple-100 shadow-[0_0_18px_rgba(168,85,247,0.85)] animate-pulse'
+              ? {
+                  scale: [1, 1.05, 1],
+                  boxShadow: [
+                    '0 0 16px rgba(168,85,247,0.85)',
+                    '0 0 34px rgba(216,180,254,1)',
+                    '0 0 16px rgba(168,85,247,0.85)',
+                  ],
+                }
+              : { scale: 1 }
+          }
+          transition={
+            needFanAction && !isFanOn
+              ? { duration: 0.5, repeat: Infinity, ease: 'easeInOut' }
+              : { duration: 0.15 }
+          }
+          className={`relative py-2 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer whitespace-nowrap overflow-hidden ${
+            needFanAction && !isFanOn
+              ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90'
               : isFanOn
               ? 'bg-emerald-950/90 border-emerald-400 text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.65)]'
               : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-300'
           }`}
         >
-          <div className="flex items-center gap-1">
+          {needFanAction && !isFanOn && (
+            <span className="absolute inset-0 bg-purple-400/25 animate-ping pointer-events-none" />
+          )}
+          <div className="relative z-10 flex items-center gap-1">
             <Fan
               className={`w-3.5 h-3.5 shrink-0 ${
                 isFanOn
                   ? 'text-emerald-300 animate-spin'
                   : needFanAction
-                  ? 'text-purple-300 animate-spin'
+                  ? 'text-amber-300 animate-spin'
                   : 'text-stone-400'
               }`}
-              style={{ animationDuration: isFanOn ? '0.35s' : '1.4s' }}
+              style={{ animationDuration: isFanOn ? '0.35s' : needFanAction ? '0.55s' : '1.4s' }}
             />
             <span className="text-xs font-bold">急速換気</span>
           </div>
-          <span className="text-[10px] font-mono opacity-85">
+          <span
+            className={`relative z-10 text-[10px] font-mono ${
+              needFanAction && !isFanOn ? 'text-amber-200 font-bold' : 'opacity-85'
+            }`}
+          >
             {isFanOn
               ? '強制排気稼働中'
               : needFanAction
               ? '★急速排気起動'
               : '車内強制排気'}
           </span>
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           id="btn-emergency-bell"
           type="button"
           onClick={onPressBell}
-          className={`py-2 px-1.5 rounded border flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer whitespace-nowrap ${
+          animate={
             needBellAction
-              ? 'bg-red-900/95 border-red-400 text-white shadow-[0_0_20px_rgba(239,68,68,0.95)] animate-pulse'
+              ? {
+                  scale: [1, 1.05, 1],
+                  boxShadow: [
+                    '0 0 18px rgba(239,68,68,0.9)',
+                    '0 0 38px rgba(248,113,113,1)',
+                    '0 0 18px rgba(239,68,68,0.9)',
+                  ],
+                }
+              : { scale: 1 }
+          }
+          transition={
+            needBellAction
+              ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
+              : { duration: 0.15 }
+          }
+          className={`relative py-2 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer whitespace-nowrap overflow-hidden ${
+            needBellAction
+              ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90'
               : 'border-red-900/80 bg-stone-950 hover:bg-red-950/70 active:scale-95 text-red-300'
           }`}
         >
-          <div className="flex items-center gap-1">
+          {needBellAction && (
+            <span className="absolute inset-0 bg-red-400/30 animate-ping pointer-events-none" />
+          )}
+          <div className="relative z-10 flex items-center gap-1">
             <BellRing
               className={`w-3.5 h-3.5 shrink-0 ${
-                needBellAction ? 'text-white animate-bounce' : 'text-red-500'
+                needBellAction ? 'text-amber-200 animate-bounce' : 'text-red-500'
               }`}
             />
             <span className="text-xs font-bold">非常ベル</span>
           </div>
-          <span className="text-[10px] font-mono opacity-90">
+          <span
+            className={`relative z-10 text-[10px] font-mono ${
+              needBellAction ? 'text-amber-200 font-bold' : 'opacity-90'
+            }`}
+          >
             {needBellAction ? '★防衛レーザー照射' : '防衛レーザー照射'}
           </span>
-        </button>
+        </motion.button>
       </div>
     </aside>
   );

@@ -523,9 +523,9 @@ export const INITIAL_VISITORS: VisitorData[] = [
       glitchLevel: 'NONE',
       hasNameTag: true,
     },
-    requiredCloseClicks: 2,
+    requiredCloseClicks: 5,
     sanityDamage: 2,
-    description: '見た目は普通の住人だが、5階以下で「402号室」と部屋番号を名乗った退去済みの幽霊（張り紙⑥違反）。閉めようとすると扉に手をかけて抵抗する。',
+    description: '見た目は普通の住人だが、5階以下で「402号室」と名乗った退去済みの幽霊（張り紙⑥違反）。扉をこじ開けようとするため5回連打が必要。',
   },
   {
     id: 'v-ch3-corrupted-blue-guard',
@@ -547,9 +547,9 @@ export const INITIAL_VISITORS: VisitorData[] = [
       headTiltDeg: 28,
       hasCap: true,
     },
-    requiredCloseClicks: 3,
+    requiredCloseClicks: 7,
     sanityDamage: 2,
-    description: '5階以下に現れた青い服の偽警備員。怪文書⑦の通り偽物であり、部屋番号も口にする。扉をこじ開けるため3回連打が必要。',
+    description: '5階以下に現れた青い服の偽警備員。怪文書⑦の通り偽物であり、部屋番号も口にする。扉をこじ開けるため7回連打が必要。',
   },
   {
     id: 'v-ch3-valid-survivor',
@@ -595,9 +595,9 @@ export const INITIAL_VISITORS: VisitorData[] = [
       headTiltDeg: 38,
       hasUmbrella: true,
     },
-    requiredCloseClicks: 3,
+    requiredCloseClicks: 7,
     sanityDamage: 2,
-    description: '首が折れ曲がり赤い眼光を放つ怪異。扉をこじ開けようとするため、閉ボタンを3回連打して遮断する必要がある。',
+    description: '首が折れ曲がり赤い眼光を放つ怪異。扉をこじ開けようとするため、閉ボタンを7回連打して遮断する必要がある。',
   },
 ];
 
@@ -616,7 +616,7 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
 
   // 5階以下（4F・3F）：正体を現す怪異（最大1回）＆ こじ開け怪異（1〜2回）
   if (floor === 4) {
-    // 55%の確率で「正体を現す怪異（最大1回）」、45%の確率で「402号室を名乗る幽霊（こじ開け2回）」
+    // 55%の確率で「正体を現す怪異（最大1回）」、45%の確率で「402号室を名乗る幽霊（こじ開け5回）」
     if (Math.random() < 0.55) {
       return Math.random() < 0.5
         ? byId('v-ch1-peek-trap-woman')
@@ -626,7 +626,7 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
   }
 
   if (floor === 3) {
-    // 3Fは必ず「強制的に入ってこようとする怪異（3回連打）」が出現（4Fと合わせて1ゲーム1〜2回）
+    // 3Fは必ず「強制的に入ってこようとする怪異（7回連打）」が出現（4Fと合わせて1ゲーム1〜2回）
     return Math.random() < 0.75
       ? byId('v-ch3-corrupted-blue-guard')
       : byId('v-any-neck-anomaly');

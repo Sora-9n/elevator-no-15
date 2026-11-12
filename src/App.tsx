@@ -32,15 +32,18 @@ import {
 
 const MAX_SANITY = 3;
 const MAX_COMPLAINTS = 3;
-const QUIET_MOVING_DURATION_MS = 2600;
+const QUIET_MOVING_DURATION_MS = 3800; // 階と階の間の通常移動時間を少し長めに設定（3.8秒）
 const EVENT_MOVING_WINDOW_MS = 5200; // 下降中イベント発生時の対処猶予を長めに確保（5.2秒）
-const ARRIVING_DURATION_MS = 1000;
+const ARRIVING_FLASH_MS = 950; // 到着音が鳴った後、扉が閉まったまま階数が浮かび上がる時間
+const ARRIVING_DURATION_MS = 1850; // 到着演出全体の時間（階数表示950ms ＋ 扉が12%まで開く900ms）
 const JUDGING_DURATION_MS = 8000; // 8.0秒ベース
 const RESULT_DURATION_MS = 2200;
 const RAPID_FAN_DURATION_MS = 3000; // 急速換気稼働時間（3.0秒）
 
 // 約1.8秒（1800ms / 50ms = 36ティック）で 12% → 100%（+88%）に到達する増分
 const OPEN_HOLD_STEP_PER_50MS = 88 / 36;
+// こじ開け怪異が放置された際、約6.0秒（6000ms / 50ms = 120ティック）で 12% → 100%（+88%）まで強制開扉する増分
+const PRYING_OPEN_STEP_PER_50MS = 88 / 120;
 
 export function App() {
   // コアゲーム状態
@@ -57,6 +60,7 @@ export function App() {
   const [closeClicksRemaining, setCloseClicksRemaining] = useState<number>(1);
   const [judgingTimeLeftMs, setJudgingTimeLeftMs] = useState<number>(JUDGING_DURATION_MS);
   const [isPeekTransformed, setIsPeekTransformed] = useState<boolean>(false);
+  const [isArrivingFlash, setIsArrivingFlash] = useState<boolean>(false);
 
   // 張り紙既読管理 ＆ モーダル開放（0.25xスローモーション）状態
   const [readRuleIds, setReadRuleIds] = useState<string[]>([]);
@@ -620,18 +624,8 @@ export function App() {
 
         if (scheduledEvent.type === 'MIASMA') {
           soundManager.startMiasmaHeartbeat();
-          showToast(
-            'DANGER',
-            '【警報】有毒ガスの充満',
-            '直ちに急速換気を起動してください。放置すると精神力を削られます。'
-          );
         } else if (scheduledEvent.type === 'MIRROR_GHOST') {
           soundManager.playMirrorGhostAppear();
-          showToast(
-            'DANGER',
-            '【異常】背後侵蝕・怪異接近',
-            '非常ベルを押し、緊急防衛レーザー（高圧紫外線）で怪異を焼灼せよ。'
-          );
         }
 
         movingEventRef.current = scheduledEvent;
@@ -775,7 +769,7 @@ export function App() {
     };
   }, [gameState, floor, completeDescentToNextFloor, showToast]);
 
-  // 2. ARRIVING フェーズの管理（ベルが鳴り、扉が12%まで自動で開く）
+  // 2. ARRIVING フェーズの管理（到着音が鳴り、一瞬扉に階数が浮かび上がった後に扉が12%まで開く）
   useEffect(() => {
     if (gameState !== 'ARRIVING') return;
 
@@ -788,18 +782,35 @@ export function App() {
       currentVisitor?.category === 'ANOMALY' ||
       (currentVisitor?.requiredCloseClicks ?? 1) > 1;
     soundManager.playArrivalChime(isAnomaly);
-    soundManager.playDoorSlide(0.5, true);
 
-    doorPercentRef.current = 12;
-    setDoorOpenPercent(12);
-    setActiveSubtitle(`「【${floor}F 到着】扉がわずかに開きました。相手の身元を規程と照合してください。」`);
+    // 最初は扉を閉じたまま（0%）にして、扉の中央に到着階数を一瞬浮かび上がらせる
+    doorPercentRef.current = 0;
+    setDoorOpenPercent(0);
+    setIsArrivingFlash(true);
+    setActiveSubtitle(`「【${floor}F 到着】昇降機が停止しました……」`);
 
-    let arrivingRemaining = ARRIVING_DURATION_MS;
+    let arrivingElapsed = 0;
+    let doorSlideStarted = false;
+
     const timer = window.setInterval(() => {
       if (isPausedRef.current) return;
-      arrivingRemaining -= 50;
-      if (arrivingRemaining <= 0) {
+      arrivingElapsed += 50;
+
+      // 到着音が鳴り、階数が一瞬浮かび上がった後（ARRIVING_FLASH_MS 経過後）に扉が12%まで開く
+      if (!doorSlideStarted && arrivingElapsed >= ARRIVING_FLASH_MS) {
+        doorSlideStarted = true;
+        setIsArrivingFlash(false);
+        soundManager.playDoorSlide(0.5, true);
+        doorPercentRef.current = 12;
+        setDoorOpenPercent(12);
+        setActiveSubtitle(
+          `「【${floor}F 到着】扉がわずかに開きました。相手の身元を規程と照合してください。」`
+        );
+      }
+
+      if (arrivingElapsed >= ARRIVING_DURATION_MS) {
         window.clearInterval(timer);
+        setIsArrivingFlash(false);
         decisionLockedRef.current = false;
         setJudgingTimeLeftMs(JUDGING_DURATION_MS);
         if (currentVisitor) {
@@ -826,10 +837,13 @@ export function App() {
       }
     }, 50);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      setIsArrivingFlash(false);
+    };
   }, [gameState, floor, currentVisitor]);
 
-  // 3. JUDGING フェーズ（8.0秒ベース ＋ 張り紙拡大中は0.25倍速 ＋ 65%覗き込み段階変化）
+  // 3. JUDGING フェーズ（8.0秒ベース ＋ 張り紙拡大中は0.25倍速 ＋ 65%覗き込み段階変化 ＋ こじ開け怪異の6秒強制開扉）
   useEffect(() => {
     if (gameState !== 'JUDGING') return;
 
@@ -838,7 +852,8 @@ export function App() {
       if (decisionLockedRef.current || isPausedRef.current) return;
 
       // モーダルを開いている間は時間の経過速度を 0.25倍速 に落とす
-      const elapsedDelta = isModalOpenRef.current ? intervalMs * 0.25 : intervalMs;
+      const slowFactor = isModalOpenRef.current ? 0.25 : 1.0;
+      const elapsedDelta = intervalMs * slowFactor;
 
       setJudgingTimeLeftMs((prev) => {
         const next = prev - elapsedDelta;
@@ -848,6 +863,10 @@ export function App() {
         }
         return next;
       });
+
+      const isPryingMonster = Boolean(
+        currentVisitor && currentVisitor.requiredCloseClicks > 1
+      );
 
       // OPENボタン長押し中（約1.8秒で12%→100%へ到達）、離すと12%へ戻る
       if (isHoldingOpenRef.current) {
@@ -897,6 +916,18 @@ export function App() {
           soundManager.stopDoorMotor();
           soundManager.playDoorBumperStop();
           resolveJudgingDecision('BOARD');
+        }
+      } else if (isPryingMonster) {
+        // ★ こじ開け怪異：何もしていないと約6秒（12% → 100%）で扉を無理やりこじ開けて侵入してくる
+        const pryStep = PRYING_OPEN_STEP_PER_50MS * slowFactor;
+        const nextDoor = Math.min(100, doorPercentRef.current + pryStep);
+        doorPercentRef.current = nextDoor;
+        setDoorOpenPercent(nextDoor);
+
+        if (nextDoor >= 100) {
+          soundManager.stopDoorMotor();
+          soundManager.playDoorBumperStop();
+          resolveJudgingDecision('TIMEOUT_BOARD');
         }
       } else if (doorPercentRef.current > 12) {
         const nextDoor = Math.max(12, doorPercentRef.current - 4.5);
@@ -993,20 +1024,15 @@ export function App() {
       setJumpscareFlash(true);
       setTimeout(() => {
         setJumpscareFlash(false);
-      }, 160);
+      }, 140);
       setTimeout(() => {
         setScreenShake('NONE');
-      }, 340);
+      }, 280);
 
-      // 閉まりかけた扉が怪異の怪力で一気に36%まで押し戻されるリアルな挙動
-      doorPercentRef.current = 6;
-      setDoorOpenPercent(6);
-      setTimeout(() => {
-        if (!decisionLockedRef.current && gameState === 'JUDGING') {
-          doorPercentRef.current = 36;
-          setDoorOpenPercent(36);
-        }
-      }, 120);
+      // 閉ボタンを押すごとに扉をグッと押し戻すが、手を止めると再び怪異がこじ開けてくる
+      const pushedBackDoor = Math.max(8, doorPercentRef.current - 16);
+      doorPercentRef.current = pushedBackDoor;
+      setDoorOpenPercent(pushedBackDoor);
       setActiveSubtitle(
         `「【扉破壊警報】怪異が扉をこじ開けようとしています！ 閉ボタンを連打して押し返してください！（残り ${nextRemaining} 回）」`
       );
@@ -1351,6 +1377,7 @@ export function App() {
             isPeekTransformed={isPeekTransformed}
             movingEvent={movingEvent}
             isFanOn={isFanOn}
+            isArrivingFlash={isArrivingFlash}
           />
         </div>
 

@@ -39,6 +39,10 @@ export const VisitorView: React.FC<VisitorViewProps> = ({
   // 扉を初期隙間（12%）から広げて「覗き込んでいる」度合い (0.0 〜 1.0)
   const peekRatio = Math.max(0, Math.min(1, (doorOpenPercent - 12) / 60));
 
+  // こじ開け怪異が扉を開くにつれてじわじわ近づいてくる比率 (0.0 〜 1.0)
+  const isPryingVisitor = Boolean(visitor && visitor.requiredCloseClicks > 1);
+  const pryApproachRatio = Math.max(0, Math.min(1, (doorOpenPercent - 12) / 88));
+
   const glitchClass =
     effectiveAppearance?.glitchLevel === 'HEAVY'
       ? 'glitch-heavy cctv-chromatic-heavy'
@@ -112,11 +116,17 @@ export const VisitorView: React.FC<VisitorViewProps> = ({
             scale:
               gameState === 'EVENT_RESULT' && visitor.isThreat && doorOpenPercent >= 90
                 ? 1.36
+                : isPryingVisitor
+                ? 1.0 + pryApproachRatio * 0.22
                 : 1.0 + peekRatio * 0.05,
             opacity: 1,
-            y: isHoldingOpen ? -3 * peekRatio : 0,
+            y: isPryingVisitor
+              ? 8 * pryApproachRatio
+              : isHoldingOpen
+              ? -3 * peekRatio
+              : 0,
           }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
+          transition={{ duration: isPryingVisitor ? 0.12 : 0.3, ease: 'easeOut' }}
           className={`relative z-10 flex flex-col items-center justify-end h-[90%] w-80 pointer-events-none ${glitchClass}`}
         >
           {/* 静かな呼吸の揺れ */}

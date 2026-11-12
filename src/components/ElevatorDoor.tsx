@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, ClipboardCheck, Skull, Wind, BellRing } from 'lucide-react';
+import { ClipboardCheck, Wind } from 'lucide-react';
 import type { GameState, MovingCabinEvent, VisitorData } from '../types/game';
 import { VisitorView } from './VisitorView';
 import { PryingHand } from './PryingHand';
@@ -15,6 +15,7 @@ interface ElevatorDoorProps {
   isPeekTransformed: boolean;
   movingEvent: MovingCabinEvent | null;
   isFanOn: boolean;
+  isArrivingFlash: boolean;
 }
 
 export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
@@ -27,6 +28,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
   isPeekTransformed,
   movingEvent,
   isFanOn,
+  isArrivingFlash,
 }) => {
   const slideOffsetPercent = Math.max(0, Math.min(100, doorOpenPercent)) * 0.92;
 
@@ -513,67 +515,46 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
           </div>
         )}
 
-        {/* 下降中（MOVING）の車内異変アラートバー（瘴気／鏡面怪異） */}
-        {gameState === 'MOVING' && movingEvent && movingEvent.status === 'ACTIVE' && (
-          <div className="absolute bottom-4 inset-x-3 z-30 flex flex-col items-center pointer-events-none">
-            {movingEvent.type === 'MIASMA' && (
-              <div className="bg-purple-950/95 border-2 border-purple-400 px-4 py-2 rounded-xs shadow-[0_0_30px_rgba(147,51,234,0.95)] flex flex-col items-center gap-1 font-mincho">
-                <div className="flex items-center gap-2 text-purple-100 font-black text-xs sm:text-sm tracking-wider whitespace-nowrap">
-                  <Wind className="w-4 h-4 text-emerald-300 animate-spin" />
-                  <span>【車内汚染】有毒な瘴気が充満しています！</span>
-                  <span className="font-seven-seg text-amber-300">
-                    {(movingEvent.timeLeftMs / 1000).toFixed(1)}s
-                  </span>
-                </div>
-                <span className="text-[11px] text-purple-200 font-bold whitespace-nowrap">
-                  右操作盤【急速換気】で直ちに強制排気してください
+        {/* 到着ベル後に一瞬だけ金属扉に浮かび上がる階数表示演出 */}
+        <AnimatePresence>
+          {gameState === 'ARRIVING' && isArrivingFlash && (
+            <motion.div
+              key={`arriving-floor-${floor}`}
+              initial={{ opacity: 0, scale: 0.92, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scale: 1.06, filter: 'blur(8px)' }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="absolute inset-0 z-25 pointer-events-none flex flex-col items-center justify-center select-none"
+            >
+              {/* 背後の暗赤・琥珀色のバックライト暈し */}
+              <div
+                className="absolute w-64 h-64 rounded-full blur-2xl"
+                style={{
+                  background:
+                    currentVisitor?.category === 'ANOMALY' ||
+                    (currentVisitor?.requiredCloseClicks ?? 1) > 1
+                      ? 'radial-gradient(circle, rgba(220,38,38,0.38) 0%, rgba(0,0,0,0) 70%)'
+                      : 'radial-gradient(circle, rgba(245,158,11,0.32) 0%, rgba(0,0,0,0) 70%)',
+                }}
+              />
+              <div className="relative flex flex-col items-center">
+                <span className="text-[11px] sm:text-xs font-mincho font-bold tracking-[0.4em] text-stone-400/90 mb-1">
+                  ― 到着階層 ―
+                </span>
+                <span
+                  className={`font-seven-seg text-6xl sm:text-7xl font-black tracking-widest ${
+                    currentVisitor?.category === 'ANOMALY' ||
+                    (currentVisitor?.requiredCloseClicks ?? 1) > 1
+                      ? 'text-red-500 drop-shadow-[0_0_28px_rgba(239,68,68,0.95)]'
+                      : 'text-amber-400 drop-shadow-[0_0_26px_rgba(245,158,11,0.9)]'
+                  }`}
+                >
+                  {String(floor).padStart(2, '0')}F
                 </span>
               </div>
-            )}
-
-            {movingEvent.type === 'MIRROR_GHOST' && (
-              <div className="bg-red-950/95 border-2 border-red-500 px-4 py-2 rounded-xs shadow-[0_0_30px_rgba(239,68,68,0.95)] flex flex-col items-center gap-1 animate-bounce font-mincho">
-                <div className="flex items-center gap-2 text-red-100 font-black text-xs sm:text-sm tracking-wider whitespace-nowrap">
-                  <BellRing className="w-4 h-4 text-red-400 animate-ping" />
-                  <span>【緊急警報】扉の鏡面に怪異の影を検知！</span>
-                  <span className="font-seven-seg text-amber-300">
-                    {(movingEvent.timeLeftMs / 1000).toFixed(1)}s
-                  </span>
-                </div>
-                <span className="text-[11px] text-red-200 font-bold whitespace-nowrap">
-                  右操作盤【非常ベル】で防衛レーザー（高圧紫外線）を照射し焼灼せよ
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* こじ開け抵抗時の緊迫ホラーUI：ド派手な赤い警告バーと連打ゲージ */}
-        {isPryingDoor && (
-          <div className="absolute bottom-5 inset-x-2 z-30 flex flex-col items-center pointer-events-none animate-bounce font-mincho">
-            <div className="bg-red-950 border-2 border-red-500 px-4 py-2 rounded-xs shadow-[0_0_30px_rgba(239,68,68,0.95)] flex flex-col items-center gap-1">
-              <div className="flex items-center gap-2 text-red-100 font-black text-xs sm:text-sm tracking-widest uppercase">
-                <Skull className="w-4 h-4 text-red-400 animate-spin" style={{ animationDuration: '3s' }} />
-                <span>【扉破壊警報】異形による抉開侵入を検知！</span>
-                <AlertTriangle className="w-4 h-4 text-red-400" />
-              </div>
-
-              {/* 連打カウントダウンインジケーター */}
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[11px] text-red-200 font-bold">
-                  【閉】ボタンを連打して押し戻せ！
-                </span>
-                <div className="flex items-center gap-1 bg-black/80 px-2 py-0.5 rounded-xs border border-red-700">
-                  <span className="text-xs font-mono text-red-400">残</span>
-                  <span className="text-base font-black font-seven-seg text-red-100 leading-none">
-                    {closeClicksRemaining}
-                  </span>
-                  <span className="text-xs font-mono text-red-400">回</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 足元の敷居（シル） */}
         <div className="absolute bottom-0 inset-x-0 h-2.5 bg-gradient-to-r from-stone-900 via-stone-700 to-stone-900 border-t border-stone-600/50 z-25 opacity-75" />
