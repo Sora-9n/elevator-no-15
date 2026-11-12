@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ClipboardCheck, Skull, Wind, BellRing, Eye } from 'lucide-react';
 import type { GameState, MovingCabinEvent, VisitorData } from '../types/game';
 import { VisitorView } from './VisitorView';
+import { PryingHand } from './PryingHand';
 
 interface ElevatorDoorProps {
   doorOpenPercent: number; // 0 〜 100
@@ -71,7 +72,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
         {/* 手前のレイヤー：左側の金属扉 */}
         <motion.div
           id="elevator-door-left"
-          className={`absolute top-0 bottom-0 left-0 w-1/2 metal-door-surface border-r-[4px] z-20 flex flex-col justify-center p-4 shadow-[14px_0_35px_rgba(0,0,0,0.95)] ${
+          className={`absolute top-0 bottom-0 left-0 w-1/2 metal-door-surface border-r-[4px] z-20 flex flex-col justify-center p-4 shadow-[14px_0_35px_rgba(0,0,0,0.95)] overflow-visible ${
             isPryingDoor
               ? 'border-red-600 shadow-[14px_0_40px_rgba(220,38,38,0.6)]'
               : 'border-stone-950'
@@ -90,12 +91,22 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
               isPryingDoor ? 'bg-red-800 shadow-[0_0_12px_rgba(239,68,68,0.9)]' : 'bg-stone-950'
             }`}
           />
+
+          {/* ★ 扉をこじ開けようと右エッジ（合わせ目）に食い込む怪異の手 */}
+          <AnimatePresence>
+            {isPryingDoor && (
+              <PryingHand
+                side="left"
+                closeClicksRemaining={closeClicksRemaining}
+              />
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* 手前のレイヤー：右側の金属扉 */}
         <motion.div
           id="elevator-door-right"
-          className={`absolute top-0 bottom-0 right-0 w-1/2 metal-door-surface border-l-[4px] z-20 flex flex-col justify-center p-4 shadow-[-14px_0_35px_rgba(0,0,0,0.95)] ${
+          className={`absolute top-0 bottom-0 right-0 w-1/2 metal-door-surface border-l-[4px] z-20 flex flex-col justify-center p-4 shadow-[-14px_0_35px_rgba(0,0,0,0.95)] overflow-visible ${
             isPryingDoor
               ? 'border-red-600 shadow-[-14px_0_40px_rgba(220,38,38,0.6)]'
               : 'border-stone-950'
@@ -114,6 +125,16 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
               isPryingDoor ? 'bg-red-800 shadow-[0_0_12px_rgba(239,68,68,0.9)]' : 'bg-stone-950'
             }`}
           />
+
+          {/* ★ 扉をこじ開けようと左エッジ（合わせ目）に食い込む怪異の手 */}
+          <AnimatePresence>
+            {isPryingDoor && (
+              <PryingHand
+                side="right"
+                closeClicksRemaining={closeClicksRemaining}
+              />
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* ============================================================

@@ -7,7 +7,7 @@ interface VisitorViewProps {
   floor: number;
   gameState: GameState;
   doorOpenPercent: number;
-  closeClicksRemaining: number;
+  closeClicksRemaining?: number;
   isHoldingOpen?: boolean;
   isPeekTransformed?: boolean;
 }
@@ -17,7 +17,7 @@ export const VisitorView: React.FC<VisitorViewProps> = ({
   floor,
   gameState,
   doorOpenPercent,
-  closeClicksRemaining,
+  closeClicksRemaining: _closeClicksRemaining,
   isHoldingOpen = false,
   isPeekTransformed = false,
 }) => {
@@ -25,13 +25,6 @@ export const VisitorView: React.FC<VisitorViewProps> = ({
     visitor &&
     (gameState === 'ARRIVING' || gameState === 'JUDGING' || gameState === 'EVENT_RESULT') &&
     doorOpenPercent > 2;
-
-  const isPryingDoor =
-    visitor &&
-    visitor.requiredCloseClicks > 1 &&
-    gameState === 'JUDGING' &&
-    closeClicksRemaining > 0;
-
   // 65%を超えたか、一度でも65%変化がトリガーされた場合は変化後の外見を適用
   const threshold = visitor?.peekTransformation?.thresholdPercent ?? 65;
   const isTransformed = Boolean(
@@ -483,24 +476,6 @@ export const VisitorView: React.FC<VisitorViewProps> = ({
                   )}
                 </g>
               </g>
-
-              {/* 扉をこじ開けようとする怪異の手 */}
-              {isPryingDoor && (
-                <g>
-                  <path
-                    d="M 78 185 L 102 178 M 76 194 L 104 190 M 78 203 L 103 201 M 82 212 L 100 211"
-                    stroke="#d6d3d1"
-                    strokeWidth="4.5"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 202 185 L 178 178 M 204 194 L 176 190 M 202 203 L 177 201 M 198 212 L 180 211"
-                    stroke="#d6d3d1"
-                    strokeWidth="4.5"
-                    strokeLinecap="round"
-                  />
-                </g>
-              )}
             </svg>
           </motion.div>
         </motion.div>
