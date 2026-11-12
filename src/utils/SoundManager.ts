@@ -25,10 +25,8 @@ class SoundManager {
   private pryingNoiseNode: AudioNode | null = null;
   private pryingGain: GainNode | null = null;
 
-  private doorMotorOsc: OscillatorNode | null = null;
-  private doorMotorGain: GainNode | null = null;
-  private doorTrackNoise: AudioNode | null = null;
-  private doorTrackGain: GainNode | null = null;
+  private doorNodes: AudioScheduledSourceNode[] = [];
+  private doorMasterGain: GainNode | null = null;
 
   private muted: boolean = false;
 
@@ -211,8 +209,26 @@ class SoundManager {
   }
 
   /**
-   * 3-A. 操作盤ボタン押下音（重厚な業務用マイクロスイッチ・底打ち音）
-   * 電子的な「ポン」という合成音を廃し、実機のようなカチッという機構音を再生する
+   * ブラウンノイズ（重厚な低域摩擦・鉄の質量感を持つノイズ）バッファを生成するヘルパー
+   */
+  private createHeavyFrictionBuffer(ctx: AudioContext, durationSec: number): AudioBuffer {
+    const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * durationSec));
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let lastOut = 0.0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      // 積分フィルタによる重厚なブラウンノイズ生成（安っぽい高域のシャリシャリ感を排除）
+      lastOut = (lastOut + 0.045 * white) / 1.045;
+      // 微細な金属粒子のザラつきをほんの少しブレンド
+      data[i] = lastOut * 3.2 + white * 0.06;
+    }
+    return buffer;
+  }
+
+  /**
+   * 3-A. 操作盤ボタン押下音（重厚な旧式配電盤・電磁リレーと鋳鉄ボタンの機構音）
+   * 「ガチッ…ズン」という鉄製制御盤のスイッチを押し込んだ手応えを合成する
    */
   public playButtonClick(variant: 'OPEN' | 'CLOSE' | 'SWITCH' | 'PAPER' = 'SWITCH'): void {
     const ctx = this.ensureContext();
@@ -220,79 +236,102 @@ class SoundManager {
     const now = ctx.currentTime;
 
     if (variant === 'PAPER') {
-      // 張り紙をめくる紙の擦れ音
-      const bufferSize = Math.floor(ctx.sampleRate * 0.08);
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-      }
+      // 古びた厚紙の通達文書をめくる音
+      const buffer = this.createHeavyFrictionBuffer(ctx, 0.09);
       const noise = ctx.createBufferSource();
       noise.buffer = buffer;
+
       const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1400, now);
-      filter.Q.setValueAtTime(1.8, now);
+      filter.frequency.setValueAtTime(950, now);
+      filter.Q.setValueAtTime(1.4, now);
 
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.08, now + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      gain.gain.linearRampToValueAtTime(0.11, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
 
       noise.connect(filter);
       filter.connect(gain);
       gain.connect(ctx.destination);
 
       noise.start(now);
-      noise.stop(now + 0.085);
+      noise.stop(now + 0.09);
       return;
     }
 
-    // 業務用機械式スイッチ（OPEN / CLOSE / SWITCH）
-    // 1. スイッチ筐体の押し込み底打ち音（コッ…という低域の重み）
-    const baseFreq = variant === 'CLOSE' ? 76 : variant === 'OPEN' ? 92 : 84;
-    const bodyOsc = ctx.createOscillator();
-    bodyOsc.type = 'triangle';
-    bodyOsc.frequency.setValueAtTime(baseFreq, now);
-    bodyOsc.frequency.exponentialRampToValueAtTime(38, now + 0.045);
+    // 1. 鉄製ボタン筐体を押し込んだ時の重低音（「ズッ / ゴッ」）
+    const thumpFreq = variant === 'CLOSE' ? 58 : variant === 'OPEN' ? 68 : 62;
+    const thumpOsc = ctx.createOscillator();
+    thumpOsc.type = 'sine';
+    thumpOsc.frequency.setValueAtTime(thumpFreq * 1.4, now);
+    thumpOsc.frequency.exponentialRampToValueAtTime(26, now + 0.075);
 
-    const bodyGain = ctx.createGain();
-    bodyGain.gain.setValueAtTime(0.08, now);
-    bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    const thumpGain = ctx.createGain();
+    thumpGain.gain.setValueAtTime(0.24, now);
+    thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
-    bodyOsc.connect(bodyGain);
-    bodyGain.connect(ctx.destination);
-    bodyOsc.start(now);
-    bodyOsc.stop(now + 0.055);
+    thumpOsc.connect(thumpGain);
+    thumpGain.connect(ctx.destination);
+    thumpOsc.start(now);
+    thumpOsc.stop(now + 0.085);
 
-    // 2. 接点のマイクロスイッチ・クリック音（「カチッ」という金属板バネのスナップ音）
-    const clickFreq = variant === 'CLOSE' ? 1750 : variant === 'OPEN' ? 2200 : 1950;
-    const clickOsc = ctx.createOscillator();
-    clickOsc.type = 'square';
-    clickOsc.frequency.setValueAtTime(clickFreq, now);
-    clickOsc.frequency.exponentialRampToValueAtTime(320, now + 0.025);
+    // 2. 制御盤内部の電磁接触器（コンタクタ）が噛み合う金属衝撃ノイズ（「ガチッ」）
+    const snapBuffer = this.createHeavyFrictionBuffer(ctx, 0.055);
+    const snapNoise = ctx.createBufferSource();
+    snapNoise.buffer = snapBuffer;
 
-    const clickFilter = ctx.createBiquadFilter();
-    clickFilter.type = 'bandpass';
-    clickFilter.frequency.setValueAtTime(clickFreq, now);
-    clickFilter.Q.setValueAtTime(4.2, now);
+    const snapFilter = ctx.createBiquadFilter();
+    snapFilter.type = 'bandpass';
+    snapFilter.frequency.setValueAtTime(variant === 'CLOSE' ? 420 : 520, now);
+    snapFilter.Q.setValueAtTime(3.0, now);
 
-    const clickGain = ctx.createGain();
-    clickGain.gain.setValueAtTime(0.001, now);
-    clickGain.gain.linearRampToValueAtTime(0.075, now + 0.003);
-    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+    const snapGain = ctx.createGain();
+    snapGain.gain.setValueAtTime(0.28, now);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
 
-    clickOsc.connect(clickFilter);
-    clickFilter.connect(clickGain);
-    clickGain.connect(ctx.destination);
+    snapNoise.connect(snapFilter);
+    snapFilter.connect(snapGain);
+    snapGain.connect(ctx.destination);
+    snapNoise.start(now);
+    snapNoise.stop(now + 0.055);
 
-    clickOsc.start(now);
-    clickOsc.stop(now + 0.035);
+    // 3. 2段目の機械式ラッチ爪の金属反響（18ms遅れて「カッ」と鳴り、重厚な二段スイッチ感を出す）
+    const relayDelay = 0.018;
+    const relayOsc1 = ctx.createOscillator();
+    const relayOsc2 = ctx.createOscillator();
+    relayOsc1.type = 'sawtooth';
+    relayOsc2.type = 'triangle';
+    // 非整数倍音による鉄の乾いた響き
+    const baseMetal = variant === 'CLOSE' ? 280 : variant === 'OPEN' ? 340 : 310;
+    relayOsc1.frequency.setValueAtTime(baseMetal, now + relayDelay);
+    relayOsc1.frequency.exponentialRampToValueAtTime(95, now + relayDelay + 0.04);
+    relayOsc2.frequency.setValueAtTime(baseMetal * 1.47, now + relayDelay);
+    relayOsc2.frequency.exponentialRampToValueAtTime(135, now + relayDelay + 0.04);
+
+    const relayFilter = ctx.createBiquadFilter();
+    relayFilter.type = 'lowpass';
+    relayFilter.frequency.setValueAtTime(900, now + relayDelay);
+
+    const relayGain = ctx.createGain();
+    relayGain.gain.setValueAtTime(0.001, now + relayDelay);
+    relayGain.gain.linearRampToValueAtTime(0.11, now + relayDelay + 0.003);
+    relayGain.gain.exponentialRampToValueAtTime(0.001, now + relayDelay + 0.045);
+
+    relayOsc1.connect(relayFilter);
+    relayOsc2.connect(relayFilter);
+    relayFilter.connect(relayGain);
+    relayGain.connect(ctx.destination);
+
+    relayOsc1.start(now + relayDelay);
+    relayOsc2.start(now + relayDelay);
+    relayOsc1.stop(now + relayDelay + 0.05);
+    relayOsc2.stop(now + relayDelay + 0.05);
   }
 
   /**
-   * 3-B. 扉の開閉モーター音およびレール走行音のループ再生開始
-   * 長押し中（扉が連続移動している間）に鳴らし、業務用エレベーターの機械駆動感を演出する
+   * 3-B. 扉の長押し開扉中：重厚な鉛・鋳鉄扉の連続駆動音（「ゴォォォ……ガラガラガラ……ギィ……」という重い鉄塊の牽引音）
+   * 高い電子モーター音ではなく、古い巻上げチェーン・鋳鉄ハンガーローラー・床溝を擦る重い鉄扉の質量感を合成する
    */
   public startDoorMotor(direction: 'OPEN' | 'CLOSE' = 'OPEN'): void {
     const ctx = this.ensureContext();
@@ -301,69 +340,126 @@ class SoundManager {
 
     const now = ctx.currentTime;
 
-    // 1. 低〜中周波のDC駆動モーター音（「ウィーン……」）
-    const motorOsc = ctx.createOscillator();
-    motorOsc.type = 'triangle';
-    const startFreq = direction === 'OPEN' ? 148 : 205;
-    const endFreq = direction === 'OPEN' ? 200 : 142;
-    motorOsc.frequency.setValueAtTime(startFreq, now);
-    motorOsc.frequency.exponentialRampToValueAtTime(endFreq, now + 2.0);
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.linearRampToValueAtTime(0.24, now + 0.14);
+    masterGain.connect(ctx.destination);
 
-    const motorFilter = ctx.createBiquadFilter();
-    motorFilter.type = 'lowpass';
-    motorFilter.frequency.setValueAtTime(380, now);
-    motorFilter.Q.setValueAtTime(2.2, now);
+    // 0. 起動瞬間の電磁クラッチ接続ショック（「ガコンッ」）
+    const clunkOsc = ctx.createOscillator();
+    clunkOsc.type = 'sawtooth';
+    clunkOsc.frequency.setValueAtTime(92, now);
+    clunkOsc.frequency.exponentialRampToValueAtTime(28, now + 0.12);
+    const clunkFilter = ctx.createBiquadFilter();
+    clunkFilter.type = 'lowpass';
+    clunkFilter.frequency.setValueAtTime(220, now);
+    const clunkGain = ctx.createGain();
+    clunkGain.gain.setValueAtTime(0.65, now);
+    clunkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+    clunkOsc.connect(clunkFilter);
+    clunkFilter.connect(clunkGain);
+    clunkGain.connect(masterGain);
+    clunkOsc.start(now);
+    clunkOsc.stop(now + 0.14);
 
-    const motorGain = ctx.createGain();
-    motorGain.gain.setValueAtTime(0.001, now);
-    motorGain.gain.linearRampToValueAtTime(0.05, now + 0.12);
+    // 1. 重低音トルク駆動・鉄箱共鳴（「ゴォォォォ……」：44Hz & 66.5Hzの太い低域うなり）
+    const subOsc1 = ctx.createOscillator();
+    const subOsc2 = ctx.createOscillator();
+    subOsc1.type = 'sawtooth';
+    subOsc2.type = 'triangle';
 
-    motorOsc.connect(motorFilter);
-    motorFilter.connect(motorGain);
-    motorGain.connect(ctx.destination);
-    motorOsc.start(now);
+    const baseSub = direction === 'OPEN' ? 43 : 48;
+    subOsc1.frequency.setValueAtTime(baseSub, now);
+    subOsc1.frequency.linearRampToValueAtTime(baseSub + (direction === 'OPEN' ? 6 : -6), now + 2.0);
 
-    // 2. 鉄製レール上の滑車（ローラー）走行音・摩擦音（「シャー……カラカラ……」）
-    const bufferSize = Math.floor(ctx.sampleRate * 2.5);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
+    subOsc2.frequency.setValueAtTime(baseSub * 1.51, now); // 5度系の重厚なうなり
+    subOsc2.frequency.linearRampToValueAtTime((baseSub + (direction === 'OPEN' ? 6 : -6)) * 1.51, now + 2.0);
 
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-    noise.loop = true;
+    const subFilter = ctx.createBiquadFilter();
+    subFilter.type = 'lowpass';
+    subFilter.frequency.setValueAtTime(145, now);
+    subFilter.Q.setValueAtTime(3.2, now);
 
-    const railFilter = ctx.createBiquadFilter();
-    railFilter.type = 'bandpass';
-    railFilter.frequency.setValueAtTime(420, now);
-    railFilter.Q.setValueAtTime(2.8, now);
+    const subGain = ctx.createGain();
+    subGain.gain.setValueAtTime(0.55, now);
 
-    // 微細な周期的ガタつき（レールの継ぎ目をローラーが通過する揺らぎ）
-    const railLfo = ctx.createOscillator();
-    railLfo.type = 'sine';
-    railLfo.frequency.setValueAtTime(7.2, now);
-    const railLfoGain = ctx.createGain();
-    railLfoGain.gain.setValueAtTime(0.018, now);
+    subOsc1.connect(subFilter);
+    subOsc2.connect(subFilter);
+    subFilter.connect(subGain);
+    subGain.connect(masterGain);
 
-    const railGain = ctx.createGain();
-    railGain.gain.setValueAtTime(0.001, now);
-    railGain.gain.linearRampToValueAtTime(0.042, now + 0.15);
+    // 2. 重量鉄扉が床の敷居溝（シル）と上部鋳鉄レールを擦る重摩擦音（「ズズズズ……ゴロゴロ……」ブラウンノイズ）
+    const frictionBuffer = this.createHeavyFrictionBuffer(ctx, 2.4);
+    const frictionNoise = ctx.createBufferSource();
+    frictionNoise.buffer = frictionBuffer;
+    frictionNoise.loop = true;
 
-    noise.connect(railFilter);
-    railFilter.connect(railGain);
-    railLfo.connect(railLfoGain);
-    railLfoGain.connect(railGain.gain);
-    railGain.connect(ctx.destination);
+    const frictionFilter = ctx.createBiquadFilter();
+    frictionFilter.type = 'bandpass';
+    frictionFilter.frequency.setValueAtTime(155, now);
+    frictionFilter.Q.setValueAtTime(1.5, now);
 
-    noise.start(now);
-    railLfo.start(now);
+    // 鋳鉄製ハンガーローラーが偏心回転する周期的なうねり（6.5Hz）
+    const rollerLfo = ctx.createOscillator();
+    rollerLfo.type = 'sine';
+    rollerLfo.frequency.setValueAtTime(6.5, now);
+    const rollerLfoGain = ctx.createGain();
+    rollerLfoGain.gain.setValueAtTime(65, now);
+    rollerLfo.connect(rollerLfoGain);
+    rollerLfoGain.connect(frictionFilter.frequency);
 
-    this.doorMotorOsc = motorOsc;
-    this.doorMotorGain = motorGain;
-    this.doorTrackNoise = noise;
-    this.doorTrackGain = railGain;
+    const frictionGain = ctx.createGain();
+    frictionGain.gain.setValueAtTime(0.75, now);
+
+    frictionNoise.connect(frictionFilter);
+    frictionFilter.connect(frictionGain);
+    frictionGain.connect(masterGain);
+
+    // 3. チェーン・ギアの噛み合い振動（「ガタガタガタ…」という鉄の歯車感：14Hzパルス）
+    const gearOsc = ctx.createOscillator();
+    gearOsc.type = 'square';
+    gearOsc.frequency.setValueAtTime(14.5, now);
+
+    const gearResonator = ctx.createBiquadFilter();
+    gearResonator.type = 'bandpass';
+    gearResonator.frequency.setValueAtTime(235, now);
+    gearResonator.Q.setValueAtTime(5.5, now);
+
+    const gearGain = ctx.createGain();
+    gearGain.gain.setValueAtTime(0.28, now);
+
+    gearOsc.connect(gearResonator);
+    gearResonator.connect(gearGain);
+    gearGain.connect(masterGain);
+
+    // 4. 古びた鉄扉のかすかな金属きしみ倍音（耳障りにならないよう控えめに混じる不穏な金属共鳴）
+    const creakOsc = ctx.createOscillator();
+    creakOsc.type = 'sawtooth';
+    creakOsc.frequency.setValueAtTime(310, now);
+    creakOsc.frequency.linearRampToValueAtTime(275, now + 0.9);
+    creakOsc.frequency.linearRampToValueAtTime(325, now + 1.8);
+
+    const creakFilter = ctx.createBiquadFilter();
+    creakFilter.type = 'bandpass';
+    creakFilter.frequency.setValueAtTime(310, now);
+    creakFilter.Q.setValueAtTime(8.0, now);
+
+    const creakGain = ctx.createGain();
+    creakGain.gain.setValueAtTime(0.06, now);
+
+    creakOsc.connect(creakFilter);
+    creakFilter.connect(creakGain);
+    creakGain.connect(masterGain);
+
+    subOsc1.start(now);
+    subOsc2.start(now);
+    frictionNoise.start(now);
+    rollerLfo.start(now);
+    gearOsc.start(now);
+    creakOsc.start(now);
+
+    this.doorMasterGain = masterGain;
+    this.doorNodes = [subOsc1, subOsc2, frictionNoise, rollerLfo, gearOsc, creakOsc];
   }
 
   /**
@@ -372,179 +468,277 @@ class SoundManager {
   public stopDoorMotor(): void {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
-    if (this.doorMotorGain) {
+    const gain = this.doorMasterGain;
+    const nodes = this.doorNodes;
+    this.doorMasterGain = null;
+    this.doorNodes = [];
+
+    if (gain) {
       try {
-        this.doorMotorGain.gain.cancelScheduledValues(now);
-        this.doorMotorGain.gain.setValueAtTime(Math.max(this.doorMotorGain.gain.value, 0.001), now);
-        this.doorMotorGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.001), now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
       } catch {
         // ignore
       }
     }
-    if (this.doorTrackGain) {
-      try {
-        this.doorTrackGain.gain.cancelScheduledValues(now);
-        this.doorTrackGain.gain.setValueAtTime(Math.max(this.doorTrackGain.gain.value, 0.001), now);
-        this.doorTrackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-      } catch {
-        // ignore
-      }
-    }
-    const osc = this.doorMotorOsc;
-    const noise = this.doorTrackNoise;
+
     setTimeout(() => {
+      for (const n of nodes) {
+        try {
+          n.stop();
+          n.disconnect();
+        } catch {
+          // ignore
+        }
+      }
       try {
-        osc?.stop();
-        osc?.disconnect();
-        (noise as AudioScheduledSourceNode)?.stop();
-        noise?.disconnect();
+        gain?.disconnect();
       } catch {
         // ignore
       }
-    }, 150);
-    this.doorMotorOsc = null;
-    this.doorMotorGain = null;
-    this.doorTrackNoise = null;
-    this.doorTrackGain = null;
+    }, 160);
   }
 
   /**
-   * 3-C. 扉の単発スライド駆動音（開扉・閉扉時のモーター音＋レール走行音）
+   * 3-C. 扉の単発スライド駆動音（各階到着時の隙間開放、指を離した時の戻り、閉扉時の重厚な鉄扉スライド音）
+   * 「ゴロゴロ……ズズッ……」という重い鋳鉄の塊がレールを滑る音を鳴らす
    */
   public playDoorSlide(durationSec: number = 0.45, pitchUp: boolean = true): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1. DCモーターの滑らかな駆動音
-    const motorOsc = ctx.createOscillator();
-    motorOsc.type = 'triangle';
-    const startFreq = pitchUp ? 150 : 210;
-    const endFreq = pitchUp ? 205 : 142;
-    motorOsc.frequency.setValueAtTime(startFreq, now);
-    motorOsc.frequency.exponentialRampToValueAtTime(endFreq, now + durationSec);
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.linearRampToValueAtTime(0.24, now + 0.04);
+    masterGain.gain.setValueAtTime(0.22, now + Math.max(0.05, durationSec * 0.65));
+    masterGain.gain.exponentialRampToValueAtTime(0.001, now + durationSec + 0.06);
+    masterGain.connect(ctx.destination);
 
-    const motorFilter = ctx.createBiquadFilter();
-    motorFilter.type = 'lowpass';
-    motorFilter.frequency.setValueAtTime(360, now);
-    motorFilter.Q.setValueAtTime(2.0, now);
+    // 1. 動き出しの機械クラッチ・リンク機構の衝撃音（「ガコン」）
+    const startImpactOsc = ctx.createOscillator();
+    startImpactOsc.type = 'sawtooth';
+    startImpactOsc.frequency.setValueAtTime(pitchUp ? 82 : 70, now);
+    startImpactOsc.frequency.exponentialRampToValueAtTime(26, now + 0.1);
 
-    const motorGain = ctx.createGain();
-    motorGain.gain.setValueAtTime(0.001, now);
-    motorGain.gain.linearRampToValueAtTime(0.048, now + 0.05);
-    motorGain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
+    const startImpactFilter = ctx.createBiquadFilter();
+    startImpactFilter.type = 'lowpass';
+    startImpactFilter.frequency.setValueAtTime(190, now);
 
-    motorOsc.connect(motorFilter);
-    motorFilter.connect(motorGain);
-    motorGain.connect(ctx.destination);
+    const startImpactGain = ctx.createGain();
+    startImpactGain.gain.setValueAtTime(0.55, now);
+    startImpactGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
 
-    motorOsc.start(now);
-    motorOsc.stop(now + durationSec + 0.05);
+    startImpactOsc.connect(startImpactFilter);
+    startImpactFilter.connect(startImpactGain);
+    startImpactGain.connect(masterGain);
+    startImpactOsc.start(now);
+    startImpactOsc.stop(now + 0.12);
 
-    // 2. 金属レール摩擦・ローラー音
-    const bufferSize = Math.floor(ctx.sampleRate * durationSec);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
+    // 2. 重低音モーター＆鉄扉の筐体共鳴（42Hz〜65Hzの低い唸り）
+    const bodyOsc1 = ctx.createOscillator();
+    const bodyOsc2 = ctx.createOscillator();
+    bodyOsc1.type = 'sawtooth';
+    bodyOsc2.type = 'triangle';
 
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
+    const fStart = pitchUp ? 44 : 54;
+    const fEnd = pitchUp ? 54 : 38;
+    bodyOsc1.frequency.setValueAtTime(fStart, now);
+    bodyOsc1.frequency.linearRampToValueAtTime(fEnd, now + durationSec);
 
-    const bandpass = ctx.createBiquadFilter();
-    bandpass.type = 'bandpass';
-    bandpass.frequency.setValueAtTime(pitchUp ? 340 : 440, now);
-    bandpass.frequency.linearRampToValueAtTime(pitchUp ? 460 : 260, now + durationSec);
-    bandpass.Q.setValueAtTime(2.6, now);
+    bodyOsc2.frequency.setValueAtTime(fStart * 1.48, now);
+    bodyOsc2.frequency.linearRampToValueAtTime(fEnd * 1.48, now + durationSec);
 
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.001, now);
-    noiseGain.gain.linearRampToValueAtTime(0.042, now + 0.06);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
+    const bodyFilter = ctx.createBiquadFilter();
+    bodyFilter.type = 'lowpass';
+    bodyFilter.frequency.setValueAtTime(150, now);
+    bodyFilter.Q.setValueAtTime(2.8, now);
 
-    noise.connect(bandpass);
-    bandpass.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
+    const bodyGain = ctx.createGain();
+    bodyGain.gain.setValueAtTime(0.5, now);
 
-    noise.start(now);
-    noise.stop(now + durationSec);
+    bodyOsc1.connect(bodyFilter);
+    bodyOsc2.connect(bodyFilter);
+    bodyFilter.connect(bodyGain);
+    bodyGain.connect(masterGain);
+
+    bodyOsc1.start(now);
+    bodyOsc2.start(now);
+    bodyOsc1.stop(now + durationSec + 0.06);
+    bodyOsc2.stop(now + durationSec + 0.06);
+
+    // 3. 重い鉄製ローラーと敷居レールの摩擦音（ブラウンノイズによる「ゴロゴロ…ズズッ…」）
+    const frictionBuffer = this.createHeavyFrictionBuffer(ctx, durationSec + 0.06);
+    const frictionNoise = ctx.createBufferSource();
+    frictionNoise.buffer = frictionBuffer;
+
+    const railFilter = ctx.createBiquadFilter();
+    railFilter.type = 'bandpass';
+    railFilter.frequency.setValueAtTime(pitchUp ? 135 : 175, now);
+    railFilter.frequency.linearRampToValueAtTime(pitchUp ? 185 : 115, now + durationSec);
+    railFilter.Q.setValueAtTime(1.6, now);
+
+    const frictionGain = ctx.createGain();
+    frictionGain.gain.setValueAtTime(0.85, now);
+
+    frictionNoise.connect(railFilter);
+    railFilter.connect(frictionGain);
+    frictionGain.connect(masterGain);
+
+    frictionNoise.start(now);
+    frictionNoise.stop(now + durationSec + 0.06);
+
+    // 4. チェーン・ハンガーの金属振動（15Hzの周期パルス）
+    const rattleOsc = ctx.createOscillator();
+    rattleOsc.type = 'square';
+    rattleOsc.frequency.setValueAtTime(pitchUp ? 14 : 16, now);
+
+    const rattleFilter = ctx.createBiquadFilter();
+    rattleFilter.type = 'bandpass';
+    rattleFilter.frequency.setValueAtTime(220, now);
+    rattleFilter.Q.setValueAtTime(5.0, now);
+
+    const rattleGain = ctx.createGain();
+    rattleGain.gain.setValueAtTime(0.25, now);
+
+    rattleOsc.connect(rattleFilter);
+    rattleFilter.connect(rattleGain);
+    rattleGain.connect(masterGain);
+
+    rattleOsc.start(now);
+    rattleOsc.stop(now + durationSec + 0.05);
   }
 
   /**
-   * 3-D. 扉が完全に閉まり切った瞬間の重厚なラッチ・ゴムパッキン密着音（「ズシッ…カチャッ」）
-   * 鉄扉が合わさる重みと、上部ロックピンが噛み合う機械音を演出する
+   * 3-D. 扉が完全に閉まり切った瞬間の重厚な鉄扉衝突・安全ラッチ施錠音（「ドォンッ…ガチャン！」）
+   * 左右の分厚い鉄扉がぶつかり合い、上部の重い鉄製ロックボルトが落ちる重厚な密閉音
    */
   public playDoorLatchShut(): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1. 重厚な鉄扉の密着・衝撃低音（「ズシン…」）
-    const thudOsc = ctx.createOscillator();
-    thudOsc.type = 'sine';
-    thudOsc.frequency.setValueAtTime(75, now);
-    thudOsc.frequency.exponentialRampToValueAtTime(32, now + 0.14);
+    // 1. 分厚い鉄扉同士が中央でぶつかる重低音インパクト（「ドォンッ…」）
+    const slamOsc = ctx.createOscillator();
+    slamOsc.type = 'sawtooth';
+    slamOsc.frequency.setValueAtTime(86, now);
+    slamOsc.frequency.exponentialRampToValueAtTime(24, now + 0.24);
+
+    const slamFilter = ctx.createBiquadFilter();
+    slamFilter.type = 'lowpass';
+    slamFilter.frequency.setValueAtTime(155, now);
+    slamFilter.Q.setValueAtTime(3.0, now);
+
+    const slamGain = ctx.createGain();
+    slamGain.gain.setValueAtTime(0.28, now);
+    slamGain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+
+    slamOsc.connect(slamFilter);
+    slamFilter.connect(slamGain);
+    slamGain.connect(ctx.destination);
+    slamOsc.start(now);
+    slamOsc.stop(now + 0.28);
+
+    // 2. 鉄板とゴム緩衝材が潰れる重摩擦ショックノイズ
+    const thudBuffer = this.createHeavyFrictionBuffer(ctx, 0.18);
+    const thudNoise = ctx.createBufferSource();
+    thudNoise.buffer = thudBuffer;
+
+    const thudFilter = ctx.createBiquadFilter();
+    thudFilter.type = 'lowpass';
+    thudFilter.frequency.setValueAtTime(210, now);
 
     const thudGain = ctx.createGain();
-    thudGain.gain.setValueAtTime(0.12, now);
-    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    thudGain.gain.setValueAtTime(0.32, now);
+    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
 
-    thudOsc.connect(thudGain);
+    thudNoise.connect(thudFilter);
+    thudFilter.connect(thudGain);
     thudGain.connect(ctx.destination);
-    thudOsc.start(now);
-    thudOsc.stop(now + 0.16);
+    thudNoise.start(now);
+    thudNoise.stop(now + 0.18);
 
-    // 2. 上部インターロック機構・機械式ラッチピンの噛み合いクリック音（「カチャッ」）
-    const clickTimes = [0.015, 0.048];
-    const clickFreqs = [740, 1180];
+    // 3. 上部インターロックの重い鉄製カンヌキ（施錠ボルト）が落ちる音（「ガチャン！」）
+    const boltTimes = [0.035, 0.085];
+    const boltBaseFreqs = [240, 185];
 
-    clickTimes.forEach((delay, idx) => {
-      const clickOsc = ctx.createOscillator();
-      clickOsc.type = 'square';
-      clickOsc.frequency.setValueAtTime(clickFreqs[idx], now + delay);
-      clickOsc.frequency.exponentialRampToValueAtTime(240, now + delay + 0.035);
+    boltTimes.forEach((delay, idx) => {
+      const f = boltBaseFreqs[idx];
+      // 非整数倍の金属クラング（鉄の塊が噛み合う音）
+      [1.0, 1.46, 2.12].forEach((ratio) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f * ratio, now + delay);
+        osc.frequency.exponentialRampToValueAtTime(f * ratio * 0.48, now + delay + 0.08);
 
-      const clickFilter = ctx.createBiquadFilter();
-      clickFilter.type = 'bandpass';
-      clickFilter.frequency.setValueAtTime(clickFreqs[idx], now + delay);
-      clickFilter.Q.setValueAtTime(4.5, now + delay);
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(f * ratio, now + delay);
+        filter.Q.setValueAtTime(3.5, now + delay);
 
-      const clickGain = ctx.createGain();
-      clickGain.gain.setValueAtTime(0.001, now + delay);
-      clickGain.gain.linearRampToValueAtTime(0.055, now + delay + 0.006);
-      clickGain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.04);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.001, now + delay);
+        gain.gain.linearRampToValueAtTime(0.075 / ratio, now + delay + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.085);
 
-      clickOsc.connect(clickFilter);
-      clickFilter.connect(clickGain);
-      clickGain.connect(ctx.destination);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
 
-      clickOsc.start(now + delay);
-      clickOsc.stop(now + delay + 0.045);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.09);
+      });
     });
   }
 
   /**
-   * 3-E. 扉が全開（100%）に達した時のストッパー接触音（「トン…」）
+   * 3-E. 扉が全開（100%）に達し、戸袋の奥の鉄製ストッパーに当たって停止する重厚音（「ゴツン…ガch」）
    */
   public playDoorBumperStop(): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
+    // 戸袋の奥のゴム・鉄枠に重量扉が突き当たる重低音
     const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(95, now);
-    osc.frequency.exponentialRampToValueAtTime(42, now + 0.09);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(78, now);
+    osc.frequency.exponentialRampToValueAtTime(26, now + 0.18);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(140, now);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.07, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    gain.gain.setValueAtTime(0.22, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
 
-    osc.connect(gain);
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.11);
+    osc.stop(now + 0.2);
+
+    // 戸袋内でハンガーリンクが止まる低い金属音
+    const clackBuffer = this.createHeavyFrictionBuffer(ctx, 0.09);
+    const clackNoise = ctx.createBufferSource();
+    clackNoise.buffer = clackBuffer;
+
+    const clackFilter = ctx.createBiquadFilter();
+    clackFilter.type = 'bandpass';
+    clackFilter.frequency.setValueAtTime(260, now + 0.02);
+    clackFilter.Q.setValueAtTime(2.5, now + 0.02);
+
+    const clackGain = ctx.createGain();
+    clackGain.gain.setValueAtTime(0.18, now + 0.02);
+    clackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+    clackNoise.connect(clackFilter);
+    clackFilter.connect(clackGain);
+    clackGain.connect(ctx.destination);
+    clackNoise.start(now + 0.02);
+    clackNoise.stop(now + 0.1);
   }
 
   /**
