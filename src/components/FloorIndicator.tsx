@@ -63,11 +63,154 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
       : '【停止】待機状態';
 
   return (
-    <header className="relative z-30 w-full h-14 mobile-landscape-header px-3 flex items-center justify-between gap-2 border-b border-stone-800 bg-stone-950/95 shrink-0 whitespace-nowrap">
+    <header className="relative z-30 w-full md:h-14 mobile-landscape-header px-2.5 md:px-3 py-1.5 md:py-0 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-2 border-b border-stone-800 bg-stone-950/95 shrink-0 whitespace-nowrap">
+      {/* モバイル縦画面用：1段目（精神・階数・通報・ポーズ・ミュート）＋2段目（ステータス＆タイマーバー） */}
+      <div className="flex md:hidden items-center justify-between gap-1.5 w-full">
+        {/* 精神安定度 */}
+        <div
+          id="sanity-indicator-mobile"
+          className="flex items-center gap-1 bg-black/80 border border-stone-800 px-1.5 py-1 rounded shrink-0"
+        >
+          <span className="text-[10px] font-bold text-stone-300">精神</span>
+          <div className="flex items-center gap-0.5">
+            {Array.from({ length: maxSanity }).map((_, idx) => {
+              const active = idx < sanity;
+              return (
+                <div
+                  key={idx}
+                  className={`w-3 h-2.5 rounded-xs border transition-all ${
+                    active
+                      ? sanity === 1
+                        ? 'bg-red-500 border-red-300'
+                        : 'bg-emerald-500 border-emerald-300'
+                      : 'bg-stone-900 border-stone-800 opacity-35'
+                  }`}
+                />
+              );
+            })}
+          </div>
+          <span className="font-seven-seg text-[11px] text-stone-300">
+            {sanity}/{maxSanity}
+          </span>
+        </div>
+
+        {/* 中央：階数 */}
+        <div className="flex items-center gap-1 bg-black/90 border border-stone-700/90 px-2.5 py-0.5 rounded shadow-inner shrink-0">
+          <ArrowDown
+            className={`w-3.5 h-3.5 ${isDanger ? 'text-red-500' : 'text-amber-500'}`}
+          />
+          <span
+            className={`font-seven-seg text-lg font-bold tracking-wider ${
+              isDanger ? 'led-red-glow' : 'led-amber-glow'
+            }`}
+          >
+            {formattedFloor}
+          </span>
+        </div>
+
+        {/* 右：通報＋操作アイコン */}
+        <div className="flex items-center gap-1 shrink-0">
+          <div
+            id="complaint-lamps-mobile"
+            className="flex items-center gap-1 bg-black/80 border border-stone-800 px-1.5 py-1 rounded"
+          >
+            <span className="text-[10px] font-bold text-stone-300">通報</span>
+            <div className="flex items-center gap-0.5">
+              {Array.from({ length: maxComplaints }).map((_, idx) => {
+                const isLit = idx < complaints;
+                return (
+                  <div
+                    key={idx}
+                    className={`w-2.5 h-2.5 rounded-full border ${
+                      isLit
+                        ? 'bg-red-600 border-red-300 shadow-[0_0_8px_rgba(239,68,68,0.95)] animate-pulse'
+                        : 'bg-stone-900 border-stone-700'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onTogglePause}
+            disabled={gameState === 'TITLE' || gameState === 'GAMEOVER' || gameState === 'CLEAR'}
+            className={`p-1 rounded border cursor-pointer ${
+              isPaused
+                ? 'bg-amber-500/20 border-amber-400 text-amber-300 animate-pulse'
+                : 'bg-stone-900 border-stone-700 text-stone-300'
+            } ${
+              gameState === 'TITLE' || gameState === 'GAMEOVER' || gameState === 'CLEAR'
+                ? 'opacity-40 pointer-events-none'
+                : ''
+            }`}
+          >
+            {isPaused ? (
+              <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
+            ) : (
+              <Pause className="w-3.5 h-3.5 text-amber-400" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleMute}
+            className="p-1 rounded bg-stone-900 border border-stone-700 text-stone-300 cursor-pointer"
+          >
+            {isMuted ? (
+              <VolumeX className="w-3.5 h-3.5 text-red-400" />
+            ) : (
+              <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* モバイル縦画面用：2段目（状態テキスト＋タイマーバー） */}
+      <div className="flex md:hidden items-center gap-2 w-full">
+        <span
+          className={`text-[10px] font-bold shrink-0 ${
+            gameState === 'PREPARE'
+              ? 'text-emerald-400'
+              : isJudging
+              ? isSlowMotion
+                ? 'text-red-400 animate-pulse'
+                : 'text-amber-400'
+              : 'text-stone-400'
+          }`}
+        >
+          {statusText}
+        </span>
+        <div className="flex-1 h-1.5 bg-stone-900 rounded-full overflow-hidden border border-stone-800">
+          {isJudging ? (
+            <div
+              className={`h-full transition-all duration-75 ${
+                isSlowMotion
+                  ? 'bg-red-500'
+                  : timeProgress < 30
+                  ? 'bg-red-500'
+                  : 'bg-amber-400'
+              }`}
+              style={{ width: `${timeProgress}%` }}
+            />
+          ) : (
+            <div
+              className={`h-full w-full ${
+                gameState === 'PREPARE' ? 'bg-emerald-500/40' : 'bg-stone-800/50'
+              }`}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* ============================================================
+          デスクトップ・PC横画面用（md以上）：従来の1行コンパクトヘッダー
+          ============================================================ */}
       {/* 左：精神安定度 ＋ 緑ゲージ (3/3) */}
       <div
         id="sanity-indicator"
-        className="flex items-center gap-2 bg-black/80 border border-stone-800 px-3 py-1.5 rounded whitespace-nowrap shrink-0"
+        className="hidden md:flex items-center gap-2 bg-black/80 border border-stone-800 px-3 py-1.5 rounded whitespace-nowrap shrink-0"
       >
         <span className="text-xs font-bold text-stone-300 whitespace-nowrap">精神安定度</span>
         <div className="flex items-center gap-1">
@@ -93,7 +236,7 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
       </div>
 
       {/* 中央：14F ＋ ステータス＆8秒タイマーバー */}
-      <div className="flex items-center gap-3 bg-black/90 border border-stone-700/90 px-3.5 py-1 rounded shadow-inner whitespace-nowrap shrink-0">
+      <div className="hidden md:flex items-center gap-3 bg-black/90 border border-stone-700/90 px-3.5 py-1 rounded shadow-inner whitespace-nowrap shrink-0">
         {/* 下降矢印＋7セグ階層表示 */}
         <div className="flex items-center gap-1.5">
           <motion.div
@@ -165,7 +308,7 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
       </div>
 
       {/* 右：通報累積 ＋ 赤ランプ (0/3) ＋ ミュート */}
-      <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+      <div className="hidden md:flex items-center gap-2 shrink-0 whitespace-nowrap">
         <div
           id="complaint-lamps"
           className="flex items-center gap-2 bg-black/80 border border-stone-800 px-3 py-1.5 rounded whitespace-nowrap"

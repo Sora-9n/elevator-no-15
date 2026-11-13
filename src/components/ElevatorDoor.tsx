@@ -16,6 +16,8 @@ interface ElevatorDoorProps {
   movingEvent: MovingCabinEvent | null;
   isFanOn: boolean;
   isArrivingFlash: boolean;
+  isKeyWomanAlertActive: boolean;
+  onOpenMemo?: () => void;
 }
 
 export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
@@ -29,6 +31,8 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
   movingEvent,
   isFanOn,
   isArrivingFlash,
+  isKeyWomanAlertActive,
+  onOpenMemo,
 }) => {
   const slideOffsetPercent = Math.max(0, Math.min(100, doorOpenPercent)) * 0.92;
 
@@ -50,7 +54,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
     <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden select-none">
       {/* エレベーター扉の外枠 */}
       <div
-        className={`relative w-full h-full border-x-[12px] border-t-[8px] border-b-[12px] border-stone-900 shadow-[inset_0_0_50px_rgba(0,0,0,0.95)] overflow-hidden bg-black ${
+        className={`relative w-full h-full border-x-[6px] md:border-x-[12px] border-t-[6px] md:border-t-[8px] border-b-[8px] md:border-b-[12px] border-stone-900 shadow-[inset_0_0_50px_rgba(0,0,0,0.95)] overflow-hidden bg-black ${
           isPryingDoor
             ? 'door-prying-shake'
             : isFanOn
@@ -490,48 +494,72 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
 
         {/* こじ開け発生時 または 2F管理室緊急警報時の車内非常警告光 */}
         <AnimatePresence>
-          {(isPryingDoor || (gameState === 'JUDGING' && floor === 2)) && (
-            <div className="absolute inset-0 z-25 pointer-events-none flex flex-col items-center justify-start p-3">
+          {(isPryingDoor || isKeyWomanAlertActive) && (
+            <motion.div
+              key="emergency-door-alert-layer"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="absolute inset-0 z-25 pointer-events-none flex flex-col items-center justify-start p-2.5 md:p-3"
+            >
               <div className="absolute inset-0 bg-red-950/45 door-emergency-light mix-blend-multiply" />
-              {gameState === 'JUDGING' && floor === 2 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -12 }}
-                  animate={{ opacity: [0.88, 1, 0.88], y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.45, repeat: Infinity }}
-                  className="relative z-30 bg-red-950/95 border-2 border-red-500 text-red-100 px-3.5 py-2 rounded-xs shadow-[0_0_30px_rgba(220,38,38,0.95)] max-w-md w-full text-center font-mincho"
-                >
-                  <div className="text-[11px] font-black text-amber-300 tracking-widest mb-0.5">
+              {isKeyWomanAlertActive && (
+                <div className="relative z-30 bg-red-950/95 border-2 border-red-500 text-red-100 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xs shadow-[0_0_30px_rgba(220,38,38,0.95)] max-w-md w-full text-center font-mincho animate-pulse">
+                  <div className="text-[10px] md:text-[11px] font-black text-amber-300 tracking-widest mb-0.5">
                     【管理室 最優先命令 // 特級危険物警報】
                   </div>
-                  <div className="text-xs font-extrabold leading-snug">
-                    2階の個体は特級危険物だ！絶対に開けるな、直ちに扉を閉めろ！命令違反は即刻処分するぞ！！
+                  <div className="text-[11px] md:text-xs font-extrabold leading-snug">
+                    2階の個体は特級危険物である。絶対に開けるな。直ちに扉を閉めろ。
                   </div>
-                </motion.div>
+                </div>
               )}
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
         {/* PREPARE（15F・10F・5F チェックポイント）時の業務指示書プレート */}
         {gameState === 'PREPARE' && (
-          <div className="absolute inset-0 z-30 flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain pointer-events-none">
-            <div className="aged-paper border-2 border-stone-800 px-4 py-3 sm:px-5 sm:py-4 rounded-xs shadow-[0_15px_50px_rgba(0,0,0,0.98)] max-w-sm w-full font-mincho text-stone-900 relative my-auto shrink-0 max-h-[85dvh] overflow-y-auto overscroll-contain touch-pan-y pointer-events-auto">
-              <div className="flex items-center justify-between border-b-2 border-stone-800 pb-2 mb-2.5">
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-2.5 p-2.5 sm:p-4 overflow-y-auto overscroll-contain pointer-events-none">
+            <div className="aged-paper border-2 border-stone-800 px-3.5 py-2.5 sm:px-5 sm:py-4 rounded-xs shadow-[0_15px_50px_rgba(0,0,0,0.98)] max-w-sm w-full font-mincho text-stone-900 relative shrink-0 pointer-events-auto">
+              <div className="flex items-center justify-between border-b-2 border-stone-800 pb-1.5 sm:pb-2 mb-2">
                 <div className="flex items-center gap-1.5 text-stone-950 font-extrabold text-xs tracking-wider">
                   <ClipboardCheck className="w-4 h-4 text-red-900 shrink-0" />
-                  <span>【{floor}階 検問待機所】管理室 命令通達</span>
+                  <span>【{floor}階 検問待機所】管理室 通達</span>
                 </div>
                 <span className="border border-red-800 text-red-800 text-[10px] font-extrabold px-1.5 py-0.2 rotate-[-4deg] shrink-0">
                   絶対服従
                 </span>
               </div>
-              <p className="text-xs text-stone-900 leading-relaxed font-bold">
+              <p className="text-[11px] sm:text-xs text-stone-900 leading-relaxed font-bold">
                 {floor === 15
-                  ? '左壁面の保安通達（3通）を頭に叩き込め。理解したらモタモタせず右操作盤の「▼ 下降開始」を押して働け。'
-                  : '管理室より規程改定の追加命令（2通）を下達した。左壁面の未読文書を即座に確認し、愚図らず下降を再開しろ。'}
+                  ? '保安通達（3通）をすべて確認しろ。確認後、操作盤の「▼ 下降開始」を押して業務を開始しろ。'
+                  : floor === 10
+                  ? '管理室より規程改定の追加通達（2通）を下達した。未読文書を確認し、下降を再開しろ。'
+                  : '管理室より低層階の追加通達（1通）を下達した。未読文書を確認し、下降を再開しろ。'}
               </p>
             </div>
+
+            {/* 5Fのみ：管理室通達とは無関係に、扉の隙間から血に汚れた紙片が滑り込んでくる独立演出 */}
+            {floor === 5 && (
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35, duration: 0.4 }}
+                onClick={onOpenMemo}
+                className="bloody-scrap-paper border-2 border-red-900/90 px-3.5 py-2 max-w-sm w-full text-left shadow-[0_8px_25px_rgba(127,29,29,0.75)] pointer-events-auto cursor-pointer hover:brightness-105 transition-all"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs font-mincho font-black text-red-950">
+                    🩸 エレベーターの扉の隙間から、血に汚れた紙片が滑り込んできた……
+                  </span>
+                  <span className="shrink-0 bg-red-900 text-red-100 text-[9px] font-bold px-1.5 py-0.5 rounded-xs animate-pulse">
+                    確認
+                  </span>
+                </div>
+              </motion.button>
+            )}
           </div>
         )}
 

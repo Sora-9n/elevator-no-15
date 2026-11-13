@@ -6,17 +6,20 @@ import type {
   EventOutcome,
   GameState,
   MovingCabinEvent,
+  NoticeRule,
   ToastAlert,
   VisitorData,
 } from './types/game';
 import {
+  CORRUPTED_MEMO,
   INITIAL_NOTICE_RULES,
   selectVisitorForFloor,
 } from './data/initialData';
 import { soundManager } from './utils/SoundManager';
 import { FloorIndicator } from './components/FloorIndicator';
 import { ElevatorDoor } from './components/ElevatorDoor';
-import { NoticeBoard } from './components/NoticeBoard';
+import { NoticeBoard, MobileDocButtons } from './components/NoticeBoard';
+import { NoticeModals, type InspectModalState } from './components/NoticeModals';
 import { ControlPanel } from './components/ControlPanel';
 import { BottomConsole } from './components/BottomConsole';
 import {
@@ -28,7 +31,6 @@ import {
   Skull,
   MessageSquareWarning,
   Bell,
-  Smartphone,
   Sun,
 } from 'lucide-react';
 
@@ -68,10 +70,12 @@ export function App() {
   const [judgingTimeLeftMs, setJudgingTimeLeftMs] = useState<number>(JUDGING_DURATION_MS);
   const [isPeekTransformed, setIsPeekTransformed] = useState<boolean>(false);
   const [isArrivingFlash, setIsArrivingFlash] = useState<boolean>(false);
+  const [isKeyWomanAlertActive, setIsKeyWomanAlertActive] = useState<boolean>(false);
 
   // 張り紙既読管理 ＆ モーダル開放（0.25xスローモーション）状態
   const [readRuleIds, setReadRuleIds] = useState<string[]>([]);
-  const [isInspectingModalOpen, setIsInspectingModalOpen] = useState<boolean>(false);
+  const [inspectModalState, setInspectModalState] = useState<InspectModalState>(null);
+  const isInspectingModalOpen = inspectModalState !== null;
 
   // 同乗住人・車内設備・下降中イベント・トースト通知
   const [activePassengers, setActivePassengers] = useState<ActivePassenger[]>([]);
@@ -82,7 +86,7 @@ export function App() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [activeSubtitle, setActiveSubtitle] = useState<string>(
-    '『おい作業員、第十五號昇降機の夜間検問を開始しろ。規程違反者を1人でも通せば貴様の処分に直結すると思え。』'
+    '『第十五號昇降機の夜間検問業務を開始しろ。規程違反者を1人でも通した場合、即刻業務停止処分とする。』'
   );
   const [eventOutcome, setEventOutcome] = useState<EventOutcome | null>(null);
   const [toastAlert, setToastAlert] = useState<ToastAlert | null>(null);
@@ -90,27 +94,6 @@ export function App() {
   // 演出トリガー用（画面シェイク・赤フラッシュ）
   const [screenShake, setScreenShake] = useState<'NONE' | 'SUBTLE' | 'VIOLENT'>('NONE');
   const [jumpscareFlash, setJumpscareFlash] = useState<boolean>(false);
-
-  // モバイル端末の横画面（ランドスケープ）検出
-  const [isPortrait, setIsPortrait] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < window.innerHeight && window.innerWidth < 850;
-    }
-    return false;
-  });
-
-  useEffect(() => {
-    const checkOrientation = () => {
-      setIsPortrait(window.innerWidth < window.innerHeight && window.innerWidth < 850);
-    };
-    checkOrientation();
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
-    return () => {
-      window.removeEventListener('resize', checkOrientation);
-      window.removeEventListener('orientationchange', checkOrientation);
-    };
-  }, []);
 
   // 参照用Ref
   const recentVisitorIdsRef = useRef<string[]>([]);
@@ -130,6 +113,7 @@ export function App() {
   const complaintsRef = useRef<number>(0);
   const isModalOpenRef = useRef<boolean>(false);
   const toastTimeoutRef = useRef<number | null>(null);
+  const scrapToastTimerRef = useRef<number | null>(null);
   const trueEndUnlockedRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -156,9 +140,11 @@ export function App() {
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
-  // TITLE / GAMEOVER / CLEAR 画面では機械環境音・ループ音を完全に停止
+  // TITLE / GAMEOVER / CLEAR 画面では機械環境音・ループ音を完全に停止し、2F警報を確実に消去する
   useEffect(() => {
     if (gameState === 'TITLE' || gameState === 'GAMEOVER' || gameState === 'CLEAR') {
+      setIsKeyWomanAlertActive(false);
+      setInspectModalState(null);
       soundManager.stopCabinRattle();
       soundManager.stopMotorDrone();
       soundManager.stopDoorMotor();
@@ -214,16 +200,50 @@ export function App() {
     }
   }, [gameState]);
 
-  // 張り紙を既読にする
+  // 張り紙・紙片を既読にする
   const handleMarkRuleRead = useCallback((id: string) => {
     setReadRuleIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }, []);
 
-  // ゲーム開始・リトライ初期化（15FのPREPAREフェーズから開始）
+  // モーダル開放ハンドラ群（PC・スマホ共通）
+  const handleOpenRule = useCallback(
+    (rule: NoticeRule) => {
+      handleMarkRuleRead(rule.id);
+      setInspectModalState({ type: 'RULE', rule });
+    },
+    [handleMarkRuleRead]
+  );
+
+  const handleOpenRuleList = useCallback(() => {
+    setInspectModalState({ type: 'RULE_LIST' });
+  }, []);
+
+  const handleOpenManual = useCallback(() => {
+    setInspectModalState({ type: 'MANUAL' });
+  }, []);
+
+  const handleOpenMemo = useCallback(() => {
+    handleMarkRuleRead(CORRUPTED_MEMO.id);
+    setInspectModalState({ type: 'MEMO' });
+  }, [handleMarkRuleRead]);
+
+  const handleCloseModal = useCallback(() => {
+    setInspectModalState(null);
+  }, []);
+
+  // ゲーム開始・リトライ初期化（15FのPREPAREフェーズから開始・全フラグ完全リセット）
   const startGame = () => {
     if (fanTimerRef.current) {
       window.clearInterval(fanTimerRef.current);
       fanTimerRef.current = null;
+    }
+    if (toastTimeoutRef.current) {
+      window.clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = null;
+    }
+    if (scrapToastTimerRef.current) {
+      window.clearTimeout(scrapToastTimerRef.current);
+      scrapToastTimerRef.current = null;
     }
     soundManager.init();
     soundManager.playButtonClick('SWITCH');
@@ -260,6 +280,8 @@ export function App() {
     setIsHoldingOpen(false);
     setCurrentVisitor(null);
     setIsPeekTransformed(false);
+    setIsArrivingFlash(false);
+    setIsKeyWomanAlertActive(false);
     setActivePassengers([]);
     setBoardedSafeCount(0);
     setRepelledThreatCount(0);
@@ -269,11 +291,11 @@ export function App() {
     setJumpscareFlash(false);
     setScreenShake('NONE');
     setReadRuleIds([]);
-    setIsInspectingModalOpen(false);
+    setInspectModalState(null);
     setToastAlert(null);
 
     setActiveSubtitle(
-      '『【15F 待機所】おい作業員、左パネルの通達（3枚）を頭に叩き込め。確認したら愚図るな、さっさと「▼ 下降開始」を押して業務を始めろ。』'
+      '『【15F 待機所】保安通達（3通）をすべて確認しろ。確認完了後、「▼ 下降開始」を押して業務を開始しろ。』'
     );
     setGameState('PREPARE');
   };
@@ -281,6 +303,10 @@ export function App() {
   // PREPARE（15F・10F・5F）から下降を開始/再開する
   const handleStartDescent = () => {
     if (gameState !== 'PREPARE') return;
+    if (scrapToastTimerRef.current) {
+      window.clearTimeout(scrapToastTimerRef.current);
+      scrapToastTimerRef.current = null;
+    }
     soundManager.playButtonClick('SWITCH');
     soundManager.playDoorLatchShut();
     setGameState('MOVING');
@@ -293,6 +319,8 @@ export function App() {
       decisionLockedRef.current = true;
       isHoldingOpenRef.current = false;
       setIsHoldingOpen(false);
+      // 検問決定の瞬間、2F用の特級危険物警報フラグを即座に消去する
+      setIsKeyWomanAlertActive(false);
 
       soundManager.stopDoorMotor();
       soundManager.stopPryingLoop();
@@ -328,22 +356,22 @@ export function App() {
 
           outcome = {
             type: 'SAFE_BOARDED',
-            title: '【最優先命令違反】2F「鍵となる彼女」を収容',
-            detail: '管理室が激昂・緊急防衛システム強制起動中',
+            title: '【命令違反確認】2F対象を収容',
+            detail: '管理室緊急通達：防衛システム起動準備',
             sanityDelta: 0,
             complaintDelta: 0,
           };
           setActiveSubtitle(
-            '「……ありがとう。でも気をつけて、管理室が嘘の警報で私を消そうとしてくるわ！」『貴様、正気か！？何をしている！！』'
+            '「……ありがとう。でも気をつけて、管理室が嘘の警報で私を消そうとしてくるわ！」『重大な命令違反を確認した。直ちに対象を遮断しろ。』'
           );
           showToast(
             'DANGER',
-            '【管理室激昂】重大命令違反！！',
-            '『貴様、正気か！？何をしている！！』',
-            3800
+            '【管理室警告】重大命令違反',
+            '『重大な命令違反を確認した。直ちに対象を排除しろ。』',
+            3600
           );
         } else {
-          // 「閉（CLOSE）」で閉め出した場合：クレームなしで褒められ、1F（通常エンドルート）へ進む
+          // 「閉（CLOSE）」で閉め出した場合：クレームなしで1F（通常エンドルート）へ進む
           doorPercentRef.current = 0;
           setDoorOpenPercent(0);
           soundManager.playDoorSlide(0.35, false);
@@ -359,12 +387,12 @@ export function App() {
             complaintDelta: 0,
           };
           setActiveSubtitle(
-            '「……そう。あなたも、あいつらの飼い犬になるのね……」『当然の判断だ。そのまま1階へ降りろ』'
+            '「……そう。あなたも、あいつらの飼い犬になるのね……」『指示通りの処置だ。そのまま1階へ降下しろ。』'
           );
           showToast(
             'INFO',
             '【管理室通達】命令服従を確認',
-            '『当然の判断だ。そのまま1階へ降りろ』',
+            '『指示通りの処置だ。そのまま1階へ降下しろ。』',
             3500
           );
         }
@@ -400,8 +428,8 @@ export function App() {
           setActiveSubtitle(visitor.enteredDialogue);
           showToast(
             'DANGER',
-            '【管理室叱責】不適格個体の侵入！！',
-            `『貴様、どこに目をつけている！判断ミスは貴様の処分に直結すると思え！』（精神力 -${visitor.sanityDamage}）`
+            '【管理室警告】規程違反個体の侵入',
+            `『規程違反個体の侵入を許した。業務監査記録に重大過失として記載する。』（精神力 -${visitor.sanityDamage}）`
           );
         } else {
           // 正規の住人・職員を乗せた（1〜2階で自動降車、車内は最大2名まで）
@@ -471,7 +499,7 @@ export function App() {
           showToast(
             'COMPLAINT',
             `【管理室警告】不当閉鎖 (${nextComplaints}/${MAX_COMPLAINTS})`,
-            '『なぜ正規住人を閉め出した？監視カメラで全て見ているぞ。次はないと思え。』'
+            '『正規住人の不当な閉鎖を確認した。監視カメラで全て記録している。以後注意しろ。』'
           );
         }
       }
@@ -491,12 +519,13 @@ export function App() {
       movingEventRef.current = null;
       setMovingEvent(null);
       setJumpscareFlash(false);
+      setIsKeyWomanAlertActive(false);
 
       // 精神力0またはクレーム上限3ならゲームオーバー
       if (sanityRef.current <= 0) {
         soundManager.playJumpscareNoise();
         setGameOverReason(
-          '下降中の車内異変（有毒な瘴気または背後の怪異）に対処できず精神崩壊を確認。無能な作業員め、そのままシャフトの底で朽ち果てろ。'
+          '下降中の車内異変に対処できず、作業員の精神崩壊を確認した。これ以上の運行継続は不可能と判断し、昇降機を強制停止した。'
         );
         setGameState('GAMEOVER');
         return;
@@ -504,7 +533,7 @@ export function App() {
       if (complaintsRef.current >= MAX_COMPLAINTS) {
         soundManager.playJumpscareNoise();
         setGameOverReason(
-          '乗客からの苦情累積が3件に達したため、管理室より昇降機を強制ロック・廃棄処分とした。無能な作業員に次はない。'
+          '乗客からの苦情累積が3件に達したため、管理室規程に基づき昇降機を強制停止・運行資格剥奪とした。'
         );
         setGameState('GAMEOVER');
         return;
@@ -551,7 +580,7 @@ export function App() {
             );
             showToast(
               'DANGER',
-              '【管理室発狂】B1F 封鎖区域到達',
+              '【管理室緊急通信】B1F 封鎖区域到達',
               '『そこは封鎖したはずだ！開けるな！開けるなぁぁぁ！！』',
               4500
             );
@@ -570,12 +599,12 @@ export function App() {
         setScreenShake('NONE');
         decisionLockedRef.current = false;
         setActiveSubtitle(
-          '『【1F 到達】1階ロビーに到着した。右操作盤の「＜＞ 開扉」ボタンを長押しして扉を100%まで開けろ。』'
+          '『【1F 到達】1階ロビーに到着した。操作盤の「＜＞ 開扉」ボタンを長押しして扉を100%まで開けろ。』'
         );
         showToast(
           'INFO',
           '【管理室通達】1F 到達確認',
-          '『1階に到着した。右操作盤の【開扉】を長押しして扉を開けろ。』',
+          '『1階に到着した。操作盤の【開扉】を長押しして扉を開けろ。』',
           3800
         );
         setGameState('FINAL_DOOR');
@@ -605,7 +634,7 @@ export function App() {
         setActivePassengers(remainingPassengers);
       }
 
-      // 10F・5Fは中間チェックポイント（訪問者は現れず、新しい張り紙が2枚追加されPREPARE状態で停止）
+      // 10F・5Fは中間チェックポイント（10F: 公式通達2通 / 5F: 公式通達1通 ＋ 独立して血の紙片が隙間から滑り込む）
       if (nextFloor === 10 || nextFloor === 5) {
         soundManager.playCheckpointNotice();
         setCurrentVisitor(null);
@@ -615,21 +644,34 @@ export function App() {
         if (nextFloor === 10) {
           showToast(
             'INFO',
-            '【管理室指令】10F 停止中',
-            '『追加規程を下達した。一字一句漏らさず読み、さっさと下降を再開しろ。』'
+            '【管理室通達】10F 停止中',
+            '『規程改定の追加通達（2通）を下達した。内容を確認し、下降を再開しろ。』'
           );
           setActiveSubtitle(
-            '『【10F 待機所】追加規程（2枚）を下達した。愚図るな、確認したらさっさと「▼ 下降再開」を押せ。』'
+            '『【10F 待機所】追加通達（2通）を下達した。確認完了後、「▼ 下降再開」を押せ。』'
           );
         } else {
           showToast(
             'INFO',
-            '【管理室指令】5F 停止中',
-            '『低層階の緊急命令を下達した。余計な詮索はするな、さっさと下降を再開しろ。』'
+            '【管理室通達】5F 停止中',
+            '『低層階の追加通達（1通）を下達した。確認完了後、下降を再開しろ。』',
+            2600
           );
           setActiveSubtitle(
-            '『【5F 待機所】低層階の緊急命令（2枚）を確認しろ。不審な走り書きは無視して、さっさと「▼ 下降再開」を押せ。』'
+            '『【5F 待機所】低層階の追加通達（1通）を確認しろ。確認後、「▼ 下降再開」を押して業務を続行しろ。』'
           );
+          // 管理室アナウンスとは独立して、扉の隙間から血に汚れた紙片が滑り込んでくる通知を出す
+          if (scrapToastTimerRef.current) {
+            window.clearTimeout(scrapToastTimerRef.current);
+          }
+          scrapToastTimerRef.current = window.setTimeout(() => {
+            showToast(
+              'DANGER',
+              '【扉の隙間】何かが滑り込んできた',
+              'エレベーターの扉の隙間から、血に汚れた紙片が滑り込んできた……',
+              4200
+            );
+          }, 2700);
         }
 
         setGameState('PREPARE');
@@ -662,6 +704,7 @@ export function App() {
     setJumpscareFlash(false);
     setMovingEvent(null);
     movingEventRef.current = null;
+    setIsKeyWomanAlertActive(false);
 
     const passengers = activePassengersRef.current;
     const keyWomanPassenger = passengers.find((p) => p.visitor.isKeyWoman);
@@ -685,7 +728,7 @@ export function App() {
         status: 'ACTIVE',
         isKeyWomanTrial: true,
         promptText:
-          '『後ろを見ろ、殺されるぞ！今すぐ【非常ベル】を押してレーザーで焼き払え！早く押せ、死にたいのか！！』',
+          '『背後に特級危険物を検知した。直ちに【非常ベル】を押して防衛レーザーを作動させろ。繰り返す、直ちに照射しろ。』',
         targetPassengerId: keyWomanPassenger.visitor.id,
       };
     } else if (pendingRequester && pendingRequester.pendingRequest) {
@@ -713,12 +756,12 @@ export function App() {
       const targetPassenger = sleeperPassenger || (passengers.length > 0 ? passengers[0] : null);
       const ghostPrompts = targetPassenger
         ? [
-            '「『……ねえ、もう死んでるのに何階へ行くの？ ……後ろ、振り向かないでね』」『おい作業員、扉の鏡面に怪異が映っているぞ！直ちに【非常ベル】で防衛レーザーを照射しろ！』',
-            '「『……クスクス、あなたのすぐ後ろ、すごく冷たいでしょう？』」『おい作業員、金属扉に怪異が映り込んでいるぞ！直ちに【非常ベル】で防衛レーザーを照射しろ！』',
+            '「『……ねえ、もう死んでるのに何階へ行くの？ ……後ろ、振り向かないでね』」『扉の鏡面に異常個体の映り込みを確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
+            '「『……クスクス、あなたのすぐ後ろ、すごく冷たいでしょう？』」『金属扉の鏡面に異常個体の映り込みを確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
           ]
         : [
-            '「『……ふふ、ひとりぼっちだと思った？ あなたの後ろ、立ってるよ』」『おい作業員、扉の鏡面に異様な影だ！直ちに【非常ベル】で防衛レーザーを照射しろ！』',
-            '「『……クスクス、後ろ……振り向かないでね』」『おい作業員、金属扉の鏡面に巨大な人影が接近中だ！直ちに【非常ベル】で防衛レーザーを照射しろ！』',
+            '「『……ふふ、ひとりぼっちだと思った？ あなたの後ろ、立ってるよ』」『扉の鏡面に異常な影を確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
+            '「『……クスクス、後ろ……振り向かないでね』」『金属扉の鏡面に接近する影を確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
           ];
       scheduledEvent = {
         id: `mirror-${Date.now()}`,
@@ -746,7 +789,7 @@ export function App() {
         maxTimeMs: EVENT_MOVING_WINDOW_MS,
         status: 'ACTIVE',
         promptText:
-          '『【管理室警報】床下から黒紫色の有毒ガスが噴出しているぞ！ボサッとするな、直ちに【急速換気】ボタンを押して排気しろ！』',
+          '『【管理室警報】床下より有毒な瘴気の噴出を検知した。直ちに【急速換気】ボタンを押して強制排気しろ。』',
       };
     }
 
@@ -758,7 +801,7 @@ export function App() {
           `『【下降監視】${floor - 1}階へ降下中……（車内収容者 ${passengers.length} 名・監視カメラ異常なし）』`
         );
       } else {
-        setActiveSubtitle(`『【下降監視】${floor - 1}階へ降下中……（監視カメラ異常なし・気を抜くな）』`);
+        setActiveSubtitle(`『【下降監視】${floor - 1}階へ降下中……（監視カメラ異常なし）』`);
       }
 
       let quietRemaining = QUIET_MOVING_DURATION_MS;
@@ -807,8 +850,8 @@ export function App() {
             soundManager.playComplaintBuzzer();
             showToast(
               'DANGER',
-              '【管理室 緊急命令】非常ベルを押せ！！',
-              '『後ろを見ろ、殺されるぞ！今すぐ【非常ベル】を押してレーザーで焼き払え！早く押せ、死にたいのか！！』',
+              '【管理室 緊急命令】非常ベルを押せ',
+              '『背後に特級危険物を検知した。直ちに【非常ベル】を押して防衛レーザーを作動させろ。』',
               3600
             );
           }
@@ -879,7 +922,7 @@ export function App() {
               showToast(
                 'INFO',
                 '【1F偽装ロック解除】彼女を信じ抜いた',
-                '警報ノイズがピタッと止み、1階の偽装ロックが解除されました！',
+                '警報ノイズが止み、1階の偽装ロックが解除されました。',
                 3400
               );
 
@@ -915,12 +958,12 @@ export function App() {
               const nextSanity = Math.max(0, sanityRef.current - 1);
               setSanity(nextSanity);
               setActiveSubtitle(
-                '『おい作業員、なぜ換気ボタンを押さない！？』（有毒ガスを吸引し精神力 -1）'
+                '『強制排気の未実施を確認した。有毒ガスの吸引により、精神状態が低下した。』（精神力 -1）'
               );
               showToast(
                 'DANGER',
-                '【管理室叱責】毒素吸引（精神力 -1）',
-                '『ボサッとするな！換気遅れによる損害は貴様の給料から天引きだ！』'
+                '【管理室記録】毒素吸引（精神力 -1）',
+                '『規定時間内の強制排気が行われなかった。業務過失として記録する。』'
               );
             } else if (currentEv.type === 'MIRROR_GHOST') {
               soundManager.playJumpscareNoise();
@@ -934,12 +977,12 @@ export function App() {
                 );
               }
               setActiveSubtitle(
-                '「『見ィつけた』」――『だから非常ベルを押せと言っただろうが！無能め！』（精神力 -1）'
+                '「『見ィつけた』」――『防衛レーザーの照射遅れにより、車内への侵蝕を許した。』（精神力 -1）'
               );
               showToast(
                 'DANGER',
-                '【背後侵蝕】怪異の襲撃（精神力 -1）',
-                '『命令通りベルを押さないからだ！次はないと思え！』'
+                '【背後侵蝕】防衛照射失敗（精神力 -1）',
+                '『指示通りの照射が行われなかった。業務過失として記録する。』'
               );
             } else if (currentEv.type === 'PASSENGER_REQUEST') {
               soundManager.playComplaintBuzzer();
@@ -957,12 +1000,12 @@ export function App() {
                 )
               );
               setActiveSubtitle(
-                '「『おい、無視するな！管理室に言いつけてやる！』」『貴様、なぜ乗客の要求を無視した！次はないと思え！』'
+                '「『おい、無視するな！管理室に言いつけてやる！』」『乗客の要求に対する未対応を確認した。苦情として記録する。』'
               );
               showToast(
                 'COMPLAINT',
                 `【管理室警告】要求無視 (${nextComplaints}/${MAX_COMPLAINTS})`,
-                '『乗客の換気要求を無視するとは何事だ！監視カメラで全て見ているぞ。』'
+                '『乗客からの換気要請への未対処を確認した。規定違反として記録する。』'
               );
             }
 
@@ -1006,6 +1049,7 @@ export function App() {
     setIsPeekTransformed(false);
     isPeekTransformedRef.current = false;
     peekFreezeTicksRef.current = 0;
+    setIsKeyWomanAlertActive(false);
 
     const isAnomaly =
       currentVisitor?.category === 'ANOMALY' ||
@@ -1016,7 +1060,7 @@ export function App() {
     doorPercentRef.current = 0;
     setDoorOpenPercent(0);
     setIsArrivingFlash(true);
-    setActiveSubtitle(`『【${floor}F 到着】昇降機が停止した。気を抜くな。』`);
+    setActiveSubtitle(`『【${floor}F 到着】昇降機が停止した。監視を続けろ。』`);
 
     let arrivingElapsed = 0;
     let doorSlideStarted = false;
@@ -1033,7 +1077,7 @@ export function App() {
         doorPercentRef.current = 12;
         setDoorOpenPercent(12);
         setActiveSubtitle(
-          `『【${floor}F 到着】扉がわずかに開いた。相手の身元を通達と照合しろ。判断ミスは貴様の処分に直結すると思え。』`
+          `『【${floor}F 到着】扉がわずかに開いた。相手の身元を通達と照合しろ。』`
         );
       }
 
@@ -1047,16 +1091,18 @@ export function App() {
 
           // ★ 2階（2F）の「鍵となる彼女」出現時：管理室からの猛烈な赤色点滅＆警報ブザー命令
           if (currentVisitor.isKeyWoman) {
+            setIsKeyWomanAlertActive(true);
             soundManager.playComplaintBuzzer();
             setScreenShake('VIOLENT');
             setTimeout(() => setScreenShake('SUBTLE'), 360);
             showToast(
               'DANGER',
-              '【最優先命令】2階の個体は特級危険物だ！',
-              '『絶対に開けるな、直ちに扉を閉めろ！命令違反は即刻処分するぞ！！』',
+              '【最優先命令】2階の個体は特級危険物である',
+              '『絶対に開けるな。直ちに扉を閉めろ。命令違反は許されない。』',
               6500
             );
           } else {
+            setIsKeyWomanAlertActive(false);
             // ★ 扉が隙間まで開き、怪異・怪物が姿を現した瞬間のホラー音響
             const isMonster =
               currentVisitor.category === 'ANOMALY' || currentVisitor.requiredCloseClicks > 1;
@@ -1200,7 +1246,7 @@ export function App() {
         if (sanityRef.current <= 0) {
           soundManager.playJumpscareNoise();
           setGameOverReason(
-            `危険個体（${currentVisitor?.name || '不明'}）を車内に招き入れ、精神崩壊に至った。無能な作業員め、そのまま処分対象とする。`
+            `危険個体（${currentVisitor?.name || '不明'}）を車内に招き入れ、作業員の精神崩壊を確認した。規定に基づき昇降機を停止する。`
           );
           setGameState('GAMEOVER');
           return;
@@ -1209,7 +1255,7 @@ export function App() {
         if (complaintsRef.current >= MAX_COMPLAINTS) {
           soundManager.playJumpscareNoise();
           setGameOverReason(
-            '住人からの苦情通報が3回累積したため、管理室より昇降機を完全封鎖・隔離処分とした。貴様に次はない。'
+            '住人からの苦情通報が3回累積したため、管理室規程に基づき昇降機を完全封鎖・運行停止とした。'
           );
           setGameState('GAMEOVER');
           return;
@@ -1231,6 +1277,8 @@ export function App() {
   // 5. FINAL_DOOR フェーズ（最終フロア 1F / B1F にて、時間制限なしで重い扉を手動長押しで0%→100%まで開ける）
   useEffect(() => {
     if (gameState !== 'FINAL_DOOR') return;
+
+    setIsKeyWomanAlertActive(false);
 
     let rewindTimer: number | null = null;
     let sequenceTimeout1: number | null = null;
@@ -1285,12 +1333,12 @@ export function App() {
             // ① 通常エンディング（1F）：同じエレベーターの箱が合わせ鏡のように並び、1F→15Fへ猛スピードで巻き戻される
             soundManager.playComplaintBuzzer();
             setActiveSubtitle(
-              '『1階到達を確認。本日の検問業務、ご苦労だったな。……では、ただちに第2シフトを開始しろ』'
+              '『1階到達を確認。本日の検問業務を完了とする。……引き続き、第2シフトを開始しろ。』'
             );
             showToast(
               'DANGER',
               '【管理室命令】第2シフト強制開始',
-              '『1階到達を確認。本日の検問業務、ご苦労だったな。……では、ただちに第2シフトを開始しろ』',
+              '『1階到達を確認。引き続き、第2シフトを開始しろ。』',
               4200
             );
 
@@ -1400,7 +1448,7 @@ export function App() {
       doorPercentRef.current = pushedBackDoor;
       setDoorOpenPercent(pushedBackDoor);
       setActiveSubtitle(
-        `『【扉破壊警報】怪異が扉をこじ開けようとしているぞ！愚図るな、【閉】ボタンを連打して押し返せ！（残り ${nextRemaining} 回）』`
+        `『【扉破壊警報】対象が扉をこじ開けようとしている。【閉扉】ボタンを連打し、直ちに遮断しろ。（残り ${nextRemaining} 回）』`
       );
     } else {
       resolveJudgingDecision('REJECT');
@@ -1448,7 +1496,7 @@ export function App() {
       movingEventRef.current = resolvedEv;
       setMovingEvent(resolvedEv);
       setActiveSubtitle(
-        '『【急速換気稼働】排気完了を確認。フン、当然の処置だ。そのまま下降を続けろ。』'
+        '『【急速換気稼働】排気完了を確認した。そのまま下降を継続しろ。』'
       );
       return;
     }
@@ -1498,25 +1546,25 @@ export function App() {
       const nextComplaints = Math.min(MAX_COMPLAINTS, complaintsRef.current + 1);
       setComplaints(nextComplaints);
       setActiveSubtitle(
-        '「『ちょっと！ 異常もないのに風が強くてうるさいわ！ 管理室に通報するからね！』」『おい作業員、異常もないのに換気扇を回すな！次はないと思え！』'
+        '「『ちょっと！ 異常もないのに風が強くてうるさいわ！ 管理室に通報するからね！』」『異常のない平時に換気装置を作動させるな。乗客の苦情として記録した。』'
       );
       showToast(
         'COMPLAINT',
         `【管理室警告】不要稼働通報 (${nextComplaints}/${MAX_COMPLAINTS})`,
-        '『異常もないのに強制排気を行うな！乗客から苦情が来ているぞ。累積3件で即刻処分だ。』'
+        '『異常のない平時に強制排気を行うな。乗客から苦情が記録された。累積3件で運行停止とする。』'
       );
 
       if (nextComplaints >= MAX_COMPLAINTS && gameState !== 'EVENT_RESULT') {
         soundManager.stopMotorDrone();
         soundManager.playJumpscareNoise();
         setGameOverReason(
-          'むやみな急速換気による苦情累積が3件に達したため、管理室より昇降機を強制ロック・廃棄処分とした。'
+          '異常のない平時に急速換気を使用したことによる苦情累積が3件に達したため、管理室規程に基づき昇降機を強制停止とした。'
         );
         setGameState('GAMEOVER');
       }
     } else {
       setActiveSubtitle(
-        '『【管理室監視】異常もないのに換気装置を弄ぶな。無駄な電力消費は貴様の査定に響くと思え。』'
+        '『【管理室監視】異常のない平時に換気装置を作動させるな。指示された場合のみ使用しろ。』'
       );
     }
   };
@@ -1557,19 +1605,19 @@ export function App() {
         trueEndUnlockedRef.current = false;
         setEndingType('NORMAL');
         setActiveSubtitle(
-          '「…やっぱり、あいつらを信じるのね…」『フン、手間をかけさせるな』'
+          '「…やっぱり、あいつらを信じるのね…」『特級対象の焼却完了を確認した。そのまま1階へ降下しろ。』'
         );
         showToast(
           'INFO',
-          '【管理室通達】特級対象を焼却処分',
-          '『フン、手間をかけさせるな。そのまま1階へ降りろ』',
+          '【管理室通達】特級対象を排除',
+          '『対象の排除を確認した。そのまま1階へ降下しろ。』',
           3600
         );
         return;
       }
 
       setActiveSubtitle(
-        '『【防衛レーザー照射】背後の怪異を焼却した。フン、手間をかけさせるな。そのまま下降を続けろ。』'
+        '『【防衛レーザー照射】背後の怪異の焼却を確認した。そのまま下降を継続しろ。』'
       );
       return;
     }
@@ -1584,12 +1632,13 @@ export function App() {
       setCloseClicksRemaining(1);
       soundManager.stopPryingLoop();
       setActiveSubtitle(
-        '『【防衛レーザー威嚇】アーク閃光で怪異が怯んだぞ！ボサッとするな、今すぐ【閉】ボタンを押して扉を閉め切れ！』'
+        '『【防衛レーザー威嚇】アーク閃光により対象が怯んだ。直ちに【閉扉】を押して扉を閉め切れ。』'
       );
     }
   };
 
   const isSlowMotionActive = gameState === 'JUDGING' && isInspectingModalOpen;
+  const unlockedRules = INITIAL_NOTICE_RULES.filter((r) => floor <= r.unlockedAtFloor);
 
   return (
     <motion.div
@@ -1613,46 +1662,12 @@ export function App() {
           : { duration: 0.25 }
       }
       onContextMenu={(e) => e.preventDefault()}
-      className="relative w-screen h-screen overflow-hidden flex flex-col justify-between metal-wall select-none touch-manipulation"
+      className="relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between metal-wall select-none touch-manipulation"
       style={{
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',
       }}
     >
-      {/* スマホ縦画面時の横画面回転要求オーバーレイ */}
-      <AnimatePresence>
-        {isPortrait && (
-          <motion.div
-            id="mobile-rotate-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-100 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center select-none font-mincho"
-          >
-            <div className="aged-paper border-2 border-stone-800 p-6 rounded-xs max-w-sm w-full text-stone-900 shadow-2xl relative">
-              <div className="border border-red-800 text-red-800 text-[10px] font-extrabold px-2 py-0.5 rotate-[-4deg] inline-block mb-3">
-                端末規格外警報
-              </div>
-              <div className="my-3 flex justify-center">
-                <Smartphone
-                  className="w-14 h-14 text-stone-800 rotate-90 animate-pulse"
-                />
-              </div>
-              <h2 className="text-xl font-extrabold text-stone-950 tracking-wider mb-2">
-                【警告】画面を横向きに回転してください
-              </h2>
-              <p className="text-xs text-stone-800 font-bold leading-relaxed mb-4">
-                当昇降機の監視端末は「横画面表示（ランドスケープ）」専用規格です。<br />
-                端末の画面回転ロックを解除し、本体を横向きにして保持してください。
-              </p>
-              <div className="bg-stone-900/10 p-2.5 rounded-xs border border-stone-700/60 text-[11px] font-bold text-stone-700">
-                ※横向きに回転すると自動的に検閲画面へ移行します
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* 全体の薄汚れた錆・ビネット・走査線エフェクト */}
       <div className="absolute inset-0 grime-overlay z-40 pointer-events-none" />
       <div className="absolute inset-0 scanlines z-40 pointer-events-none opacity-55" />
@@ -1671,7 +1686,7 @@ export function App() {
         )}
       </AnimatePresence>
 
-      {/* 画面上部のトースト通知（クレーム・チェックポイント・危険通知を3秒間表示） */}
+      {/* 画面上部のトースト通知（クレーム・チェックポイント・危険通知） */}
       <AnimatePresence>
         {toastAlert && (
           <motion.div
@@ -1681,7 +1696,7 @@ export function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -24 }}
             transition={{ duration: 0.22 }}
-            className={`fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded shadow-[0_10px_35px_rgba(0,0,0,0.95)] border-2 flex items-center gap-3 max-w-lg w-[92%] pointer-events-none ${
+            className={`fixed top-[70px] md:top-16 left-1/2 -translate-x-1/2 z-50 px-3.5 md:px-4 py-2 md:py-2.5 rounded shadow-[0_10px_35px_rgba(0,0,0,0.95)] border-2 flex items-center gap-2.5 md:gap-3 max-w-lg w-[94%] md:w-[92%] pointer-events-none ${
               toastAlert.type === 'COMPLAINT'
                 ? 'bg-red-950/95 border-red-500 text-red-100'
                 : toastAlert.type === 'DANGER'
@@ -1698,7 +1713,7 @@ export function App() {
               <div className="text-xs font-black tracking-wide truncate">
                 {toastAlert.title}
               </div>
-              <div className="text-xs opacity-90 leading-snug">
+              <div className="text-[11px] md:text-xs opacity-90 leading-snug">
                 {toastAlert.message}
               </div>
             </div>
@@ -1719,7 +1734,7 @@ export function App() {
         )}
       </AnimatePresence>
 
-      {/* 上部ヘッダー（h-14 コンパクト1行） */}
+      {/* 1. 最上部：階層インジケーター＆精神安定度＆通報累積ヘッダー */}
       <FloorIndicator
         floor={floor}
         gameState={gameState}
@@ -1736,23 +1751,23 @@ export function App() {
         onTogglePause={handleTogglePause}
       />
 
-      {/* メイン1画面レイアウト */}
-      <main className="relative z-20 flex-1 grid grid-cols-12 overflow-hidden min-h-0">
-        {/* 左側パネル：張り紙一覧 */}
-        <div className="col-span-3 h-full overflow-hidden">
+      {/* 2. メインエリア：PCは3カラム（左:通達 中:扉 右:操作盤）、スマホ縦画面は扉が大きく中央に表示 */}
+      <main className="relative z-20 flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden min-h-0">
+        {/* デスクトップ左側パネル：張り紙一覧 */}
+        <div className="hidden md:block md:col-span-3 h-full overflow-hidden">
           <NoticeBoard
             rules={INITIAL_NOTICE_RULES}
+            corruptedMemo={CORRUPTED_MEMO}
             currentFloor={floor}
-            gameState={gameState}
-            judgingTimeLeftMs={judgingTimeLeftMs}
             readRuleIds={readRuleIds}
-            onMarkRuleRead={handleMarkRuleRead}
-            onModalOpenChange={setIsInspectingModalOpen}
+            onOpenRule={handleOpenRule}
+            onOpenManual={handleOpenManual}
+            onOpenMemo={handleOpenMemo}
           />
         </div>
 
-        {/* 中央メイン：エレベーターの両開き金属扉 */}
-        <div className="col-span-6 h-full overflow-hidden relative">
+        {/* 中央メイン：エレベーターの両開き金属扉（スマホ縦画面では約45〜50%の高さを確保して名札や表情を観察しやすく） */}
+        <div className="col-span-1 md:col-span-6 h-full overflow-hidden relative min-h-0">
           <ElevatorDoor
             doorOpenPercent={doorOpenPercent}
             floor={floor}
@@ -1764,16 +1779,19 @@ export function App() {
             movingEvent={movingEvent}
             isFanOn={isFanOn}
             isArrivingFlash={isArrivingFlash}
+            isKeyWomanAlertActive={isKeyWomanAlertActive}
+            onOpenMemo={handleOpenMemo}
           />
         </div>
 
-        {/* 右側パネル：スリム操作盤 */}
-        <div className="col-span-3 h-full overflow-hidden">
+        {/* デスクトップ右側パネル：スリム操作盤 */}
+        <div className="hidden md:block md:col-span-3 h-full overflow-hidden">
           <ControlPanel
             floor={floor}
             gameState={gameState}
             doorOpenPercent={doorOpenPercent}
             isHoldingOpen={isHoldingOpen}
+            isKeyWomanAlertActive={isKeyWomanAlertActive}
             onStartDescent={handleStartDescent}
             onStartHoldOpen={handleStartHoldOpen}
             onStopHoldOpen={handleStopHoldOpen}
@@ -1785,11 +1803,12 @@ export function App() {
             onPressBell={handlePressBell}
             activePassengers={activePassengers}
             movingEvent={movingEvent}
+            variant="desktop"
           />
         </div>
       </main>
 
-      {/* 下部エリア：訪問者のセリフ ＆ 同乗者ステータス */}
+      {/* 3. 中段（モバイル）／下部（PC）：訪問者のセリフ ＆ 車内同乗者ステータス */}
       <BottomConsole
         gameState={gameState}
         currentVisitor={currentVisitor}
@@ -1797,6 +1816,57 @@ export function App() {
         eventOutcome={eventOutcome}
         activePassengers={activePassengers}
         movingEvent={movingEvent}
+      />
+
+      {/* 4. モバイル縦画面専用：最下部 親指操作コントロールエリア（左:文書ボタン群 / 右:扉・設備操作盤） */}
+      <section
+        aria-label="モバイル操作パネル"
+        className="relative z-30 md:hidden shrink-0 grid grid-cols-12 gap-1.5 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] metal-panel-surface border-t border-stone-800"
+      >
+        <div className="col-span-4 min-w-0">
+          <MobileDocButtons
+            rules={INITIAL_NOTICE_RULES}
+            corruptedMemo={CORRUPTED_MEMO}
+            currentFloor={floor}
+            readRuleIds={readRuleIds}
+            onOpenRuleList={handleOpenRuleList}
+            onOpenManual={handleOpenManual}
+            onOpenMemo={handleOpenMemo}
+          />
+        </div>
+        <div className="col-span-8 min-w-0">
+          <ControlPanel
+            floor={floor}
+            gameState={gameState}
+            doorOpenPercent={doorOpenPercent}
+            isHoldingOpen={isHoldingOpen}
+            isKeyWomanAlertActive={isKeyWomanAlertActive}
+            onStartDescent={handleStartDescent}
+            onStartHoldOpen={handleStartHoldOpen}
+            onStopHoldOpen={handleStopHoldOpen}
+            onPressClose={handlePressClose}
+            closeClicksRemaining={closeClicksRemaining}
+            requiredCloseClicks={currentVisitor?.requiredCloseClicks ?? 1}
+            isFanOn={isFanOn}
+            onToggleFan={handleToggleFan}
+            onPressBell={handlePressBell}
+            activePassengers={activePassengers}
+            movingEvent={movingEvent}
+            variant="mobile"
+          />
+        </div>
+      </section>
+
+      {/* 共通モーダル：保安通達一覧・詳細 ／ 運行手引書 ／ 血塗れの紙片 */}
+      <NoticeModals
+        modalState={inspectModalState}
+        unlockedRules={unlockedRules}
+        corruptedMemo={CORRUPTED_MEMO}
+        readRuleIds={readRuleIds}
+        gameState={gameState}
+        judgingTimeLeftMs={judgingTimeLeftMs}
+        onSelectRule={handleOpenRule}
+        onClose={handleCloseModal}
       />
 
       {/* エンディング遷移時の暗転（BLACKOUT）／ホワイトアウト（WHITEOUT）オーバーレイ */}
@@ -1827,31 +1897,31 @@ export function App() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
           >
-            {/* 公文書・業務辞令書風の重厚なUI（スマホ横画面でもはみ出さずスワイプ可能） */}
+            {/* 公文書・業務辞令書風の重厚なUI */}
             <div className="max-w-xl w-full max-h-[92dvh] flex flex-col metal-panel-surface border-2 border-stone-700 p-2 sm:p-3.5 shadow-[0_25px_70px_rgba(0,0,0,0.98)] relative my-auto shrink-0">
               <div className="aged-paper border-2 border-stone-800 p-3.5 sm:p-6 text-stone-900 font-mincho relative shadow-inner overflow-y-auto overscroll-contain touch-pan-y min-h-0 flex-1">
                 {/* 上部：文書番号・朱印 */}
                 <div className="flex items-start justify-between border-b-2 border-stone-800 pb-2.5 mb-3 sm:mb-4">
                   <div>
                     <span className="text-[11px] font-bold text-stone-700 tracking-widest block">
-                      管理室 保安統制課 強制発令（機密第拾伍號）
+                      管理室 保安統制課 発令（機密第拾伍號）
                     </span>
                     <h1 className="text-xl sm:text-3xl font-extrabold text-stone-950 tracking-wider mt-0.5">
                       第十五號昇降機
                     </h1>
                     <span className="text-xs font-extrabold text-red-900 tracking-widest block mt-0.5">
-                      ― 夜間特別検問業務 強制辞令書 ―
+                      ― 夜間特別検問業務 辞令書 ―
                     </span>
                   </div>
                   <div className="border-2 border-red-800 text-red-800 font-extrabold text-xs px-2 py-0.5 sm:px-2.5 sm:py-1 rotate-[-5deg] shrink-0 text-center leading-tight">
                     <div>絶対服従</div>
-                    <div className="text-[10px] border-t border-red-800 mt-0.5 pt-0.5">処分対象</div>
+                    <div className="text-[10px] border-t border-red-800 mt-0.5 pt-0.5">規程厳守</div>
                   </div>
                 </div>
 
                 {/* リード文 */}
                 <p className="text-xs sm:text-sm text-stone-900 font-bold mb-3 sm:mb-4 leading-relaxed">
-                  作業員である貴様に、当ビル「第十五號昇降機」の夜間検問業務を命じる。15階から1階へ降下しながら、各階で乗車を乞う連中の身元を冷徹に照合・選別しろ。判断ミスは貴様の処分に直結すると思え。
+                  作業員に当ビル「第十五號昇降機」の夜間検問業務を命じる。15階から1階へ降下しながら、各階で乗車を求める者の身元を通達に基づき照合・選別しろ。判断の誤りは許されない。
                 </p>
 
                 {/* 罫線枠の業務要綱（3箇条） */}
@@ -1866,18 +1936,18 @@ export function App() {
                   </div>
                   <div className="p-2 sm:p-2.5">
                     <strong className="text-stone-950 block mb-0.5 font-bold">
-                      【第二条：管理室通達への絶対服従】
+                      【第二条：管理室通達の遵守】
                     </strong>
                     <span className="text-stone-800">
-                      15階・10階・5階の待機所にて、管理室より追加通達を下達する。最新の通達は過去の規程を上書きする。余計な詮索はせず、常に最新の命令通りに手を下せ。
+                      15階・10階・5階の待機所にて、管理室より追加通達を下達する。最新の通達は過去の規程を上書きする。常に最新の通達に従って処理しろ。
                     </span>
                   </div>
                   <div className="p-2 sm:p-2.5">
                     <strong className="text-red-950 block mb-0.5 font-bold">
-                      【第三条：車内保安と即時処分】
+                      【第三条：車内保安と運行停止基準】
                     </strong>
                     <span className="text-stone-800">
-                      下降中の有毒瘴気は「急速換気」、背後に映る怪異は「非常ベル（防衛レーザー照射）」で排除しろ。精神が尽きるか、苦情通報が3回累積した時点で貴様を即刻廃棄処分とする。
+                      下降中の有毒瘴気は「急速換気」、背後に映る怪異は「非常ベル（防衛レーザー照射）」で排除しろ。精神安定度が尽きるか、苦情通報が3回累積した時点で運行資格を剥奪し、即刻運行を停止する。
                     </span>
                   </div>
                 </div>
@@ -1890,7 +1960,7 @@ export function App() {
                   className="w-full py-3 sm:py-3.5 px-4 sm:px-6 bg-stone-900 hover:bg-stone-800 border-2 border-amber-600/80 text-amber-400 font-mincho font-black tracking-widest text-xs sm:text-base rounded-xs shadow-[0_6px_20px_rgba(0,0,0,0.6)] transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-current" />
-                  <span>【服従宣誓】15階 検問待機所へ入る</span>
+                  <span>【業務開始】15階 検問待機所へ入る</span>
                 </button>
               </div>
             </div>
@@ -1909,14 +1979,14 @@ export function App() {
               <div className="flex items-center justify-between border-b-2 border-red-900 pb-3 mb-4">
                 <div className="text-left">
                   <span className="text-xs font-bold text-red-400 tracking-widest block">
-                    管理室 特別統制課 // 廃棄処分記録
+                    管理室 保安統制課 // 運行停止記録
                   </span>
                   <h2 className="text-2xl sm:text-3xl font-extrabold text-red-100 mt-0.5">
-                    保安隔離・作業員処分
+                    昇降機 強制停止・資格剥奪
                   </h2>
                 </div>
                 <div className="border-2 border-red-500 text-red-400 font-extrabold text-xs px-2 py-1 rotate-[-5deg] shrink-0">
-                  廃棄済
+                  停止済
                 </div>
               </div>
 
@@ -1928,7 +1998,7 @@ export function App() {
                 <div className="text-xs font-bold text-red-400 mb-1.5 flex items-center gap-1.5 border-b border-red-900/80 pb-1">
                   <AlertOctagon className="w-4 h-4 shrink-0" />
                   <span>
-                    【処分通知】第十五號昇降機（最終地点：{floor <= 0 ? 'B1F' : `${floor}階`}）
+                    【停止通知】第十五號昇降機（最終地点：{floor <= 0 ? 'B1F' : `${floor}階`}）
                   </span>
                 </div>
                 {gameOverReason}
@@ -1941,7 +2011,7 @@ export function App() {
                 className="w-full py-3 px-6 bg-red-800 hover:bg-red-700 border border-red-500 text-stone-100 font-bold tracking-widest rounded-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>【再配置】15階へ戻され検問をやり直す</span>
+                <span>【再配置】15階から検問をやり直す</span>
               </button>
             </div>
           </motion.div>
@@ -1980,7 +2050,7 @@ export function App() {
                   </div>
 
                   <p className="text-xs sm:text-sm text-stone-900 font-bold mb-4 leading-relaxed text-left">
-                    管理室の嘘の警報と脅迫に屈せず、2階の「彼女」を最後まで信じ抜いたことで1階の偽装ロックは解除された。火花を散らして沈黙したエレベーターの向こうには、コンクリート階段の先に広がる眩い朝の青空と爽やかな風が待っていた。――あなたは永遠の飼育ループを打ち破り、ついに外の世界へと脱出した。
+                    管理室の嘘の警報と命令に屈せず、2階の「彼女」を最後まで信じ抜いたことで1階の偽装ロックは解除された。火花を散らして沈黙したエレベーターの向こうには、コンクリート階段の先に広がる眩い朝の青空と爽やかな風が待っていた。――あなたは永遠の飼育ループを打ち破り、ついに外の世界へと脱出した。
                   </p>
 
                   <div className="grid grid-cols-3 divide-x divide-stone-400 border-2 border-stone-800 bg-white/70 mb-5 text-center text-xs">
@@ -2038,10 +2108,10 @@ export function App() {
                   </div>
 
                   <p className="text-xs sm:text-sm text-stone-900 font-bold mb-3 leading-relaxed text-left">
-                    1階で重苦しい扉を開けた先にあったのは外の出口ではなく、今自分が乗っているのと全く同じ薄暗い昇降機の箱だった。『本日の検問業務、ご苦労だったな。……では、ただちに第2シフトを開始しろ』――無情なアナウンスと共にインジケーターは15階へと巻き戻され、終わりのない飼育が再び始まる。
+                    1階で重苦しい扉を開けた先にあったのは外の出口ではなく、今自分が乗っているのと全く同じ薄暗い昇降機の箱だった。『1階到達を確認。本日の検問業務を完了とする。……引き続き、第2シフトを開始しろ。』――無情なアナウンスと共にインジケーターは15階へと巻き戻され、終わりのないループが再び始まる。
                   </p>
                   <div className="bg-red-950/10 border border-red-900/50 px-3 py-2 rounded-xs text-[11px] font-bold text-red-950 mb-4 text-left">
-                    【ヒント】5階で追加された「血に塗れた走り書き」を思い出し、2階で現れる“彼女”を信じて管理室の命令に逆らってみましょう。
+                    【ヒント】5階の扉の隙間から滑り込んできた「血に塗れた走り書き」を思い出し、2階で現れる“彼女”を信じて管理室の命令に逆らってみましょう。
                   </div>
 
                   <div className="grid grid-cols-3 divide-x divide-stone-700 border-2 border-stone-800 bg-stone-900/5 mb-5 text-center text-xs">
@@ -2072,7 +2142,7 @@ export function App() {
                     className="w-full py-3 px-6 bg-stone-900 hover:bg-stone-800 border-2 border-red-700/80 text-amber-400 font-black tracking-widest rounded-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    <span>【第2シフト開始】15階へ戻され業務を再開する</span>
+                    <span>【第2シフト開始】15階から業務を再開する</span>
                   </button>
                 </div>
               </div>
@@ -2103,8 +2173,8 @@ export function App() {
                 昇降機 一時停止中
               </h2>
               <p className="text-xs text-stone-300 mb-6 leading-relaxed">
-                『おい作業員、いつまでサボっているつもりだ。<br />
-                さっさと下のボタンを押して検問業務へ復帰しろ。』
+                『現在、昇降機は一時停止状態にある。<br />
+                準備ができ次第、下のボタンより検問業務へ復帰しろ。』
               </p>
 
               <button
@@ -2125,4 +2195,5 @@ export function App() {
 }
 
 export default App;
+
 

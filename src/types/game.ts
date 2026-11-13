@@ -102,7 +102,15 @@ export interface NoticeRule {
   highlightWarning: string;
   unlockedAtFloor: 15 | 10 | 5;
   stampText?: string;
-  isCorrupted?: boolean;     // 5Fの赤黒い怪文書演出用
+}
+
+export interface CorruptedMemo {
+  id: string;
+  buttonLabel: string;
+  title: string;
+  content: string;
+  highlightText: string;
+  unlockedAtFloor: 5;
 }
 
 export interface ActivePassenger {

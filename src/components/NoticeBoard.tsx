@@ -1,351 +1,201 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import type { GameState, NoticeRule } from '../types/game';
-import { ClipboardList, BookOpen, X, ChevronRight } from 'lucide-react';
+import React from 'react';
+import type { CorruptedMemo, NoticeRule } from '../types/game';
+import { ClipboardList, BookOpen, ChevronRight } from 'lucide-react';
 import { soundManager } from '../utils/SoundManager';
 
 interface NoticeBoardProps {
   rules: NoticeRule[];
+  corruptedMemo: CorruptedMemo;
   currentFloor: number;
-  gameState: GameState;
-  judgingTimeLeftMs: number;
   readRuleIds: string[];
-  onMarkRuleRead: (id: string) => void;
-  onModalOpenChange: (isOpen: boolean) => void;
+  onOpenRule: (rule: NoticeRule) => void;
+  onOpenManual: () => void;
+  onOpenMemo: () => void;
 }
 
 export const NoticeBoard: React.FC<NoticeBoardProps> = ({
   rules,
+  corruptedMemo,
   currentFloor,
-  gameState,
-  judgingTimeLeftMs,
   readRuleIds,
-  onMarkRuleRead,
-  onModalOpenChange,
+  onOpenRule,
+  onOpenManual,
+  onOpenMemo,
 }) => {
-  const [selectedRule, setSelectedRule] = useState<NoticeRule | null>(null);
-  const [showManual, setShowManual] = useState(false);
-
-  // 現在の階層までに貼り出された張り紙のみ表示（15F:3枚 → 10F:5枚 → 5F:7枚）
+  // 現在の階層までに発令された公式通達のみ表示（15F:3通 → 10F:5通 → 5F:6通）
   const unlockedRules = rules.filter((r) => currentFloor <= r.unlockedAtFloor);
-
-  const handleOpenRule = (rule: NoticeRule) => {
-    soundManager.playButtonClick('PAPER');
-    onMarkRuleRead(rule.id);
-    setSelectedRule(rule);
-    setShowManual(false);
-    onModalOpenChange(true);
-  };
-
-  const handleOpenManual = () => {
-    soundManager.playButtonClick('PAPER');
-    setSelectedRule(null);
-    setShowManual(true);
-    onModalOpenChange(true);
-  };
-
-  const handleCloseModal = () => {
-    soundManager.playButtonClick('PAPER');
-    setSelectedRule(null);
-    setShowManual(false);
-    onModalOpenChange(false);
-  };
+  const showCorruptedMemo = currentFloor <= corruptedMemo.unlockedAtFloor;
+  const isMemoUnread = !readRuleIds.includes(corruptedMemo.id);
 
   return (
-    <>
-      <aside className="w-full h-full flex flex-col justify-between p-2.5 metal-panel-surface border-r border-stone-800/90 relative z-20 overflow-hidden">
-        {/* 上部見出し：保安通達・張り紙 */}
-        <div className="flex flex-col min-h-0 flex-1">
-          <div className="flex items-center justify-between border-b border-stone-700/80 pb-2 mb-2 shrink-0">
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <ClipboardList className="w-4 h-4 text-amber-500 shrink-0" />
-              <h2 className="text-xs font-mincho font-extrabold tracking-widest text-stone-200 whitespace-nowrap">
-                保安通達・張り紙
-              </h2>
-            </div>
-            <span className="text-[11px] font-mincho font-bold text-stone-400 whitespace-nowrap">
-              計{unlockedRules.length}通
-            </span>
+    <aside className="w-full h-full flex flex-col justify-between p-2.5 metal-panel-surface border-r border-stone-800/90 relative z-20 overflow-hidden">
+      {/* 上部見出し：保安通達・張り紙 */}
+      <div className="flex flex-col min-h-0 flex-1">
+        <div className="flex items-center justify-between border-b border-stone-700/80 pb-2 mb-2 shrink-0">
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <ClipboardList className="w-4 h-4 text-amber-500 shrink-0" />
+            <h2 className="text-xs font-mincho font-extrabold tracking-widest text-stone-200 whitespace-nowrap">
+              保安通達・張り紙
+            </h2>
           </div>
-
-          {/* 張り紙の短いタイトルボタン一覧 */}
-          <div className="flex-1 flex flex-col gap-1.5 overflow-y-auto pr-0.5 min-h-0">
-            {unlockedRules.map((rule) => {
-              const isNew = !readRuleIds.includes(rule.id);
-              const isCorrupted = Boolean(rule.isCorrupted);
-
-              return (
-                <button
-                  key={rule.id}
-                  id={`notice-card-${rule.id}`}
-                  type="button"
-                  onClick={() => handleOpenRule(rule)}
-                  className={`w-full text-left px-2.5 py-2 rounded-xs border transition-all flex items-center justify-between gap-1.5 cursor-pointer shrink-0 ${
-                    isCorrupted
-                      ? 'bg-red-950/90 border-red-700 text-red-200 hover:bg-red-900/90 shadow-[0_2px_10px_rgba(153,27,27,0.5)]'
-                      : 'aged-paper border-stone-600 text-stone-900 hover:brightness-105 shadow-md'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    {isNew && (
-                      <span className="shrink-0 bg-red-800 border border-red-400/60 text-stone-100 text-[9px] font-mincho font-black px-1.5 py-0.5 tracking-widest animate-pulse whitespace-nowrap">
-                        未読
-                      </span>
-                    )}
-                    <span
-                      className={`text-xs font-bold truncate ${
-                        isCorrupted ? 'font-mincho text-red-200' : 'font-mincho text-stone-900'
-                      }`}
-                    >
-                      {rule.shortTitle}
-                    </span>
-                  </div>
-                  <ChevronRight
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      isCorrupted ? 'text-red-400' : 'text-stone-700'
-                    }`}
-                  />
-                </button>
-              );
-            })}
-          </div>
+          <span className="text-[11px] font-mincho font-bold text-stone-400 whitespace-nowrap">
+            計{unlockedRules.length}通
+          </span>
         </div>
 
-        {/* 下部：運行手引書ボタン */}
-        <div className="pt-2 border-t border-stone-800 shrink-0">
-          <button
-            id="open-manual-btn"
-            type="button"
-            onClick={handleOpenManual}
-            className="w-full py-2 px-3 rounded-xs bg-stone-900/95 hover:bg-stone-800 border border-amber-700/60 text-stone-200 text-xs font-mincho font-bold tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-inner"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span>運行手引書（業務規程）</span>
-          </button>
-        </div>
-      </aside>
+        {/* 公式通達のタイトルボタン一覧 */}
+        <div className="flex-1 flex flex-col gap-1.5 overflow-y-auto pr-0.5 min-h-0">
+          {unlockedRules.map((rule) => {
+            const isNew = !readRuleIds.includes(rule.id);
 
-      {/* 張り紙詳細 ／ 運行手引書 拡大モーダル */}
-      <AnimatePresence>
-        {(selectedRule || showManual) && (
-          <motion.div
-            id="notice-zoom-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={handleCloseModal}
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-[2px] flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
-          >
-            {/* 検問中（JUDGING）に開いている場合は背後の迫る猶予警告を管理室の高圧的な警告板で表示 */}
-            {gameState === 'JUDGING' && (
-              <div className="mb-2 sm:mb-3 bg-stone-950/95 border-2 border-red-700 text-red-100 px-3.5 py-1.5 rounded-xs text-xs font-mincho font-bold flex items-center gap-2.5 shadow-[0_0_24px_rgba(185,28,28,0.85)] animate-pulse whitespace-nowrap shrink-0">
-                <span className="tracking-wider">
-                  【監視室警告】検閲中にモタモタするな！扉の外に対象が迫っているぞ
-                </span>
-                <span className="border-l border-red-800 pl-2.5 font-seven-seg text-sm text-amber-400">
-                  猶予 {(judgingTimeLeftMs / 1000).toFixed(1)} 秒
-                </span>
-              </div>
-            )}
-
-            <motion.div
-              initial={{ scale: 0.92, y: 12 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.92, y: 12 }}
-              onClick={(e) => e.stopPropagation()}
-              className={`max-w-lg w-full max-h-[88dvh] overflow-y-auto overscroll-contain touch-pan-y rounded-xs p-3.5 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.95)] border-2 relative my-auto shrink-0 ${
-                selectedRule?.isCorrupted
-                  ? 'bg-stone-950 border-red-700 text-red-100'
-                  : 'aged-paper border-stone-700 text-stone-900'
-              }`}
-            >
+            return (
               <button
-                id="close-notice-modal-btn"
+                key={rule.id}
+                id={`notice-card-${rule.id}`}
                 type="button"
-                onClick={handleCloseModal}
-                className={`absolute top-3 right-3 p-1.5 rounded-xs transition-colors cursor-pointer z-10 ${
-                  selectedRule?.isCorrupted
-                    ? 'bg-red-900/40 hover:bg-red-800/60 text-red-200'
-                    : 'bg-stone-900/15 hover:bg-stone-900/30 text-stone-900'
-                }`}
+                onClick={() => {
+                  soundManager.playButtonClick('PAPER');
+                  onOpenRule(rule);
+                }}
+                className="w-full text-left px-2.5 py-2 rounded-xs border transition-all flex items-center justify-between gap-1.5 cursor-pointer shrink-0 aged-paper border-stone-600 text-stone-900 hover:brightness-105 shadow-md"
               >
-                <X className="w-5 h-5" />
-              </button>
-
-              {selectedRule ? (
-                <div>
-                  <div
-                    className={`flex items-center justify-between border-b-2 pb-3 mb-4 pr-8 ${
-                      selectedRule.isCorrupted ? 'border-red-800' : 'border-stone-800'
-                    }`}
-                  >
-                    <div>
-                      <span
-                        className={`text-xs font-mincho font-bold block ${
-                          selectedRule.isCorrupted ? 'text-red-400' : 'text-stone-700'
-                        }`}
-                      >
-                        {selectedRule.subtitle}
-                      </span>
-                      <h3
-                        className={`font-mincho text-lg md:text-xl font-extrabold mt-0.5 ${
-                          selectedRule.isCorrupted ? 'text-red-200' : 'text-stone-950'
-                        }`}
-                      >
-                        {selectedRule.title}
-                      </h3>
-                    </div>
-                    {selectedRule.stampText && (
-                      <div
-                        className={`border-2 font-mincho font-extrabold text-xs px-2 py-1 rotate-[-5deg] shrink-0 whitespace-nowrap ${
-                          selectedRule.isCorrupted
-                            ? 'border-red-500 text-red-400'
-                            : 'border-red-800 text-red-800'
-                        }`}
-                      >
-                        {selectedRule.stampText}
-                      </div>
-                    )}
-                  </div>
-
-                  <p
-                    className={`font-mincho text-sm leading-relaxed mb-4 whitespace-pre-line ${
-                      selectedRule.isCorrupted ? 'text-red-200 font-bold' : 'text-stone-900'
-                    }`}
-                  >
-                    {selectedRule.content}
-                  </p>
-
-                  <div
-                    className={`border-2 p-3 rounded-xs mb-4 font-mincho ${
-                      selectedRule.isCorrupted
-                        ? 'bg-red-950/80 border-red-600 text-red-100'
-                        : 'bg-red-900/15 border-red-800/80 text-red-950'
-                    }`}
-                  >
-                    <div className="text-[11px] font-bold opacity-80 mb-0.5">
-                      {selectedRule.isCorrupted ? '【走り書きの警告】' : '【絶対遵守事項】'}
-                    </div>
-                    <div className="text-sm font-extrabold">
-                      {selectedRule.highlightWarning}
-                    </div>
-                  </div>
-
-                  {/* モーダル内で前後の張り紙を素早く切り替えるボタン */}
-                  <div className="flex items-center justify-between pt-2 border-t border-stone-600/50 font-mincho">
-                    <div className="flex flex-wrap gap-1">
-                      {unlockedRules.map((r, i) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => handleOpenRule(r)}
-                          className={`px-2 py-1 rounded-xs text-xs font-bold cursor-pointer border ${
-                            r.id === selectedRule.id
-                              ? 'bg-stone-900 border-stone-900 text-amber-400'
-                              : 'bg-stone-800/15 border-stone-600/50 hover:bg-stone-800/30 text-stone-800'
-                          }`}
-                        >
-                          通達{i + 1}
-                        </button>
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleCloseModal}
-                      className="px-4 py-1.5 rounded-xs bg-stone-900 text-stone-100 text-xs font-bold tracking-wider hover:bg-stone-800 cursor-pointer"
-                    >
-                      査読終了
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-stone-900 font-mincho">
-                  {/* 手引書ヘッダー（公文書・朱印風デザイン） */}
-                  <div className="flex items-center justify-between border-b-2 border-stone-800 pb-2.5 mb-3 pr-8">
-                    <div>
-                      <span className="text-[11px] font-bold text-stone-700 tracking-wider block">
-                        管理室 保安統制課 発令 — 乗務員絶対服従規程（機密第15號）
-                      </span>
-                      <h3 className="text-lg md:text-xl font-extrabold text-stone-950 tracking-wide mt-0.5">
-                        第十五號昇降機 運行手引書
-                      </h3>
-                    </div>
-                    <div className="border-2 border-red-800 text-red-800 font-extrabold text-xs px-2 py-0.5 rotate-[-4deg] shrink-0 whitespace-nowrap">
-                      絶対服従
-                    </div>
-                  </div>
-
-                  {/* 罫線枠の条文テーブル（冷酷・高圧的な管理室命令口調） */}
-                  <div className="border-2 border-stone-800 divide-y divide-stone-700/80 bg-stone-900/5 text-xs leading-relaxed">
-                    <div className="p-2 sm:p-2.5">
-                      <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>【第一条：扉の開閉と覗き込み検閲】</span>
-                        <span className="text-[10px] font-bold text-red-900 border border-red-800/60 px-1.5 py-0.2">
-                          基本義務
-                        </span>
-                      </div>
-                      <p className="text-stone-800">
-                        到着時、扉は12%しか開かない。「開扉」ボタンを長押しして隙間を広げ、胸元の名札・荷物・面構えを徹底的に検閲しろ。扉を大きく開けた瞬間に本性を現す個体もいる。異変を見たら即座に指を離し、「閉扉」を押して遮断しろ。（扉に手をかけてこじ開けようとする個体には「閉扉」を連打して叩き出せ）
-                      </p>
-                    </div>
-
-                    <div className="p-2 sm:p-2.5">
-                      <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>【第二条：急速換気装置の運用】</span>
-                        <span className="text-[10px] font-bold text-stone-800 border border-stone-700 px-1.5 py-0.2">
-                          車内設備
-                        </span>
-                      </div>
-                      <p className="text-stone-800">
-                        下降中、床下から有毒な瘴気が湧き出た場合や、同乗者から換気の要求があった場合は、直ちに「急速換気」を起動しろ（3秒間強制排気される）。※車内に異常がない平時に勝手に作動させて乗客から苦情が出たら貴様の責任だ。余計な真似はするな。
-                      </p>
-                    </div>
-
-                    <div className="p-2 sm:p-2.5">
-                      <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>【第三条：非常ベル連動・緊急防衛レーザー】</span>
-                        <span className="text-[10px] font-bold text-red-900 border border-red-800/60 px-1.5 py-0.2">
-                          低層命令
-                        </span>
-                      </div>
-                      <p className="text-stone-800">
-                        5階以下の低層階を下降中、閉まった正面扉の鏡面に「背後の怪異」が映り込むことがある。鏡面に影を見たら躊躇せず「非常ベル」を叩け。天井の高圧紫外線レーザーが作動し、対象を閃光照射で焼き払う。判断が遅れて死んでも代わりの作業員はいくらでもいると思え。
-                      </p>
-                    </div>
-
-                    <div className="p-2 sm:p-2.5">
-                      <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>【第四条：命令の改定と処分基準】</span>
-                        <span className="text-[10px] font-bold text-stone-800 border border-stone-700 px-1.5 py-0.2">
-                          懲戒規定
-                        </span>
-                      </div>
-                      <p className="text-stone-800">
-                        10階および5階の待機所で下達する追加通達は、従前の規則を上書きする。検閲中に張り紙を見ている間も外の個体は扉へ迫っている。愚図るな、素早く照合を終えて命令通りに処理しろ。
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-2.5 mt-2 flex items-center justify-between">
-                    <span className="text-[10px] text-red-900 font-bold">
-                      ※命令違反・苦情3件累積は即刻隔離・廃棄処分とする
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  {isNew && (
+                    <span className="shrink-0 bg-red-800 border border-red-400/60 text-stone-100 text-[9px] font-mincho font-black px-1.5 py-0.5 tracking-widest animate-pulse whitespace-nowrap">
+                      未読
                     </span>
-                    <button
-                      type="button"
-                      onClick={handleCloseModal}
-                      className="px-4 py-1.5 rounded-xs bg-stone-900 text-stone-100 text-xs font-bold tracking-wider hover:bg-stone-800 cursor-pointer"
-                    >
-                      手引書を閉じる
-                    </button>
-                  </div>
+                  )}
+                  <span className="text-xs font-bold truncate font-mincho text-stone-900">
+                    {rule.shortTitle}
+                  </span>
                 </div>
-              )}
-            </motion.div>
-          </motion.div>
+                <ChevronRight className="w-3.5 h-3.5 shrink-0 text-stone-700" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 下部：独立した血塗れの紙片ボタン（5F以降） ＋ 運行手引書ボタン */}
+      <div className="pt-2 border-t border-stone-800 shrink-0 flex flex-col gap-1.5">
+        {showCorruptedMemo && (
+          <button
+            id="open-corrupted-memo-btn"
+            type="button"
+            onClick={() => {
+              soundManager.playButtonClick('PAPER');
+              onOpenMemo();
+            }}
+            className="w-full py-2 px-2.5 rounded-xs bg-red-950/90 hover:bg-red-900/90 border border-red-700 text-red-200 text-xs font-mincho font-bold tracking-wider flex items-center justify-between gap-1.5 transition-colors cursor-pointer shadow-[0_2px_12px_rgba(153,27,27,0.5)]"
+          >
+            <span className="flex items-center gap-1.5 min-w-0 truncate">
+              <span className="shrink-0">🩸</span>
+              <span className="truncate">{corruptedMemo.buttonLabel}</span>
+            </span>
+            {isMemoUnread && (
+              <span className="shrink-0 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 tracking-widest animate-pulse">
+                未読
+              </span>
+            )}
+          </button>
         )}
-      </AnimatePresence>
-    </>
+
+        <button
+          id="open-manual-btn"
+          type="button"
+          onClick={() => {
+            soundManager.playButtonClick('PAPER');
+            onOpenManual();
+          }}
+          className="w-full py-2 px-3 rounded-xs bg-stone-900/95 hover:bg-stone-800 border border-amber-700/60 text-stone-200 text-xs font-mincho font-bold tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shadow-inner"
+        >
+          <BookOpen className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span>運行手引書（業務規程）</span>
+        </button>
+      </div>
+    </aside>
   );
 };
 
+interface MobileDocButtonsProps {
+  rules: NoticeRule[];
+  corruptedMemo: CorruptedMemo;
+  currentFloor: number;
+  readRuleIds: string[];
+  onOpenRuleList: () => void;
+  onOpenManual: () => void;
+  onOpenMemo: () => void;
+}
+
+export const MobileDocButtons: React.FC<MobileDocButtonsProps> = ({
+  rules,
+  corruptedMemo,
+  currentFloor,
+  readRuleIds,
+  onOpenRuleList,
+  onOpenManual,
+  onOpenMemo,
+}) => {
+  const unlockedRules = rules.filter((r) => currentFloor <= r.unlockedAtFloor);
+  const unreadRuleCount = unlockedRules.filter((r) => !readRuleIds.includes(r.id)).length;
+  const showCorruptedMemo = currentFloor <= corruptedMemo.unlockedAtFloor;
+  const isMemoUnread = !readRuleIds.includes(corruptedMemo.id);
+
+  return (
+    <div className="flex flex-col justify-between gap-1.5 h-full min-w-0">
+      {/* 📋 保安通達（未読バッジ付） */}
+      <button
+        id="mobile-btn-notices"
+        type="button"
+        onClick={() => {
+          soundManager.playButtonClick('PAPER');
+          onOpenRuleList();
+        }}
+        className="relative flex-1 min-h-[42px] px-2 py-1.5 rounded border border-stone-600 aged-paper text-stone-950 font-mincho font-extrabold text-[11px] flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition-transform shadow"
+      >
+        {unreadRuleCount > 0 && (
+          <span className="absolute -top-1.5 -right-1 bg-red-700 border border-red-300 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full animate-pulse shadow">
+            未読{unreadRuleCount}
+          </span>
+        )}
+        <span className="leading-tight">📋 保安通達</span>
+        <span className="text-[9px] text-stone-700 font-bold leading-none">
+          全{unlockedRules.length}通を確認
+        </span>
+      </button>
+
+      {/* 📖 運行手引書 */}
+      <button
+        id="mobile-btn-manual"
+        type="button"
+        onClick={() => {
+          soundManager.playButtonClick('PAPER');
+          onOpenManual();
+        }}
+        className="flex-1 min-h-[38px] px-2 py-1.5 rounded border border-amber-700/70 bg-stone-900 hover:bg-stone-800 text-stone-200 font-mincho font-bold text-[11px] flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-transform shadow-inner"
+      >
+        <span>📖 運行手引書</span>
+      </button>
+
+      {/* 🩸 隙間の紙片（5F以降に出現） */}
+      {showCorruptedMemo && (
+        <button
+          id="mobile-btn-memo"
+          type="button"
+          onClick={() => {
+            soundManager.playButtonClick('PAPER');
+            onOpenMemo();
+          }}
+          className="relative flex-1 min-h-[38px] px-2 py-1.5 rounded border border-red-600 bg-red-950/95 text-red-100 font-mincho font-extrabold text-[11px] flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-transform shadow-[0_0_12px_rgba(185,28,28,0.65)]"
+        >
+          {isMemoUnread && (
+            <span className="absolute -top-1.5 -right-1 bg-red-600 border border-red-200 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full animate-pulse">
+              未読
+            </span>
+          )}
+          <span className="truncate">🩸 隙間の紙片</span>
+        </button>
+      )}
+    </div>
+  );
+};
