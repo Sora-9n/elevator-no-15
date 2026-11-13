@@ -63,9 +63,9 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
       : '【停止】待機状態';
 
   return (
-    <header className="relative z-30 w-full md:h-14 mobile-landscape-header px-2.5 md:px-3 py-1.5 md:py-0 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-2 border-b border-stone-800 bg-stone-950/95 shrink-0 whitespace-nowrap">
+    <header className="relative z-30 w-full md:h-14 mobile-landscape-header px-2 sm:px-2.5 md:px-3 pt-[max(env(safe-area-inset-top,0px),0.5rem)] pb-1.5 md:py-0 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-2 border-b border-stone-800 bg-stone-950/95 shrink-0 whitespace-nowrap">
       {/* モバイル縦画面用：1段目（精神・階数・通報・ポーズ・ミュート）＋2段目（ステータス＆タイマーバー） */}
-      <div className="flex md:hidden items-center justify-between gap-1.5 w-full">
+      <div className="flex md:hidden items-center justify-between gap-1 w-full min-w-0">
         {/* 精神安定度 */}
         <div
           id="sanity-indicator-mobile"

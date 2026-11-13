@@ -80,7 +80,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   if (variant === 'mobile') {
     return (
-      <div className="w-full h-full flex flex-col justify-between gap-1.5 select-none min-w-0">
+      <div className="w-full h-full flex flex-col justify-between gap-1 select-none min-w-0">
         {/* 1段目：下降開始 / 再開 */}
         <motion.button
           id="mobile-btn-start-descent"
@@ -88,7 +88,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           disabled={!isPrepare}
           onClick={onStartDescent}
           whileTap={isPrepare ? { scale: 0.97 } : undefined}
-          className={`w-full py-2 px-2 rounded border-2 flex items-center justify-center gap-1 font-black text-xs tracking-wider transition-all whitespace-nowrap ${
+          className={`w-full py-1.5 px-2 rounded border-2 flex items-center justify-center gap-1 font-black text-xs tracking-wider transition-all whitespace-nowrap ${
             isPrepare
               ? 'bg-amber-500 hover:bg-amber-400 border-amber-200 text-stone-950 shadow-[0_0_16px_rgba(245,158,11,0.65)] animate-pulse cursor-pointer'
               : 'bg-stone-900/50 border-stone-800 text-stone-600 cursor-not-allowed'
@@ -130,7 +130,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
                   : { duration: 0.15 }
               }
-              className={`relative flex-1 py-2 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-all overflow-hidden touch-hold-btn select-none ${
+              className={`relative flex-1 py-1.5 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-all overflow-hidden touch-hold-btn select-none ${
                 !canHoldOpen
                   ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
                   : isHoldingOpen
@@ -191,7 +191,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 : { duration: 0.15 }
             }
             whileTap={isJudging ? { scale: 0.94 } : undefined}
-            className={`relative h-full py-2 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-colors overflow-hidden ${
+            className={`relative h-full py-1.5 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-colors overflow-hidden ${
               !isJudging
                 ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
                 : isUrgentClose
@@ -238,7 +238,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 ? { duration: 0.5, repeat: Infinity, ease: 'easeInOut' }
                 : { duration: 0.15 }
             }
-            className={`relative py-2 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors cursor-pointer overflow-hidden ${
+            className={`relative py-1.5 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors cursor-pointer overflow-hidden ${
               needFanAction && !isFanOn
                 ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90'
                 : isFanOn
@@ -284,7 +284,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
                 : { duration: 0.15 }
             }
-            className={`relative py-2 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors cursor-pointer overflow-hidden ${
+            className={`relative py-1.5 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors cursor-pointer overflow-hidden ${
               needBellAction
                 ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90'
                 : 'bg-stone-900 border-stone-700 active:scale-95 text-stone-300'

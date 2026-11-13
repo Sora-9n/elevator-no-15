@@ -35,9 +35,9 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
     (movingEvent.type === 'MIASMA' || movingEvent.type === 'MIRROR_GHOST');
 
   return (
-    <footer className="relative z-30 w-full px-2.5 md:px-4 py-1.5 md:py-2.5 mobile-landscape-bottom bg-stone-950/95 border-t border-stone-800 flex flex-col justify-between gap-1 md:gap-2 shrink-0 md:min-h-[112px] md:max-h-[126px]">
+    <footer className="relative z-30 w-full px-2.5 md:px-4 py-1 md:py-2.5 mobile-landscape-bottom bg-stone-950/95 border-t border-stone-800 flex flex-col justify-between gap-1 md:gap-2 shrink-0 md:min-h-[112px] md:max-h-[126px]">
       {/* 上段：訪問者のセリフ字幕（名前や属性のネタバレ表記を完全撤廃） */}
-      <div className="flex-1 flex flex-col justify-center bg-black/75 border border-stone-800/90 rounded px-2.5 md:px-3.5 py-1.5 md:py-2 overflow-hidden">
+      <div className="flex-1 flex flex-col justify-center bg-black/75 border border-stone-800/90 rounded px-2.5 md:px-3.5 py-1 md:py-2 overflow-hidden">
         <div className="flex items-center justify-between gap-2 mb-0.5 md:mb-1 whitespace-nowrap">
           <span className="text-[10px] md:text-[11px] font-bold text-stone-400 flex items-center gap-1.5 whitespace-nowrap">
             <span

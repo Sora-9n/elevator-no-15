@@ -142,7 +142,7 @@ export const MobileDocButtons: React.FC<MobileDocButtonsProps> = ({
   const isMemoUnread = !readRuleIds.includes(corruptedMemo.id);
 
   return (
-    <div className="flex flex-col justify-between gap-1.5 h-full min-w-0">
+    <div className="flex flex-col justify-between gap-1 h-full min-w-0">
       {/* 📋 保安通達（未読バッジ付） */}
       <button
         id="mobile-btn-notices"
@@ -151,7 +151,7 @@ export const MobileDocButtons: React.FC<MobileDocButtonsProps> = ({
           soundManager.playButtonClick('PAPER');
           onOpenRuleList();
         }}
-        className="relative flex-1 min-h-[42px] px-2 py-1.5 rounded border border-stone-600 aged-paper text-stone-950 font-mincho font-extrabold text-[11px] flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition-transform shadow"
+        className="relative flex-1 min-h-[36px] px-1.5 py-1 rounded border border-stone-600 aged-paper text-stone-950 font-mincho font-extrabold text-[11px] flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition-transform shadow"
       >
         {unreadRuleCount > 0 && (
           <span className="absolute -top-1.5 -right-1 bg-red-700 border border-red-300 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full animate-pulse shadow">
@@ -172,7 +172,7 @@ export const MobileDocButtons: React.FC<MobileDocButtonsProps> = ({
           soundManager.playButtonClick('PAPER');
           onOpenManual();
         }}
-        className="flex-1 min-h-[38px] px-2 py-1.5 rounded border border-amber-700/70 bg-stone-900 hover:bg-stone-800 text-stone-200 font-mincho font-bold text-[11px] flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-transform shadow-inner"
+        className="flex-1 min-h-[32px] px-1.5 py-1 rounded border border-amber-700/70 bg-stone-900 hover:bg-stone-800 text-stone-200 font-mincho font-bold text-[11px] flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-transform shadow-inner"
       >
         <span>📖 運行手引書</span>
       </button>
@@ -186,7 +186,7 @@ export const MobileDocButtons: React.FC<MobileDocButtonsProps> = ({
             soundManager.playButtonClick('PAPER');
             onOpenMemo();
           }}
-          className="relative flex-1 min-h-[38px] px-2 py-1.5 rounded border border-red-600 bg-red-950/95 text-red-100 font-mincho font-extrabold text-[11px] flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-transform shadow-[0_0_12px_rgba(185,28,28,0.65)]"
+          className="relative flex-1 min-h-[32px] px-1.5 py-1 rounded border border-red-600 bg-red-950/95 text-red-100 font-mincho font-extrabold text-[11px] flex items-center justify-center gap-1 cursor-pointer active:scale-95 transition-transform shadow-[0_0_12px_rgba(185,28,28,0.65)]"
         >
           {isMemoUnread && (
             <span className="absolute -top-1.5 -right-1 bg-red-600 border border-red-200 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full animate-pulse">

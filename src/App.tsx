@@ -260,6 +260,7 @@ export function App() {
       window.clearTimeout(arrivingFlashTimeoutRef.current);
       arrivingFlashTimeoutRef.current = null;
     }
+    window.scrollTo(0, 0);
     soundManager.init();
     soundManager.playButtonClick('SWITCH');
     soundManager.stopDoorMotor();
@@ -1701,7 +1702,7 @@ export function App() {
           : { duration: 0.25 }
       }
       onContextMenu={(e) => e.preventDefault()}
-      className="relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between metal-wall select-none touch-manipulation"
+      className="fixed inset-0 w-full h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between metal-wall select-none touch-manipulation"
       style={{
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',
@@ -1735,7 +1736,7 @@ export function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -24 }}
             transition={{ duration: 0.22 }}
-            className={`fixed top-[70px] md:top-16 left-1/2 -translate-x-1/2 z-50 px-3.5 md:px-4 py-2 md:py-2.5 rounded shadow-[0_10px_35px_rgba(0,0,0,0.95)] border-2 flex items-center gap-2.5 md:gap-3 max-w-lg w-[94%] md:w-[92%] pointer-events-none ${
+            className={`fixed top-[calc(68px+env(safe-area-inset-top,0px))] md:top-16 left-1/2 -translate-x-1/2 z-50 px-3.5 md:px-4 py-2 md:py-2.5 rounded shadow-[0_10px_35px_rgba(0,0,0,0.95)] border-2 flex items-center gap-2.5 md:gap-3 max-w-lg w-[94%] md:w-[92%] pointer-events-none ${
               toastAlert.type === 'COMPLAINT'
                 ? 'bg-red-950/95 border-red-500 text-red-100'
                 : toastAlert.type === 'DANGER'
@@ -1791,7 +1792,7 @@ export function App() {
       />
 
       {/* 2. メインエリア：PCは3カラム（左:通達 中:扉 右:操作盤）、スマホ縦画面は扉が大きく中央に表示 */}
-      <main className="relative z-20 flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden min-h-0">
+      <main className="relative z-20 flex-1 min-h-0 flex flex-col md:grid md:grid-cols-12 overflow-hidden">
         {/* デスクトップ左側パネル：張り紙一覧 */}
         <div className="hidden md:block md:col-span-3 h-full overflow-hidden">
           <NoticeBoard
@@ -1805,8 +1806,8 @@ export function App() {
           />
         </div>
 
-        {/* 中央メイン：エレベーターの両開き金属扉（スマホ縦画面では約45〜50%の高さを確保して名札や表情を観察しやすく） */}
-        <div className="col-span-1 md:col-span-6 h-full overflow-hidden relative min-h-0">
+        {/* 中央メイン：エレベーターの両開き金属扉（端末の画面高に合わせて自動伸縮） */}
+        <div className="flex-1 min-h-0 md:col-span-6 h-full overflow-hidden relative">
           <ElevatorDoor
             doorOpenPercent={doorOpenPercent}
             floor={floor}
@@ -1860,7 +1861,7 @@ export function App() {
       {/* 4. モバイル縦画面専用：最下部 親指操作コントロールエリア（左:文書ボタン群 / 右:扉・設備操作盤） */}
       <section
         aria-label="モバイル操作パネル"
-        className="relative z-30 md:hidden shrink-0 grid grid-cols-12 gap-1.5 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] metal-panel-surface border-t border-stone-800"
+        className="relative z-30 md:hidden shrink-0 grid grid-cols-12 gap-1.5 px-2 pt-1.5 pb-[max(env(safe-area-inset-bottom,0px),0.5rem)] metal-panel-surface border-t border-stone-800"
       >
         <div className="col-span-4 min-w-0">
           <MobileDocButtons
