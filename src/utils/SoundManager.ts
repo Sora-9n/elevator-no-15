@@ -35,6 +35,10 @@ class SoundManager {
   private doorNodes: AudioScheduledSourceNode[] = [];
   private doorMasterGain: GainNode | null = null;
 
+  private morningAmbienceNodes: AudioScheduledSourceNode[] = [];
+  private morningAmbienceGain: GainNode | null = null;
+  private morningBirdTimer: number | null = null;
+
   private muted: boolean = false;
 
   /**
@@ -60,6 +64,7 @@ class SoundManager {
       this.stopMiasmaHeartbeat();
       this.stopAnomalyPresence();
       this.stopPryingLoop();
+      this.stopMorningAmbience();
     } else if (isGameActive) {
       this.startCabinRattle();
     }
@@ -1772,6 +1777,283 @@ class SoundManager {
       osc.start(now + offset);
       osc.stop(now + offset + 0.19);
     });
+  }
+
+  /**
+   * 11. 通常エンディング：階層インジケーターが 1F → 15F へ高速巻き戻しされる際の機械駆動パルス音
+   */
+  public playFloorRewindTick(floorNum: number): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 階数が上がるにつれてピッチが上昇するリレークリック＋モーターうなり
+    const baseFreq = 180 + floorNum * 34;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.25, now + 0.08);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(baseFreq * 1.5, now);
+    filter.Q.setValueAtTime(3.0, now);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.14, now + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
+
+  /**
+   * 12. トゥルーエンディング：1階を素通りして地下B1Fへ突入する際の火花・制動突破音
+   */
+  public playB1FBreakthrough(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 1) 1Fの偽装ロックを突き破る重低音衝撃と急降下音
+    const dropOsc = ctx.createOscillator();
+    dropOsc.type = 'sawtooth';
+    dropOsc.frequency.setValueAtTime(160, now);
+    dropOsc.frequency.exponentialRampToValueAtTime(28, now + 1.1);
+
+    const dropGain = ctx.createGain();
+    dropGain.gain.setValueAtTime(0.32, now);
+    dropGain.gain.exponentialRampToValueAtTime(0.001, now + 1.15);
+
+    dropOsc.connect(dropGain);
+    dropGain.connect(ctx.destination);
+    dropOsc.start(now);
+    dropOsc.stop(now + 1.2);
+
+    // 2) バチバチッと火花が散る金属スパークノイズ
+    const sparkLen = Math.floor(ctx.sampleRate * 0.75);
+    const sparkBuf = ctx.createBuffer(1, sparkLen, ctx.sampleRate);
+    const data = sparkBuf.getChannelData(0);
+    for (let i = 0; i < sparkLen; i++) {
+      const burst = Math.sin(i * 0.015) > 0.2 ? 1.0 : 0.15;
+      data[i] = (Math.random() * 2 - 1) * burst;
+    }
+    const sparkSrc = ctx.createBufferSource();
+    sparkSrc.buffer = sparkBuf;
+
+    const sparkFilter = ctx.createBiquadFilter();
+    sparkFilter.type = 'bandpass';
+    sparkFilter.frequency.setValueAtTime(2200, now);
+    sparkFilter.frequency.linearRampToValueAtTime(950, now + 0.75);
+    sparkFilter.Q.setValueAtTime(4.0, now);
+
+    const sparkGain = ctx.createGain();
+    sparkGain.gain.setValueAtTime(0.18, now);
+    sparkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+
+    sparkSrc.connect(sparkFilter);
+    sparkFilter.connect(sparkGain);
+    sparkGain.connect(ctx.destination);
+    sparkSrc.start(now);
+    sparkSrc.stop(now + 0.78);
+  }
+
+  /**
+   * 13. トゥルーエンディング：B1Fの扉が100%開いた瞬間、「バチィッ！」と管理室の通信・監視システムが爆発ショートする音
+   */
+  public playSystemShortCircuitExplosion(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 1) 「バチィッ！！」という強烈な高圧アーク放電クラック
+    const arcLen = Math.floor(ctx.sampleRate * 0.45);
+    const arcBuf = ctx.createBuffer(1, arcLen, ctx.sampleRate);
+    const arcData = arcBuf.getChannelData(0);
+    for (let i = 0; i < arcLen; i++) {
+      const env = Math.exp(-i / (ctx.sampleRate * 0.12));
+      arcData[i] = (Math.random() * 2 - 1) * env * 1.4;
+    }
+    const arcSrc = ctx.createBufferSource();
+    arcSrc.buffer = arcBuf;
+
+    const arcFilter = ctx.createBiquadFilter();
+    arcFilter.type = 'bandpass';
+    arcFilter.frequency.setValueAtTime(2600, now);
+    arcFilter.frequency.exponentialRampToValueAtTime(420, now + 0.42);
+    arcFilter.Q.setValueAtTime(2.2, now);
+
+    const arcGain = ctx.createGain();
+    arcGain.gain.setValueAtTime(0.35, now);
+    arcGain.gain.exponentialRampToValueAtTime(0.001, now + 0.44);
+
+    arcSrc.connect(arcFilter);
+    arcFilter.connect(arcGain);
+    arcGain.connect(ctx.destination);
+    arcSrc.start(now);
+    arcSrc.stop(now + 0.45);
+
+    // 2) 監視システムの電源が落ちていくパワーダウン音（「キュゥゥゥン……プツッ」）
+    const pwrOsc = ctx.createOscillator();
+    pwrOsc.type = 'sawtooth';
+    pwrOsc.frequency.setValueAtTime(980, now + 0.04);
+    pwrOsc.frequency.exponentialRampToValueAtTime(32, now + 0.85);
+
+    const pwrFilter = ctx.createBiquadFilter();
+    pwrFilter.type = 'lowpass';
+    pwrFilter.frequency.setValueAtTime(1400, now + 0.04);
+    pwrFilter.frequency.exponentialRampToValueAtTime(90, now + 0.85);
+
+    const pwrGain = ctx.createGain();
+    pwrGain.gain.setValueAtTime(0.18, now + 0.04);
+    pwrGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.88);
+
+    pwrOsc.connect(pwrFilter);
+    pwrFilter.connect(pwrGain);
+    pwrGain.connect(ctx.destination);
+    pwrOsc.start(now + 0.04);
+    pwrOsc.stop(now + 0.9);
+  }
+
+  /**
+   * 14. トゥルーエンディング：爽やかな朝の風と光の環境音（Web Audio API合成）
+   */
+  public startMorningAmbience(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    this.stopMorningAmbience();
+
+    const now = ctx.currentTime;
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.linearRampToValueAtTime(0.22, now + 1.5);
+    masterGain.connect(ctx.destination);
+
+    const nodes: AudioScheduledSourceNode[] = [];
+
+    // 1) 爽やかな風の音（ピンクノイズに近い柔らかい気流音＋ゆっくり揺れるバンドパスフィルター）
+    const windLen = ctx.sampleRate * 3;
+    const windBuf = ctx.createBuffer(1, windLen, ctx.sampleRate);
+    const windData = windBuf.getChannelData(0);
+    let b0 = 0;
+    let b1 = 0;
+    let b2 = 0;
+    for (let i = 0; i < windLen; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.997 * b0 + white * 0.029;
+      b1 = 0.985 * b1 + white * 0.032;
+      b2 = 0.950 * b2 + white * 0.048;
+      windData[i] = (b0 + b1 + b2) * 0.35;
+    }
+    const windSrc = ctx.createBufferSource();
+    windSrc.buffer = windBuf;
+    windSrc.loop = true;
+
+    const windFilter = ctx.createBiquadFilter();
+    windFilter.type = 'bandpass';
+    windFilter.frequency.setValueAtTime(520, now);
+    windFilter.Q.setValueAtTime(1.8, now);
+
+    const windLfo = ctx.createOscillator();
+    windLfo.type = 'sine';
+    windLfo.frequency.setValueAtTime(0.22, now);
+
+    const windLfoGain = ctx.createGain();
+    windLfoGain.gain.setValueAtTime(240, now);
+    windLfo.connect(windLfoGain);
+    windLfoGain.connect(windFilter.frequency);
+
+    const windGain = ctx.createGain();
+    windGain.gain.setValueAtTime(0.45, now);
+
+    windSrc.connect(windFilter);
+    windFilter.connect(windGain);
+    windGain.connect(masterGain);
+
+    windSrc.start(now);
+    windLfo.start(now);
+    nodes.push(windSrc, windLfo);
+
+    // 2) 朝の光を思わせる透明感のあるメジャーナインス・アンビエント和音パッド (C4, E4, G4, B4, D5)
+    const padFreqs = [261.63, 329.63, 392.00, 493.88, 587.33];
+    padFreqs.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+
+      const padGain = ctx.createGain();
+      padGain.gain.setValueAtTime(0.001, now);
+      padGain.gain.linearRampToValueAtTime(0.06 / (1 + idx * 0.25), now + 1.2 + idx * 0.2);
+
+      osc.connect(padGain);
+      padGain.connect(masterGain);
+      osc.start(now);
+      nodes.push(osc);
+    });
+
+    this.morningAmbienceNodes = nodes;
+    this.morningAmbienceGain = masterGain;
+
+    // 3) 遠くで響く爽やかな小鳥のさえずり（周期的に合成）
+    const playBirdChirp = () => {
+      if (this.muted || !this.ctx || !this.morningAmbienceGain) return;
+      const t = this.ctx.currentTime;
+      const notes = [2450, 2950, 2680];
+      notes.forEach((f, i) => {
+        if (!this.ctx || !this.morningAmbienceGain) return;
+        const start = t + i * 0.11;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, start);
+        osc.frequency.exponentialRampToValueAtTime(f * 1.18, start + 0.08);
+
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.linearRampToValueAtTime(0.035, start + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + 0.09);
+
+        osc.connect(g);
+        g.connect(this.morningAmbienceGain);
+        osc.start(start);
+        osc.stop(start + 0.1);
+      });
+    };
+
+    window.setTimeout(playBirdChirp, 650);
+    this.morningBirdTimer = window.setInterval(playBirdChirp, 3200);
+  }
+
+  public stopMorningAmbience(): void {
+    if (this.morningBirdTimer) {
+      window.clearInterval(this.morningBirdTimer);
+      this.morningBirdTimer = null;
+    }
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const gain = this.morningAmbienceGain;
+    const nodes = this.morningAmbienceNodes;
+    this.morningAmbienceGain = null;
+    this.morningAmbienceNodes = [];
+
+    if (gain) {
+      try {
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(Math.max(0.001, gain.gain.value), now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+      } catch { /* ignore */ }
+    }
+
+    setTimeout(() => {
+      for (const n of nodes) {
+        try { n.stop(); n.disconnect(); } catch { /* ignore */ }
+      }
+      try { gain?.disconnect(); } catch { /* ignore */ }
+    }, 450);
   }
 }
 

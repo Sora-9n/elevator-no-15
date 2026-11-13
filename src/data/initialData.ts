@@ -9,81 +9,81 @@ export const INITIAL_NOTICE_RULES: NoticeRule[] = [
   {
     id: 'rule-15-blue-ban',
     shortTitle: '① 青い服の人物は乗車禁止',
-    title: '【保安通達】青い服の人物に関する厳重注意',
-    subtitle: '15F 初期通達 — 管理組合 保安課',
+    title: '【保安命令】青い服を着た不審者の即時遮断',
+    subtitle: '15F 初期命令 — 管理室 保安統制課',
     content:
-      '最近、当ビル内で「青い服」を着用した不審人物が住人に成りすまして昇降機へ乗り込む事案が多発しています。どれほど普通の住人に見えても、青い服を着た人物は絶対に車内へ招き入れず、直ちに扉を閉めてください。',
-    highlightWarning: '「青い服」の人物は不審者のため絶対に乗せないこと',
+      '最近、当ビル内で「青い服」を着た不審者が住人に成りすまして昇降機へ乗り込む事案が多発している。どれほど普通の住人に見えようが、青い服を着た奴は絶対に箱の中へ入れるな。見つけ次第、即座に扉を閉めて遮断しろ。判断ミスは貴様の処分に直結すると思え。',
+    highlightWarning: '「青い服」の奴は例外なく閉め出せ。情けをかけるな',
     unlockedAtFloor: 15,
-    stampText: '厳守',
+    stampText: '絶対厳守',
   },
   {
     id: 'rule-15-floor12-empty',
     shortTitle: '② 12階は工事中で完全無人',
-    title: '【工事連絡】12階 全面改装工事のお知らせ',
-    subtitle: '15F 初期通達 — 施設管理部',
+    title: '【封鎖命令】12階 全面改装フロアの開扉厳禁',
+    subtitle: '15F 初期命令 — 施設管理室',
     content:
-      '現在、12階はフロア全面の改装工事につき完全封鎖されており、住人・作業員を含め【完全無人】となっております。12階で扉が開き、誰かが立っていたとしても絶対に扉を開けないでください。',
-    highlightWarning: '12階は完全無人。12階で扉が開いても誰も乗せないこと',
+      '現在、12階はフロア全面の改装工事につき完全封鎖中であり、住人も作業員も一人もいない【完全無人】階層だ。12階で扉が開き、そこに誰が立っていようが絶対に扉を開けるな。言われた通りに閉めればいい。余計な好奇心で扉を開ければ貴様を即刻廃棄処分とする。',
+    highlightWarning: '12階は完全無人だ。誰が立っていようが即座に閉扉しろ',
     unlockedAtFloor: 15,
-    stampText: '封鎖中',
+    stampText: '開扉厳禁',
   },
   {
     id: 'rule-15-delivery-nametag',
     shortTitle: '③ 名札のない配達員は排除',
-    title: '【業務規定】夜間配達員の身元確認について',
-    subtitle: '15F 初期通達 — 管理室',
+    title: '【検閲命令】夜間配達員の名札照合について',
+    subtitle: '15F 初期命令 — 管理室',
     content:
-      '夜間に荷物を運ぶ配達員が乗車する場合は、胸元の「名札」を必ず確認してください。名札を着けている配達員は正規業者のため乗せなければなりませんが、【名札のない配達員】は不審者のため閉め出してください。',
-    highlightWarning: '「名札のない配達員」は閉め出すこと（名札ありは正規）',
+      '夜間に荷物を運ぶ配達員が乗ってくる場合は、扉を少し開けて胸元の「名札」を必ず確認しろ。名札を着けている配達員は正規業者だから乗せろ。ただし【名札のない配達員】は不審者だ。ボサッと突っ立っていないで隙間から名札の有無を見極め、偽物は即座に閉め出せ。',
+    highlightWarning: '「名札のない配達員」は即排除しろ（名札ありは正規業者だ、閉め出すな）',
     unlockedAtFloor: 15,
-    stampText: '確認必須',
+    stampText: '照合必須',
   },
 
   // === 10F 追加張り紙（2枚：ルールの上書き） ===
   {
     id: 'rule-10-blue-guard-override',
     shortTitle: '④【訂正】10F以下の青服＋制帽は警備員',
-    title: '【重要訂正】10階以下の夜間警備員（青服）について',
-    subtitle: '10F 追加通達 — 管理組合 保安課',
+    title: '【規則上書】10階以下の夜間警備員（青服）の扱い',
+    subtitle: '10F 追加命令 — 管理室 保安統制課',
     content:
-      '以前の張り紙で「青い服は全員不審者」と通達しましたが、10階以下では青い制服の夜間警備員が巡回しています。【10階以下で「青い服」かつ「制帽」を被っている人物】は正規の警備員ですので、必ず乗せてください（閉め出すと厳重クレームになります）。※制帽のない青い服は引き続き不審者です。',
-    highlightWarning: '10階以下で「青い服＋制帽あり」は正規警備員のため必ず乗せること',
+      '先の通達で「青い服は全員不審者」と命じたが、10階以下では青い制服の夜間警備員が巡回している。【10階以下で「青い服」かつ「制帽」を被っている者】は正規の警備員だ。間違えて閉め出すなよ、警備業務の妨害は貴様の懲戒事案になるからな。※制帽のない青い服は変わらず不審者だ。区別もつかないとは言わせるな。',
+    highlightWarning: '10階以下で「青い服＋制帽あり」は正規警備員だ。閉め出したら処分するぞ',
     unlockedAtFloor: 10,
     stampText: '規則上書',
   },
   {
     id: 'rule-10-red-coat-eyes',
     shortTitle: '⑤ 赤いコート＋帽子は偽物',
-    title: '【追加通達】赤いコートの住人と偽物の見分け方',
-    subtitle: '10F 追加通達 — 管理室',
+    title: '【追加命令】赤いコートの住人と偽物の識別',
+    subtitle: '10F 追加命令 — 管理室',
     content:
-      '中層階より「赤いコート」を着た住人が乗車します。赤いコートの住人自体は正規の居住者ですが、まれに姿を真似た「偽物」が紛れ込んでいます。正規の住人は帽子を被っていません。【赤いコートを着て、帽子を被っている人物】は偽物ですので、直ちに扉を閉めて閉め出してください。',
-    highlightWarning: '赤いコートは正規住人だが、「帽子を被っている赤いコート」は偽物のため閉め出すこと',
+      '中層階より「赤いコート」を着た住人が乗車する。赤いコートの住人自体は正規居住者だが、姿を真似た「偽物」が紛れ込んでいる。正規の住人は帽子を被っていない。【赤いコートを着て、帽子を被っている奴】は偽物だ。見誤るな、監視カメラで貴様の手元を全て見ているぞ。',
+    highlightWarning: '「帽子を被った赤いコート」は偽物だ。即座に扉を閉めて排除しろ',
     unlockedAtFloor: 10,
-    stampText: '追加警戒',
+    stampText: '厳重監視',
   },
 
-  // === 5F 追加張り紙（2枚：さらなる混乱と改ざん） ===
+  // === 5F 追加張り紙（2枚：さらなる混乱と血の走り書き） ===
   {
     id: 'rule-05-room-number-ghost',
     shortTitle: '⑥ 5F以下で「部屋番号」を名乗る者は幽霊',
-    title: '【緊急通達】低層階における退去済み住人の出現について',
-    subtitle: '5F 緊急通達 — 管理組合 特別対策室',
+    title: '【緊急命令】低層階における退去済み亡霊の排除',
+    subtitle: '5F 緊急命令 — 管理室 特別対策班',
     content:
-      '5階以下のフロアにおいて、すでに退去・死亡したはずの旧住人がエレベーターを待つ現象が確認されています。5階以下で会話中に【自分の部屋番号（〇〇号室）を名乗る人物】は全員、退去済みの幽霊です。外見がどれほど普通でも絶対に乗せないでください。',
-    highlightWarning: '5階以下で「〇〇号室」と部屋番号を名乗る人物は全員幽霊のため閉め出すこと',
+      '5階以下のフロアにおいて、すでに退去・死亡したはずの旧住人が昇降機を待つ現象が確認されている。5階以下で会話中に【自分の部屋番号（〇〇号室）を名乗る奴】は全員、退去済みの亡霊だ。外見がどれほどまともでも絶対に乗せるな。情に流された前任者がどうなったか、貴様も知りたくはあるまい。',
+    highlightWarning: '5階以下で「〇〇号室」と部屋番号を名乗る奴は亡霊だ。即刻遮断しろ',
     unlockedAtFloor: 5,
-    stampText: '緊急命令',
+    stampText: '絶対命令',
   },
   {
     id: 'rule-05-corrupted-memo',
-    shortTitle: '⑦ ？？？（赤黒い殴り書きの紙片）',
-    title: '（扉の隙間から差し込まれた赤黒い紙片）',
-    subtitle: '5F 発信元不明 — 公印なし',
+    shortTitle: '⑦ 血に塗れた走り書き',
+    title: '血に塗れた走り書き',
+    subtitle: '5F 発信元不明 — 前の犠牲者による殴り書き',
     content:
-      'うそつき。うそつき。うそつき。\n5階以下の青い服はぜんぶニセモノ。\n低層階に警備員なんかいない。\n制帽をかぶっていても、そいつの目と首をよく見ろ。絶対に開けるな。',
-    highlightWarning: '「うそつき。5階以下の青い服はぜんぶニセモノ。警備員なんかいない」',
+      '『あいつらの命令に騙されるな。1階になんか行くな、また15階へ戻されて永遠に飼われるだけだ。本当に外へ出たいなら、2階で待っている“彼女”を中へ入れろ。管理室は嘘の警報で全力でお前を止めようとする。どれだけ脅されても、あいつらの言う通りに手を下すな。最後まで彼女を信じろ』',
+    highlightWarning: '「2階で待っている“彼女”を中へ入れろ。どれだけ脅されても、あいつらの言う通りに手を下すな。最後まで彼女を信じろ」',
     unlockedAtFloor: 5,
     stampText: '怪文書',
     isCorrupted: true,
@@ -549,32 +549,33 @@ export const INITIAL_VISITORS: VisitorData[] = [
     },
     requiredCloseClicks: 7,
     sanityDamage: 2,
-    description: '5階以下に現れた青い服の偽警備員。怪文書⑦の通り偽物であり、部屋番号も口にする。扉をこじ開けるため7回連打が必要。',
+    description: '5階以下に現れた青い服の偽警備員。305号室と部屋番号を口にし、首と目が歪んでいる怪異。扉をこじ開けるため7回連打が必要。',
   },
   {
-    id: 'v-ch3-valid-survivor',
-    name: '帰りを急ぐ女性住人',
+    id: 'v-ch3-key-woman',
+    name: '薄汚れた白い服を着た女性',
     category: 'NORMAL',
     isThreat: false,
+    isKeyWoman: true,
     chapter: 3,
     spawnFloors: [2],
-    dialogue: '「こんばんは、上の階から階段で降りてきた住人です……！ 胸に住人証も着けています、1階まで乗せてください！」',
-    enteredDialogue: '「よかった……！ あと1階で外に出られますね、ありがとうございます！」',
-    rejectedDialogue: '「待って！ 住人証も着けている正規の住人なのに置いていかないで！ 管理室に通報しますよ！！」',
+    dialogue: '「…お願い、私を乗せて。1階は罠よ、地下の非常口へ連れて行くわ…」',
+    enteredDialogue: '「…ありがとう。でも気をつけて、管理室が私を消そうとしてくるわ…！」',
+    rejectedDialogue: '「…そんな…あいつらの嘘を信じるのね……」',
     appearance: {
       silhouetteType: 'SLENDER',
-      clothingColor: '#b49a78',
-      clothingLabel: '明るいベージュのコート｜住人証あり・帽子なし',
+      clothingColor: '#d6d3d1',
+      clothingLabel: '薄汚れた白い服の女性｜2階で待機',
       eyeStyle: 'NORMAL',
-      mouthStyle: 'SMILE',
-      glitchLevel: 'NONE',
+      mouthStyle: 'NEUTRAL',
+      glitchLevel: 'SUBTLE',
       hasCap: false,
-      hasNameTag: true,
+      hasNameTag: false,
       hasPackage: false,
     },
     requiredCloseClicks: 1,
     sanityDamage: 0,
-    description: '部屋番号を名乗らず、胸元に住人証を着け、外見に異常のない2階の正規住人。',
+    description: '2階で待っていた薄汚れた白い服を着た悲しげな女性。5階の血に塗れた走り書きに記された“鍵となる彼女”。',
   },
   {
     id: 'v-any-neck-anomaly',
@@ -605,6 +606,7 @@ export const INITIAL_VISITORS: VisitorData[] = [
  * 各階層（14〜11F、9〜6F、4〜2F）の訪問者選出ロジック
  * - 強制的に入ってこようとする怪異（requiredCloseClicks > 1）は5階以下（4F・3F）のみで1ゲーム1〜2回出現
  * - 正体を現す怪異（REVEAL_THREAT）も5階以下（4F）のみで最大1回出現
+ * - 2Fは必ずトゥルーエンドの鍵となる特別な女性（v-ch3-key-woman）を固定出現させる
  */
 export function selectVisitorForFloor(floor: number, recentVisitorIds: string[]): VisitorData {
   const byId = (id: string) => INITIAL_VISITORS.find((v) => v.id === id)!;
@@ -612,7 +614,7 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
   // 固定の重要ギミック階層（12F, 9F, 2F）
   if (floor === 12) return byId('v-ch1-floor12-phantom');      // 12F: 工事中無人ルール（こじ開けなし・1回閉扉）
   if (floor === 9) return byId('v-ch2-blue-security-guard');   // 9F: 10Fで上書きされた「青服＋制帽の正規警備員」
-  if (floor === 2) return byId('v-ch3-valid-survivor');        // 2F: 住人証を着けた明確な正規住人
+  if (floor === 2) return byId('v-ch3-key-woman');             // 2F: トゥルーエンドの鍵となる「薄汚れた白い服の女性」固定出現
 
   // 5階以下（4F・3F）：正体を現す怪異（最大1回）＆ こじ開け怪異（1〜2回）
   if (floor === 4) {
@@ -666,6 +668,6 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  return byId('v-ch3-valid-survivor');
+  return byId('v-ch3-key-woman');
 }
 

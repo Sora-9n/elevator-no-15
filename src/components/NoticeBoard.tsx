@@ -136,11 +136,11 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
             onClick={handleCloseModal}
             className="fixed inset-0 z-50 bg-black/85 backdrop-blur-[2px] flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
           >
-            {/* 検問中（JUDGING）に開いている場合は背後の迫る猶予警告を世界観に合った警告板で表示 */}
+            {/* 検問中（JUDGING）に開いている場合は背後の迫る猶予警告を管理室の高圧的な警告板で表示 */}
             {gameState === 'JUDGING' && (
               <div className="mb-2 sm:mb-3 bg-stone-950/95 border-2 border-red-700 text-red-100 px-3.5 py-1.5 rounded-xs text-xs font-mincho font-bold flex items-center gap-2.5 shadow-[0_0_24px_rgba(185,28,28,0.85)] animate-pulse whitespace-nowrap shrink-0">
                 <span className="tracking-wider">
-                  【警戒】検閲中につき、文書照合中も扉の外に対象が待機しています
+                  【監視室警告】検閲中にモタモタするな！扉の外に対象が迫っているぞ
                 </span>
                 <span className="border-l border-red-800 pl-2.5 font-seven-seg text-sm text-amber-400">
                   猶予 {(judgingTimeLeftMs / 1000).toFixed(1)} 秒
@@ -224,7 +224,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
                     }`}
                   >
                     <div className="text-[11px] font-bold opacity-80 mb-0.5">
-                      【検問の要旨】
+                      {selectedRule.isCorrupted ? '【走り書きの警告】' : '【絶対遵守事項】'}
                     </div>
                     <div className="text-sm font-extrabold">
                       {selectedRule.highlightWarning}
@@ -265,28 +265,28 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
                   <div className="flex items-center justify-between border-b-2 border-stone-800 pb-2.5 mb-3 pr-8">
                     <div>
                       <span className="text-[11px] font-bold text-stone-700 tracking-wider block">
-                        管理組合 保安課 編纂 — 乗務員必携（機密第15號）
+                        管理室 保安統制課 発令 — 乗務員絶対服従規程（機密第15號）
                       </span>
                       <h3 className="text-lg md:text-xl font-extrabold text-stone-950 tracking-wide mt-0.5">
                         第十五號昇降機 運行手引書
                       </h3>
                     </div>
                     <div className="border-2 border-red-800 text-red-800 font-extrabold text-xs px-2 py-0.5 rotate-[-4deg] shrink-0 whitespace-nowrap">
-                      取扱注意
+                      絶対服従
                     </div>
                   </div>
 
-                  {/* 罫線枠の条文テーブル（読みやすく整理された文章） */}
+                  {/* 罫線枠の条文テーブル（冷酷・高圧的な管理室命令口調） */}
                   <div className="border-2 border-stone-800 divide-y divide-stone-700/80 bg-stone-900/5 text-xs leading-relaxed">
                     <div className="p-2 sm:p-2.5">
                       <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
                         <span>【第一条：扉の開閉と覗き込み検閲】</span>
                         <span className="text-[10px] font-bold text-red-900 border border-red-800/60 px-1.5 py-0.2">
-                          基本業務
+                          基本義務
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        到着時、扉はわずかな隙間（12%）しか開きません。「開扉」ボタンを長押しして隙間を広げ、胸元の名札や荷物、表情を慎重に確認してください。扉を大きく開けた瞬間に本性を現す怪異も存在します。異変を認めた場合は直ちに指を離し、「閉扉」を押して遮断してください。（扉に手をかけて侵入を試みる個体に対しては、「閉扉」を力強く連打して押し戻してください）
+                        到着時、扉は12%しか開かない。「開扉」ボタンを長押しして隙間を広げ、胸元の名札・荷物・面構えを徹底的に検閲しろ。扉を大きく開けた瞬間に本性を現す個体もいる。異変を見たら即座に指を離し、「閉扉」を押して遮断しろ。（扉に手をかけてこじ開けようとする個体には「閉扉」を連打して叩き出せ）
                       </p>
                     </div>
 
@@ -298,7 +298,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        下降中、床下から有毒な瘴気が立ち込めた場合や、同乗者から換気の要望があった場合は、直ちに「急速換気」を起動してください（3秒間強制排気されます）。※車内に異常がない平時に作動させると、乗客から「風が強くて寒い」と苦情通報（クレーム）の対象となるため厳禁です。
+                        下降中、床下から有毒な瘴気が湧き出た場合や、同乗者から換気の要求があった場合は、直ちに「急速換気」を起動しろ（3秒間強制排気される）。※車内に異常がない平時に勝手に作動させて乗客から苦情が出たら貴様の責任だ。余計な真似はするな。
                       </p>
                     </div>
 
@@ -306,30 +306,30 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
                       <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
                         <span>【第三条：非常ベル連動・緊急防衛レーザー】</span>
                         <span className="text-[10px] font-bold text-red-900 border border-red-800/60 px-1.5 py-0.2">
-                          低層警戒
+                          低層命令
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        5階以下の低層階を下降中、閉まった正面扉の鏡面に「背後に立つ怪異」が映り込む現象が報告されています。鏡面に影を確認した際は、直ちに「非常ベル」を押下してください。天井の緊急防衛システム（高圧紫外線レーザー）が作動し、車内の怪異を閃光照射によって焼灼・消滅させます。
+                        5階以下の低層階を下降中、閉まった正面扉の鏡面に「背後の怪異」が映り込むことがある。鏡面に影を見たら躊躇せず「非常ベル」を叩け。天井の高圧紫外線レーザーが作動し、対象を閃光照射で焼き払う。判断が遅れて死んでも代わりの作業員はいくらでもいると思え。
                       </p>
                     </div>
 
                     <div className="p-2 sm:p-2.5">
                       <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
-                        <span>【第四条：通達の改定と文書照合】</span>
+                        <span>【第四条：命令の改定と処分基準】</span>
                         <span className="text-[10px] font-bold text-stone-800 border border-stone-700 px-1.5 py-0.2">
-                          注意事項
+                          懲戒規定
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        10階および5階の待機所で追加される通達は、従前の規則を上書きします。検閲中に張り紙を開いて確認している間も、外の訪問者は少しずつ扉へと迫っています。速やかに照合を終えてください。
+                        10階および5階の待機所で下達する追加通達は、従前の規則を上書きする。検閲中に張り紙を見ている間も外の個体は扉へ迫っている。愚図るな、素早く照合を終えて命令通りに処理しろ。
                       </p>
                     </div>
                   </div>
 
                   <div className="pt-2.5 mt-2 flex items-center justify-between">
-                    <span className="text-[10px] text-stone-700 font-bold">
-                      ※手引書の紛失・汚損は懲戒対象とします
+                    <span className="text-[10px] text-red-900 font-bold">
+                      ※命令違反・苦情3件累積は即刻隔離・廃棄処分とする
                     </span>
                     <button
                       type="button"

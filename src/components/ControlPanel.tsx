@@ -40,10 +40,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 }) => {
   const isPrepare = gameState === 'PREPARE';
   const isJudging = gameState === 'JUDGING';
+  const isFinalDoor = gameState === 'FINAL_DOOR';
   const isMoving = gameState === 'MOVING';
+  const canHoldOpen = isJudging || isFinalDoor;
+  const isUrgentClose =
+    (isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0) ||
+    (isJudging && floor === 2);
 
-  // 12% → 100% までの長押し進捗率（0%〜100%）
-  const openHoldProgress = isJudging
+  // 12% → 100% までの長押し進捗率（FINAL_DOOR時は 0% → 100%）
+  const openHoldProgress = isFinalDoor
+    ? Math.max(0, Math.min(100, doorOpenPercent))
+    : isJudging
     ? Math.max(0, Math.min(100, ((doorOpenPercent - 12) / 88) * 100))
     : doorOpenPercent >= 100
     ? 100
@@ -88,21 +95,40 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <motion.button
             id="btn-door-open"
             type="button"
-            disabled={!isJudging}
+            disabled={!canHoldOpen}
             onPointerDown={(e) => {
               e.preventDefault();
-              if (isJudging) onStartHoldOpen();
+              if (canHoldOpen) onStartHoldOpen();
             }}
             onPointerUp={onStopHoldOpen}
             onPointerLeave={onStopHoldOpen}
             onPointerCancel={onStopHoldOpen}
             onContextMenu={(e) => e.preventDefault()}
-            whileTap={isJudging ? { scale: 0.97 } : undefined}
+            animate={
+              isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
+                ? {
+                    scale: [1, 1.03, 1],
+                    boxShadow: [
+                      '0 0 14px rgba(245,158,11,0.65)',
+                      '0 0 28px rgba(16,185,129,0.9)',
+                      '0 0 14px rgba(245,158,11,0.65)',
+                    ],
+                  }
+                : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
+            }
+            transition={
+              isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
+                ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
+                : { duration: 0.15 }
+            }
+            whileTap={canHoldOpen ? { scale: 0.97 } : undefined}
             className={`relative w-full py-3.5 px-2.5 rounded border-2 flex flex-col items-center justify-center gap-1 transition-all overflow-hidden whitespace-nowrap touch-hold-btn select-none ${
-              !isJudging
+              !canHoldOpen
                 ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
                 : isHoldingOpen
                 ? 'bg-emerald-950/90 border-emerald-400 text-emerald-100 shadow-[0_0_18px_rgba(16,185,129,0.5)] cursor-pointer'
+                : isFinalDoor
+                ? 'bg-stone-900 hover:bg-stone-800 border-amber-400 text-amber-100 cursor-pointer ring-2 ring-amber-400/70'
                 : 'bg-stone-900 hover:bg-stone-800 border-stone-600 text-stone-100 shadow-md cursor-pointer'
             }`}
           >
@@ -116,7 +142,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               ＜＞ 開扉
             </span>
             <span className="relative z-10 text-[11px] text-stone-300 whitespace-nowrap">
-              長押し：隙間拡大 / 乗車認可
+              {isFinalDoor
+                ? `★長押し：最終扉を手動開放 (${Math.floor(openHoldProgress)}%)`
+                : '長押し：隙間拡大 / 乗車認可'}
             </span>
           </motion.button>
 
@@ -130,12 +158,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               }`}
               style={{ width: `${openHoldProgress}%` }}
             />
-            {/* 覗き込み変化ライン目盛り */}
-            <div
-              title="身元照合ライン"
-              className="absolute top-0 bottom-0 w-0.5 bg-amber-300/80 z-10"
-              style={{ left: '60.2%' }}
-            />
+            {/* 覗き込み変化ライン目盛り（通常検問時のみ） */}
+            {!isFinalDoor && (
+              <div
+                title="身元照合ライン"
+                className="absolute top-0 bottom-0 w-0.5 bg-amber-300/80 z-10"
+                style={{ left: '60.2%' }}
+              />
+            )}
           </div>
         </div>
 
@@ -146,7 +176,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           disabled={!isJudging}
           onClick={onPressClose}
           animate={
-            isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
+            isUrgentClose
               ? {
                   scale: [1, 1.03, 1],
                   boxShadow: [
@@ -158,7 +188,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
           }
           transition={
-            isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
+            isUrgentClose
               ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
               : { duration: 0.15 }
           }
@@ -166,12 +196,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           className={`relative w-full py-3.5 px-2.5 rounded border flex flex-col items-center justify-center gap-1 transition-colors whitespace-nowrap overflow-hidden ${
             !isJudging
               ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
-              : isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
+              : isUrgentClose
               ? 'bg-red-900 hover:bg-red-800 border-red-400 text-white cursor-pointer ring-2 ring-red-400/90'
               : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-200 cursor-pointer'
           }`}
         >
-          {isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0 && (
+          {isUrgentClose && (
             <span className="absolute inset-0 bg-red-500/25 animate-ping pointer-events-none" />
           )}
           <span className="relative z-10 text-sm sm:text-base font-mincho font-black tracking-widest whitespace-nowrap">
@@ -179,13 +209,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </span>
           <span
             className={`relative z-10 text-[11px] whitespace-nowrap font-bold ${
-              isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0
+              isUrgentClose
                 ? 'text-amber-200'
                 : 'text-stone-300 font-normal'
             }`}
           >
             {isJudging && requiredCloseClicks > 1
               ? `★抉開抵抗！残${closeClicksRemaining}回連打`
+              : isJudging && floor === 2
+              ? '★管理室命令：直ちに遮断しろ'
               : '押下：強制閉扉 / 遮断排除'}
           </span>
         </motion.button>

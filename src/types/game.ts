@@ -5,8 +5,11 @@ export type GameState =
   | 'ARRIVING'
   | 'JUDGING'
   | 'EVENT_RESULT'
+  | 'FINAL_DOOR'
   | 'GAMEOVER'
   | 'CLEAR';
+
+export type EndingType = 'NORMAL' | 'TRUE';
 
 export type VisitorCategory =
   | 'NORMAL'           // 通常の住人・正規職員
@@ -67,6 +70,10 @@ export interface VisitorData {
    */
   isCabinSleeper?: boolean;
   /**
+   * 2階で固定出現するトゥルーエンドの鍵となる女性フラグ
+   */
+  isKeyWoman?: boolean;
+  /**
    * 出現階層チャプター（1: 14-11F, 2: 9-6F, 3: 4-2F）または特定階
    */
   chapter?: 1 | 2 | 3;
@@ -117,6 +124,7 @@ export interface MovingCabinEvent {
   status: 'ACTIVE' | 'RESOLVED' | 'FAILED';
   promptText: string;
   targetPassengerId?: string;
+  isKeyWomanTrial?: boolean;
 }
 
 export interface ToastAlert {

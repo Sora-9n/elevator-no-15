@@ -53,15 +53,17 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
             />
             {gameState === 'JUDGING'
               ? '廊下からの声'
+              : gameState === 'FINAL_DOOR'
+              ? '最終階層 監視通信'
               : gameState === 'EVENT_RESULT' && eventOutcome
               ? eventOutcome.title
               : isDangerMovingEvent
               ? movingEvent?.type === 'MIASMA'
-                ? '車内異常（有毒瘴気）'
-                : '背後の気配（鏡面反射）'
+                ? '管理室 強制排気命令'
+                : '管理室 緊急照射命令'
               : activeRequester && gameState === 'MOVING'
               ? '車内からの要求'
-              : '車内モニター'}
+              : '管理室 監視モニター'}
           </span>
 
           {gameState === 'EVENT_RESULT' && eventOutcome && (
@@ -116,7 +118,7 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
         <div className="flex-1 flex items-center gap-2 overflow-x-auto">
           {activePassengers.length === 0 ? (
             <span className="text-xs text-stone-500 whitespace-nowrap">
-              同乗者なし（安全）
+              同乗者なし
             </span>
           ) : (
             activePassengers.map((p, idx) => {
@@ -127,11 +129,15 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
                   className={`px-2.5 py-0.5 rounded text-xs font-bold flex items-center gap-1.5 shrink-0 border whitespace-nowrap ${
                     hasUnfulfilled
                       ? 'bg-amber-950/90 border-amber-400 text-amber-200 animate-pulse'
+                      : p.visitor.isKeyWoman
+                      ? 'bg-stone-900 border-amber-500/70 text-amber-200'
                       : 'bg-stone-900 border-stone-700 text-stone-200'
                   }`}
                 >
                   <span>
-                    {p.boardedFloor}F収容対象 (残{p.remainingFloors}階で退出)
+                    {p.visitor.isKeyWoman
+                      ? '2F収容：白い服の女性（地下非常口へ案内中）'
+                      : `${p.boardedFloor}F収容対象 (残${p.remainingFloors}階で退出)`}
                   </span>
                   {p.pendingRequest && (
                     <span className="flex items-center gap-1 text-[11px]">

@@ -38,21 +38,26 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
   const isJudging = gameState === 'JUDGING';
   const isDanger = complaints >= 2 || sanity <= 1;
 
-  const formattedFloor = floor === 1 ? '1F' : `${String(floor).padStart(2, '0')}F`;
+  const formattedFloor =
+    floor <= 0 ? 'B1F' : floor === 1 ? '1F' : `${String(floor).padStart(2, '0')}F`;
   const timeProgress = Math.max(0, Math.min(100, (judgingTimeLeftMs / judgingMaxTimeMs) * 100));
   const secondsLeft = (judgingTimeLeftMs / 1000).toFixed(1);
 
   const statusText =
     gameState === 'PREPARE'
-      ? '【待機】規程査読中'
+      ? '【待機】命令通達査読'
       : gameState === 'MOVING'
-      ? '【巡航】シャフト下降中'
+      ? '【巡航】シャフト降下中'
       : gameState === 'ARRIVING'
       ? '【接車】扉隙間開放'
       : gameState === 'JUDGING'
       ? isSlowMotion
         ? `【検閲】文書照合中 (${secondsLeft}s)`
         : `【検閲】身元照合 (${secondsLeft}s)`
+      : gameState === 'FINAL_DOOR'
+      ? floor <= 0
+        ? '【B1F非常口】手動開扉'
+        : '【1F到着】手動開扉待機'
       : gameState === 'EVENT_RESULT'
       ? '【判定】処理実行中'
       : '【停止】待機状態';

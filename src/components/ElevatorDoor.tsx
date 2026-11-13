@@ -152,14 +152,18 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
               transition={{ duration: 0.25 }}
               className="absolute inset-0 z-24 pointer-events-none overflow-hidden flex items-center justify-center"
             >
-              {/* 車内の照明が赤黒く点滅するオーバーレイ */}
-              <div className="absolute inset-0 cabin-red-black-flicker mix-blend-multiply" />
+              {/* 車内の照明が赤黒く点滅するオーバーレイ（2F試練達成時は消灯） */}
+              {!(movingEvent.isKeyWomanTrial && movingEvent.status === 'FAILED') && (
+                <div className="absolute inset-0 cabin-red-black-flicker mix-blend-multiply" />
+              )}
 
               {/* ステンレス扉表面の鏡面反射レイヤー（少しボヤッとした金属反射質感） */}
               <motion.div
                 animate={
                   movingEvent.status === 'FAILED'
-                    ? { scale: 2.35, y: 30, opacity: 1 }
+                    ? movingEvent.isKeyWomanTrial
+                      ? { scale: 0.96, y: 0, opacity: 0.55 }
+                      : { scale: 2.35, y: 30, opacity: 1 }
                     : movingEvent.status === 'RESOLVED'
                     ? { scale: 0.7, opacity: 0, filter: 'blur(12px)' }
                     : {
@@ -484,11 +488,27 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
           )}
         </AnimatePresence>
 
-        {/* こじ開け発生時の車内非常警告光 */}
+        {/* こじ開け発生時 または 2F管理室緊急警報時の車内非常警告光 */}
         <AnimatePresence>
-          {isPryingDoor && (
-            <div className="absolute inset-0 z-25 pointer-events-none flex items-center justify-center">
+          {(isPryingDoor || (gameState === 'JUDGING' && floor === 2)) && (
+            <div className="absolute inset-0 z-25 pointer-events-none flex flex-col items-center justify-start p-3">
               <div className="absolute inset-0 bg-red-950/45 door-emergency-light mix-blend-multiply" />
+              {gameState === 'JUDGING' && floor === 2 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -12 }}
+                  animate={{ opacity: [0.88, 1, 0.88], y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.45, repeat: Infinity }}
+                  className="relative z-30 bg-red-950/95 border-2 border-red-500 text-red-100 px-3.5 py-2 rounded-xs shadow-[0_0_30px_rgba(220,38,38,0.95)] max-w-md w-full text-center font-mincho"
+                >
+                  <div className="text-[11px] font-black text-amber-300 tracking-widest mb-0.5">
+                    【管理室 最優先命令 // 特級危険物警報】
+                  </div>
+                  <div className="text-xs font-extrabold leading-snug">
+                    2階の個体は特級危険物だ！絶対に開けるな、直ちに扉を閉めろ！命令違反は即刻処分するぞ！！
+                  </div>
+                </motion.div>
+              )}
             </div>
           )}
         </AnimatePresence>
@@ -500,16 +520,16 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
               <div className="flex items-center justify-between border-b-2 border-stone-800 pb-2 mb-2.5">
                 <div className="flex items-center gap-1.5 text-stone-950 font-extrabold text-xs tracking-wider">
                   <ClipboardCheck className="w-4 h-4 text-red-900 shrink-0" />
-                  <span>【{floor}階 検問待機所】業務指示通達</span>
+                  <span>【{floor}階 検問待機所】管理室 命令通達</span>
                 </div>
                 <span className="border border-red-800 text-red-800 text-[10px] font-extrabold px-1.5 py-0.2 rotate-[-4deg] shrink-0">
-                  査読必須
+                  絶対服従
                 </span>
               </div>
               <p className="text-xs text-stone-900 leading-relaxed font-bold">
                 {floor === 15
-                  ? '左壁面の保安通達（3通）を確認してください。査読完了後、右操作盤の「▼ 下降開始」を押して着務してください。'
-                  : '管理室より規程改定の追加通達（2通）が届いています。左壁面の未読文書を確認後、下降を再開してください。'}
+                  ? '左壁面の保安通達（3通）を頭に叩き込め。理解したらモタモタせず右操作盤の「▼ 下降開始」を押して働け。'
+                  : '管理室より規程改定の追加命令（2通）を下達した。左壁面の未読文書を即座に確認し、愚図らず下降を再開しろ。'}
               </p>
             </div>
           </div>
@@ -517,7 +537,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
 
         {/* 到着ベル後に一瞬だけ金属扉に浮かび上がる階数表示演出 */}
         <AnimatePresence>
-          {gameState === 'ARRIVING' && isArrivingFlash && (
+          {(gameState === 'ARRIVING' || gameState === 'FINAL_DOOR') && isArrivingFlash && (
             <motion.div
               key={`arriving-floor-${floor}`}
               initial={{ opacity: 0, scale: 0.92, filter: 'blur(6px)' }}
@@ -531,25 +551,29 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                 className="absolute w-64 h-64 rounded-full blur-2xl"
                 style={{
                   background:
-                    currentVisitor?.category === 'ANOMALY' ||
-                    (currentVisitor?.requiredCloseClicks ?? 1) > 1
+                    floor <= 0
+                      ? 'radial-gradient(circle, rgba(56,189,248,0.42) 0%, rgba(0,0,0,0) 70%)'
+                      : currentVisitor?.category === 'ANOMALY' ||
+                        (currentVisitor?.requiredCloseClicks ?? 1) > 1
                       ? 'radial-gradient(circle, rgba(220,38,38,0.38) 0%, rgba(0,0,0,0) 70%)'
                       : 'radial-gradient(circle, rgba(245,158,11,0.32) 0%, rgba(0,0,0,0) 70%)',
                 }}
               />
               <div className="relative flex flex-col items-center">
                 <span className="text-[11px] sm:text-xs font-mincho font-bold tracking-[0.4em] text-stone-400/90 mb-1">
-                  ― 到着階層 ―
+                  {floor <= 0 ? '― 封鎖区域突破 ―' : '― 到着階層 ―'}
                 </span>
                 <span
                   className={`font-seven-seg text-6xl sm:text-7xl font-black tracking-widest ${
-                    currentVisitor?.category === 'ANOMALY' ||
-                    (currentVisitor?.requiredCloseClicks ?? 1) > 1
+                    floor <= 0
+                      ? 'text-sky-300 drop-shadow-[0_0_28px_rgba(56,189,248,0.95)]'
+                      : currentVisitor?.category === 'ANOMALY' ||
+                        (currentVisitor?.requiredCloseClicks ?? 1) > 1
                       ? 'text-red-500 drop-shadow-[0_0_28px_rgba(239,68,68,0.95)]'
                       : 'text-amber-400 drop-shadow-[0_0_26px_rgba(245,158,11,0.9)]'
                   }`}
                 >
-                  {String(floor).padStart(2, '0')}F
+                  {floor <= 0 ? 'B1F' : `${String(floor).padStart(2, '0')}F`}
                 </span>
               </div>
             </motion.div>

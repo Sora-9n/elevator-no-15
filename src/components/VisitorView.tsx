@@ -50,65 +50,366 @@ export const VisitorView: React.FC<VisitorViewProps> = ({
       ? 'glitch-subtle cctv-chromatic-subtle'
       : '';
 
+  const isNormalEndingView =
+    floor === 1 && (gameState === 'FINAL_DOOR' || gameState === 'CLEAR');
+  const isTrueEndingView =
+    floor <= 0 && (gameState === 'FINAL_DOOR' || gameState === 'CLEAR');
+
   return (
     <div className="relative w-full h-full bg-[#040504] overflow-hidden flex items-center justify-center">
-      {/* 1. 奥の暗い廊下レイヤー */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse at 50% 15%, rgba(160, 175, 140, 0.14) 0%, rgba(18, 22, 18, 0.78) 48%, rgba(3, 4, 3, 0.98) 90%)',
-        }}
-      />
+      {/* ============================================================
+          ★ 最終フロア演出①：1F 通常エンディング（合わせ鏡のような不気味な無限エレベーター箱内部）
+          ============================================================ */}
+      {isNormalEndingView ? (
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#060605]">
+          <svg
+            viewBox="0 0 400 500"
+            preserveAspectRatio="none"
+            className="w-full h-full pointer-events-none"
+          >
+            <defs>
+              <radialGradient id="infiniteMirrorAbyss" cx="50%" cy="48%" r="55%">
+                <stop offset="0%" stopColor="#000000" />
+                <stop offset="55%" stopColor="#0c0b09" />
+                <stop offset="100%" stopColor="#1c1917" />
+              </radialGradient>
+              <linearGradient id="rustyWallGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#1c1917" />
+                <stop offset="50%" stopColor="#0f0e0d" />
+                <stop offset="100%" stopColor="#1c1917" />
+              </linearGradient>
+            </defs>
 
-      {/* 廊下の奥へ続く壁面パースライン */}
-      <svg
-        viewBox="0 0 400 500"
-        preserveAspectRatio="none"
-        className="absolute inset-0 w-full h-full opacity-30 pointer-events-none"
-      >
-        <defs>
-          <linearGradient id="corridorDepth" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#1c1f1b" />
-            <stop offset="65%" stopColor="#090b09" />
-            <stop offset="100%" stopColor="#020302" />
-          </linearGradient>
-        </defs>
-        <rect
-          x="95"
-          y="55"
-          width="210"
-          height="340"
-          fill="url(#corridorDepth)"
-          stroke="#262925"
-          strokeWidth="1"
-        />
-        <line x1="0" y1="0" x2="95" y2="55" stroke="#27272a" strokeWidth="1.5" />
-        <line x1="400" y1="0" x2="305" y2="55" stroke="#27272a" strokeWidth="1.5" />
-        <line x1="0" y1="500" x2="95" y2="395" stroke="#18181b" strokeWidth="1.5" />
-        <line x1="400" y1="500" x2="305" y2="395" stroke="#18181b" strokeWidth="1.5" />
-      </svg>
+            {/* 背景ベース */}
+            <rect x="0" y="0" width="400" height="500" fill="url(#infiniteMirrorAbyss)" />
 
-      {/* 廊下の天井蛍光灯 */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 w-36 h-2 bg-amber-100/70 rounded-full blur-[2px] fluorescent-light shadow-[0_0_28px_rgba(220,240,190,0.45)]" />
+            {/* 入れ子状に奥へ無限に続くエレベーターの箱（合わせ鏡構造 6段階） */}
+            {[0, 1, 2, 3, 4, 5].map((depth) => {
+              const scale = Math.pow(0.72, depth);
+              const w = 380 * scale;
+              const h = 470 * scale;
+              const x = 200 - w / 2;
+              const y = 245 - h / 2;
+              const nextScale = Math.pow(0.72, depth + 1);
+              const nw = 380 * nextScale;
+              const nh = 470 * nextScale;
+              const nx = 200 - nw / 2;
+              const ny = 245 - nh / 2;
 
-      {/* 廊下奥の階数表示 */}
-      <div className="absolute inset-x-10 top-8 bottom-10 flex flex-col items-center justify-between pointer-events-none opacity-65">
-        <div className="mt-4 flex flex-col items-center select-none">
-          <span className="font-seven-seg text-5xl text-stone-800/70 tracking-widest">
-            {floor}F
-          </span>
-          {floor === 12 && (
-            <div className="mt-1 bg-amber-500/20 border border-amber-500/50 text-amber-300/90 text-[10px] font-bold px-2 py-0.5 tracking-wider rotate-[-2deg] whitespace-nowrap">
-              12F 全面改装工事中（立入禁止）
+              return (
+                <g key={depth} opacity={Math.max(0.18, 1 - depth * 0.14)}>
+                  {/* パースライン（手前の枠から奥の枠へ繋がる金属天井・床・左右壁） */}
+                  <line x1={x} y1={y} x2={nx} y2={ny} stroke="#44403c" strokeWidth="1.5" />
+                  <line x1={x + w} y1={y} x2={nx + nw} y2={ny} stroke="#44403c" strokeWidth="1.5" />
+                  <line x1={x} y1={y + h} x2={nx} y2={ny + nh} stroke="#292524" strokeWidth="1.5" />
+                  <line x1={x + w} y1={y + h} x2={nx + nw} y2={ny + nh} stroke="#292524" strokeWidth="1.5" />
+
+                  {/* エレベーター箱の外枠 */}
+                  <rect
+                    x={x}
+                    y={y}
+                    width={w}
+                    height={h}
+                    fill="none"
+                    stroke="#57534e"
+                    strokeWidth={Math.max(1, 3.5 * scale)}
+                  />
+
+                  {/* 각箱の天井の薄暗い蛍光灯 */}
+                  <rect
+                    x={200 - 48 * scale}
+                    y={y + 8 * scale}
+                    width={96 * scale}
+                    height={5 * scale}
+                    rx={2 * scale}
+                    fill="#fde68a"
+                    opacity={0.55}
+                  />
+
+                  {/* 各箱の上部 7セグ階層表示（不気味に15F/1Fが灯る） */}
+                  <rect
+                    x={200 - 24 * scale}
+                    y={y + 20 * scale}
+                    width={48 * scale}
+                    height={16 * scale}
+                    fill="#09090b"
+                    stroke="#78350f"
+                    strokeWidth={scale}
+                  />
+                  <text
+                    x="200"
+                    y={y + 32 * scale}
+                    textAnchor="middle"
+                    fill={depth % 2 === 0 ? '#f59e0b' : '#ef4444'}
+                    fontSize={11 * scale}
+                    fontWeight="bold"
+                    fontFamily="monospace"
+                  >
+                    15F
+                  </text>
+
+                  {/* 左壁の張り紙シルエット・右壁の操作盤シルエット */}
+                  <rect
+                    x={x + 6 * scale}
+                    y={y + h * 0.25}
+                    width={18 * scale}
+                    height={h * 0.42}
+                    fill="#292524"
+                    stroke="#57534e"
+                    strokeWidth={0.8 * scale}
+                  />
+                  <rect
+                    x={x + w - 24 * scale}
+                    y={y + h * 0.25}
+                    width={18 * scale}
+                    height={h * 0.42}
+                    fill="#1c1917"
+                    stroke="#57534e"
+                    strokeWidth={0.8 * scale}
+                  />
+                  {/* 右壁操作盤の小さな赤・黄ランプ */}
+                  <circle
+                    cx={x + w - 15 * scale}
+                    cy={y + h * 0.35}
+                    r={2.8 * scale}
+                    fill="#f59e0b"
+                  />
+                  <circle
+                    cx={x + w - 15 * scale}
+                    cy={y + h * 0.52}
+                    r={2.8 * scale}
+                    fill="#ef4444"
+                  />
+                </g>
+              );
+            })}
+
+            {/* 最深部にぽつんと立ち尽くす「自分自身（作業員）」の黒い影 */}
+            <g opacity="0.82">
+              <ellipse cx="200" cy="236" rx="11" ry="13" fill="#050505" stroke="#44403c" strokeWidth="1" />
+              <path
+                d="M 180 288 L 185 252 C 188 245, 212 245, 215 252 L 220 288 Z"
+                fill="#050505"
+                stroke="#44403c"
+                strokeWidth="1"
+              />
+              {/* 虚ろに光る2つの目 */}
+              <circle cx="196" cy="235" r="1.2" fill="#f59e0b" opacity="0.8" />
+              <circle cx="204" cy="235" r="1.2" fill="#f59e0b" opacity="0.8" />
+            </g>
+          </svg>
+
+          {/* 不気味な案内プレート */}
+          <div className="absolute top-6 inset-x-0 flex flex-col items-center pointer-events-none select-none">
+            <div className="bg-stone-950/90 border border-amber-600/60 text-amber-400/90 px-3 py-1 text-xs font-mincho font-bold tracking-widest shadow-[0_0_20px_rgba(0,0,0,0.9)]">
+              第十五號昇降機 ― 同一規格ケージ接続
             </div>
-          )}
+          </div>
         </div>
-        <div className="w-full h-14 bg-gradient-to-t from-black via-stone-950/80 to-transparent" />
-      </div>
+      ) : isTrueEndingView ? (
+        /* ============================================================
+           ★ 最終フロア演出②：B1F トゥルーエンディング（地上へ続くコンクリートの非常階段と朝の光・青空）
+           ============================================================ */
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#090d16]">
+          <svg
+            viewBox="0 0 400 500"
+            preserveAspectRatio="none"
+            className="w-full h-full pointer-events-none"
+          >
+            <defs>
+              {/* 開いた鉄扉の向こうに広がる爽やかな朝の青空と黄金色の朝陽グラデーション */}
+              <linearGradient id="morningSkyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#0284c7" />
+                <stop offset="45%" stopColor="#38bdf8" />
+                <stop offset="80%" stopColor="#bae6fd" />
+                <stop offset="100%" stopColor="#fef08a" />
+              </linearGradient>
+
+              {/* 非常口から地下階段へ降り注ぐ眩しい朝の光（ゴッドレイ） */}
+              <radialGradient id="morningSunGlow" cx="50%" cy="22%" r="65%">
+                <stop offset="0%" stopColor="rgba(255, 255, 255, 1)" />
+                <stop offset="30%" stopColor="rgba(254, 249, 195, 0.85)" />
+                <stop offset="65%" stopColor="rgba(186, 230, 253, 0.35)" />
+                <stop offset="100%" stopColor="rgba(15, 23, 42, 0)" />
+              </radialGradient>
+
+              <linearGradient id="sunbeamRay" x1="50%" y1="0%" x2="50%" y2="100%">
+                <stop offset="0%" stopColor="rgba(255, 255, 255, 0.85)" />
+                <stop offset="50%" stopColor="rgba(254, 240, 138, 0.35)" />
+                <stop offset="100%" stopColor="rgba(254, 240, 138, 0)" />
+              </linearGradient>
+
+              <linearGradient id="concreteWallLeft" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#1e293b" />
+                <stop offset="100%" stopColor="#475569" />
+              </linearGradient>
+
+              <linearGradient id="concreteWallRight" x1="100%" y1="0%" x2="0%" y2="0%">
+                <stop offset="0%" stopColor="#1e293b" />
+                <stop offset="100%" stopColor="#475569" />
+              </linearGradient>
+            </defs>
+
+            {/* 1. 左右の地下コンクリート壁と天井 */}
+            <polygon points="0,0 135,55 135,340 0,500" fill="url(#concreteWallLeft)" />
+            <polygon points="400,0 265,55 265,340 400,500" fill="url(#concreteWallRight)" />
+            <polygon points="0,0 400,0 265,55 135,55" fill="#334155" />
+
+            {/* 2. 階段上の開け放たれた鉄扉枠と、その奥の眩しい青空 */}
+            <rect
+              x="135"
+              y="55"
+              width="130"
+              height="185"
+              fill="url(#morningSkyGrad)"
+              stroke="#64748b"
+              strokeWidth="4"
+            />
+
+            {/* 青空に浮かぶ朝の白い雲 */}
+            <ellipse cx="175" cy="110" rx="28" ry="9" fill="#ffffff" opacity="0.88" />
+            <ellipse cx="225" cy="92" rx="34" ry="11" fill="#ffffff" opacity="0.82" />
+            <ellipse cx="200" cy="145" rx="45" ry="12" fill="#fef9c3" opacity="0.65" />
+
+            {/* 奥へ押し開かれた重厚な非常鉄扉（左側に開いている立体描写） */}
+            <polygon
+              points="135,55 162,68 162,228 135,240"
+              fill="#334155"
+              stroke="#94a3b8"
+              strokeWidth="1.5"
+            />
+
+            {/* 非常口の上の緑色の誘導灯 */}
+            <rect x="176" y="34" width="48" height="14" rx="2" fill="#059669" stroke="#a7f3d0" strokeWidth="1.2" />
+            <text x="200" y="44" textAnchor="middle" fill="#ffffff" fontSize="8" fontWeight="bold">
+              非常口 EXIT
+            </text>
+
+            {/* 3. 地上へと続くコンクリートの非常階段（下から上へ10段） */}
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((step) => {
+              const ratio = step / 10;
+              const nextRatio = (step + 1) / 10;
+              const yBottom = 490 - ratio * 250;
+              const yTop = 490 - nextRatio * 250;
+              const halfWBottom = 195 - ratio * 130;
+              const halfWTop = 195 - nextRatio * 130;
+              const brightness = Math.floor(70 + ratio * 145);
+              const treadColor = `rgb(${brightness}, ${brightness + 8}, ${brightness + 18})`;
+              const riserColor = `rgb(${Math.max(30, brightness - 35)}, ${Math.max(35, brightness - 28)}, ${Math.max(45, brightness - 18)})`;
+
+              return (
+                <g key={step}>
+                  {/* 蹴込み板（段の垂直面） */}
+                  <polygon
+                    points={`${200 - halfWBottom},${yBottom} ${200 + halfWBottom},${yBottom} ${200 + halfWBottom},${yBottom - 11} ${200 - halfWBottom},${yBottom - 11}`}
+                    fill={riserColor}
+                    stroke="rgba(255,255,255,0.18)"
+                    strokeWidth="0.7"
+                  />
+                  {/* 踏み面（朝の光を反射する水平面） */}
+                  <polygon
+                    points={`${200 - halfWBottom},${yBottom - 11} ${200 + halfWBottom},${yBottom - 11} ${200 + halfWTop},${yTop} ${200 - halfWTop},${yTop}`}
+                    fill={treadColor}
+                  />
+                </g>
+              );
+            })}
+
+            {/* 左右の金属製手すり */}
+            <line x1="25" y1="430" x2="142" y2="215" stroke="#cbd5e1" strokeWidth="4" />
+            <line x1="25" y1="430" x2="25" y2="485" stroke="#94a3b8" strokeWidth="3.5" />
+            <line x1="90" y1="312" x2="90" y2="365" stroke="#94a3b8" strokeWidth="3" />
+
+            <line x1="375" y1="430" x2="258" y2="215" stroke="#cbd5e1" strokeWidth="4" />
+            <line x1="375" y1="430" x2="375" y2="485" stroke="#94a3b8" strokeWidth="3.5" />
+            <line x1="310" y1="312" x2="310" y2="365" stroke="#94a3b8" strokeWidth="3" />
+
+            {/* 4. 階段へ差し込む眩しい朝の光芒（ゴッドレイ） */}
+            <polygon
+              points="140,60 260,60 390,500 10,500"
+              fill="url(#sunbeamRay)"
+              style={{ mixBlendMode: 'screen' }}
+            />
+            <circle
+              cx="200"
+              cy="135"
+              r="185"
+              fill="url(#morningSunGlow)"
+              opacity={0.55 + (doorOpenPercent / 100) * 0.45}
+            />
+          </svg>
+
+          {/* 扉が開くにつれて強まる朝の光ブルーム */}
+          <div
+            className="absolute inset-0 pointer-events-none transition-opacity duration-150"
+            style={{
+              background:
+                'radial-gradient(circle at 50% 30%, rgba(255,255,255,0.85) 0%, rgba(254,249,195,0.45) 42%, rgba(56,189,248,0.15) 80%, transparent 100%)',
+              opacity: Math.max(0.15, (doorOpenPercent / 100) * 0.85),
+            }}
+          />
+        </div>
+      ) : (
+        <>
+          {/* 1. 奥の暗い廊下レイヤー */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(ellipse at 50% 15%, rgba(160, 175, 140, 0.14) 0%, rgba(18, 22, 18, 0.78) 48%, rgba(3, 4, 3, 0.98) 90%)',
+            }}
+          />
+
+          {/* 廊下の奥へ続く壁面パースライン */}
+          <svg
+            viewBox="0 0 400 500"
+            preserveAspectRatio="none"
+            className="absolute inset-0 w-full h-full opacity-30 pointer-events-none"
+          >
+            <defs>
+              <linearGradient id="corridorDepth" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#1c1f1b" />
+                <stop offset="65%" stopColor="#090b09" />
+                <stop offset="100%" stopColor="#020302" />
+              </linearGradient>
+            </defs>
+            <rect
+              x="95"
+              y="55"
+              width="210"
+              height="340"
+              fill="url(#corridorDepth)"
+              stroke="#262925"
+              strokeWidth="1"
+            />
+            <line x1="0" y1="0" x2="95" y2="55" stroke="#27272a" strokeWidth="1.5" />
+            <line x1="400" y1="0" x2="305" y2="55" stroke="#27272a" strokeWidth="1.5" />
+            <line x1="0" y1="500" x2="95" y2="395" stroke="#18181b" strokeWidth="1.5" />
+            <line x1="400" y1="500" x2="305" y2="395" stroke="#18181b" strokeWidth="1.5" />
+          </svg>
+
+          {/* 廊下の天井蛍光灯 */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 w-36 h-2 bg-amber-100/70 rounded-full blur-[2px] fluorescent-light shadow-[0_0_28px_rgba(220,240,190,0.45)]" />
+
+          {/* 廊下奥の階数表示 */}
+          <div className="absolute inset-x-10 top-8 bottom-10 flex flex-col items-center justify-between pointer-events-none opacity-65">
+            <div className="mt-4 flex flex-col items-center select-none">
+              <span className="font-seven-seg text-5xl text-stone-800/70 tracking-widest">
+                {floor <= 0 ? 'B1F' : `${floor}F`}
+              </span>
+              {floor === 12 && (
+                <div className="mt-1 bg-amber-500/20 border border-amber-500/50 text-amber-300/90 text-[10px] font-bold px-2 py-0.5 tracking-wider rotate-[-2deg] whitespace-nowrap">
+                  12F 全面改装工事中（立入禁止）
+                </div>
+              )}
+            </div>
+            <div className="w-full h-14 bg-gradient-to-t from-black via-stone-950/80 to-transparent" />
+          </div>
+        </>
+      )}
 
       {/* 2. 訪問者シルエット＆パーツ描画（65%覗き込みによる段階的変化対応） */}
-      {showVisitor && visitor && effectiveAppearance && (
+      {!isNormalEndingView && !isTrueEndingView && showVisitor && visitor && effectiveAppearance && (
         <motion.div
           key={`${visitor.id}-${floor}`}
           initial={{ scale: 0.95, opacity: 0, y: 10 }}
@@ -196,6 +497,15 @@ export const VisitorView: React.FC<VisitorViewProps> = ({
                   stroke="rgba(255,255,255,0.1)"
                   strokeWidth="1.5"
                 />
+
+                {/* ★ 2Fの鍵となる女性（isKeyWoman）の薄汚れた白い服の煤・汚れディテール */}
+                {visitor.isKeyWoman && (
+                  <g opacity="0.55">
+                    <ellipse cx="115" cy="235" rx="22" ry="38" fill="#57534e" />
+                    <ellipse cx="165" cy="275" rx="26" ry="45" fill="#44403c" />
+                    <ellipse cx="138" cy="188" rx="16" ry="12" fill="#78716c" />
+                  </g>
+                )}
 
                 {/* 襟元（Vゾーン） */}
                 <path

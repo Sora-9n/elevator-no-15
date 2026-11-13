@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type {
   ActivePassenger,
+  EndingType,
   EventOutcome,
   GameState,
   MovingCabinEvent,
@@ -28,12 +29,14 @@ import {
   MessageSquareWarning,
   Bell,
   Smartphone,
+  Sun,
 } from 'lucide-react';
 
 const MAX_SANITY = 3;
 const MAX_COMPLAINTS = 3;
 const QUIET_MOVING_DURATION_MS = 3800; // 階と階の間の通常移動時間を少し長めに設定（3.8秒）
 const EVENT_MOVING_WINDOW_MS = 5200; // 下降中イベント発生時の対処猶予を長めに確保（5.2秒）
+const KEY_WOMAN_MIRROR_WINDOW_MS = 3500; // 2F→1F「鍵となる彼女」第2の試練カウントダウン（3.5秒）
 const ARRIVING_FLASH_MS = 950; // 到着音が鳴った後、扉が閉まったまま階数が浮かび上がる時間
 const ARRIVING_DURATION_MS = 1850; // 到着演出全体の時間（階数表示950ms ＋ 扉が12%まで開く900ms）
 const JUDGING_DURATION_MS = 8000; // 8.0秒ベース
@@ -42,6 +45,8 @@ const RAPID_FAN_DURATION_MS = 3000; // 急速換気稼働時間（3.0秒）
 
 // 約1.8秒（1800ms / 50ms = 36ティック）で 12% → 100%（+88%）に到達する増分
 const OPEN_HOLD_STEP_PER_50MS = 88 / 36;
+// 最終フロア（1F / B1F）で重々しい扉を 0% → 100% まで約3.75秒（75ティック）かけてじわじわ開ける増分
+const FINAL_DOOR_OPEN_STEP_PER_50MS = 100 / 75;
 // こじ開け怪異が放置された際、約6.0秒（6000ms / 50ms = 120ティック）で 12% → 100%（+88%）まで強制開扉する増分
 const PRYING_OPEN_STEP_PER_50MS = 88 / 120;
 
@@ -52,6 +57,8 @@ export function App() {
   const [sanity, setSanity] = useState<number>(MAX_SANITY);
   const [complaints, setComplaints] = useState<number>(0);
   const [gameOverReason, setGameOverReason] = useState<string>('');
+  const [endingType, setEndingType] = useState<EndingType>('NORMAL');
+  const [endingOverlayFade, setEndingOverlayFade] = useState<'NONE' | 'BLACKOUT' | 'WHITEOUT'>('NONE');
 
   // 扉＆訪問者状態
   const [doorOpenPercent, setDoorOpenPercent] = useState<number>(0);
@@ -75,7 +82,7 @@ export function App() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [activeSubtitle, setActiveSubtitle] = useState<string>(
-    '「【第十五號昇降機】夜間運行業務を開始してください。規程に反する存在を車内に招き入れてはなりません。」'
+    '『おい作業員、第十五號昇降機の夜間検問を開始しろ。規程違反者を1人でも通せば貴様の処分に直結すると思え。』'
   );
   const [eventOutcome, setEventOutcome] = useState<EventOutcome | null>(null);
   const [toastAlert, setToastAlert] = useState<ToastAlert | null>(null);
@@ -123,6 +130,7 @@ export function App() {
   const complaintsRef = useRef<number>(0);
   const isModalOpenRef = useRef<boolean>(false);
   const toastTimeoutRef = useRef<number | null>(null);
+  const trueEndUnlockedRef = useRef<boolean>(false);
 
   useEffect(() => {
     activePassengersRef.current = activePassengers;
@@ -148,7 +156,7 @@ export function App() {
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
-  // TITLE / GAMEOVER / CLEAR 画面では環境音・ループ音を完全に停止
+  // TITLE / GAMEOVER / CLEAR 画面では機械環境音・ループ音を完全に停止
   useEffect(() => {
     if (gameState === 'TITLE' || gameState === 'GAMEOVER' || gameState === 'CLEAR') {
       soundManager.stopCabinRattle();
@@ -158,12 +166,15 @@ export function App() {
       soundManager.stopMiasmaHeartbeat();
       soundManager.stopAnomalyPresence();
       soundManager.stopPryingLoop();
+      if (gameState === 'TITLE' || gameState === 'GAMEOVER') {
+        soundManager.stopMorningAmbience();
+      }
     }
   }, [gameState]);
 
-  // 画面上部のトースト通知（3秒表示）
+  // 画面上部のトースト通知（デフォルト3.2秒表示）
   const showToast = useCallback(
-    (type: ToastAlert['type'], title: string, message: string) => {
+    (type: ToastAlert['type'], title: string, message: string, durationMs = 3200) => {
       if (toastTimeoutRef.current) {
         window.clearTimeout(toastTimeoutRef.current);
       }
@@ -175,7 +186,7 @@ export function App() {
       });
       toastTimeoutRef.current = window.setTimeout(() => {
         setToastAlert(null);
-      }, 3000);
+      }, durationMs);
     },
     []
   );
@@ -222,6 +233,7 @@ export function App() {
     soundManager.stopMiasmaHeartbeat();
     soundManager.stopAnomalyPresence();
     soundManager.stopPryingLoop();
+    soundManager.stopMorningAmbience();
     soundManager.startCabinRattle();
 
     recentVisitorIdsRef.current = [];
@@ -233,6 +245,8 @@ export function App() {
     movingEventRef.current = null;
     floorsSinceLastMovingEventRef.current = 1;
     mirrorGhostTriggeredCountRef.current = 0;
+    miasmaTriggeredCountRef.current = 0;
+    trueEndUnlockedRef.current = false;
     isPausedRef.current = false;
     setIsPaused(false);
 
@@ -240,6 +254,8 @@ export function App() {
     setSanity(MAX_SANITY);
     setComplaints(0);
     setGameOverReason('');
+    setEndingType('NORMAL');
+    setEndingOverlayFade('NONE');
     setDoorOpenPercent(0);
     setIsHoldingOpen(false);
     setCurrentVisitor(null);
@@ -256,12 +272,8 @@ export function App() {
     setIsInspectingModalOpen(false);
     setToastAlert(null);
 
-    mirrorGhostTriggeredCountRef.current = 0;
-    miasmaTriggeredCountRef.current = 0;
-    floorsSinceLastMovingEventRef.current = 1;
-
     setActiveSubtitle(
-      '「【15F 待機中】左パネルの管理組合規程（3枚）を確認し、右操作盤の『▼ 下降開始』を押して業務を開始してください。」'
+      '『【15F 待機所】おい作業員、左パネルの通達（3枚）を頭に叩き込め。確認したら愚図るな、さっさと「▼ 下降開始」を押して業務を始めろ。』'
     );
     setGameState('PREPARE');
   };
@@ -291,6 +303,77 @@ export function App() {
       let nextComplaints = complaintsRef.current;
       let outcome: EventOutcome;
 
+      // ★ 2階（2F）固定クライマックスイベント：「鍵となる彼女」の特別分岐
+      if (visitor.isKeyWoman) {
+        if (decision === 'BOARD' || decision === 'TIMEOUT_BOARD') {
+          // 警告を無視して100%まで開けて招き入れた場合：ダメージ・クレームなしで第2の試練へ進む
+          doorPercentRef.current = 100;
+          setDoorOpenPercent(100);
+          soundManager.playDoorSlide(0.4, true);
+          soundManager.playDoorBumperStop();
+          soundManager.playComplaintBuzzer();
+          setScreenShake('VIOLENT');
+
+          setBoardedSafeCount((prev) => prev + 1);
+          const newPassenger: ActivePassenger = {
+            visitor,
+            boardedFloor: floor,
+            remainingFloors: 99,
+            requestFulfilled: true,
+          };
+          setActivePassengers((prev) => {
+            const trimmed = prev.length >= 2 ? prev.slice(prev.length - 1) : prev;
+            return [...trimmed, newPassenger];
+          });
+
+          outcome = {
+            type: 'SAFE_BOARDED',
+            title: '【最優先命令違反】2F「鍵となる彼女」を収容',
+            detail: '管理室が激昂・緊急防衛システム強制起動中',
+            sanityDelta: 0,
+            complaintDelta: 0,
+          };
+          setActiveSubtitle(
+            '「……ありがとう。でも気をつけて、管理室が嘘の警報で私を消そうとしてくるわ！」『貴様、正気か！？何をしている！！』'
+          );
+          showToast(
+            'DANGER',
+            '【管理室激昂】重大命令違反！！',
+            '『貴様、正気か！？何をしている！！』',
+            3800
+          );
+        } else {
+          // 「閉（CLOSE）」で閉め出した場合：クレームなしで褒められ、1F（通常エンドルート）へ進む
+          doorPercentRef.current = 0;
+          setDoorOpenPercent(0);
+          soundManager.playDoorSlide(0.35, false);
+          window.setTimeout(() => soundManager.playDoorLatchShut(), 280);
+          trueEndUnlockedRef.current = false;
+          setEndingType('NORMAL');
+
+          outcome = {
+            type: 'SAFE_REJECTED_THREAT',
+            title: '【管理室命令完遂】2F 特級対象を遮断',
+            detail: '管理室評価：命令服従を確認（1Fへ進行）',
+            sanityDelta: 0,
+            complaintDelta: 0,
+          };
+          setActiveSubtitle(
+            '「……そう。あなたも、あいつらの飼い犬になるのね……」『当然の判断だ。そのまま1階へ降りろ』'
+          );
+          showToast(
+            'INFO',
+            '【管理室通達】命令服従を確認',
+            '『当然の判断だ。そのまま1階へ降りろ』',
+            3500
+          );
+        }
+
+        setEventOutcome(outcome);
+        setGameState('EVENT_RESULT');
+        return;
+      }
+
       if (decision === 'BOARD' || decision === 'TIMEOUT_BOARD') {
         doorPercentRef.current = 100;
         setDoorOpenPercent(100);
@@ -309,7 +392,7 @@ export function App() {
             decision === 'TIMEOUT_BOARD' ? '【時間超過】強制開扉／' : '';
           outcome = {
             type: 'MISTAKE_BOARDED_THREAT',
-            title: '【侵入許可】怪異を乗車させてしまった',
+            title: '【重大失態】危険個体の侵入を許した',
             detail: `${timeoutPrefix}精神力 -${visitor.sanityDamage}`,
             sanityDelta: -visitor.sanityDamage,
             complaintDelta: 0,
@@ -317,8 +400,8 @@ export function App() {
           setActiveSubtitle(visitor.enteredDialogue);
           showToast(
             'DANGER',
-            '【侵入検知】精神汚染発生',
-            `危険な存在が車内に侵入しました。精神力 -${visitor.sanityDamage}。`
+            '【管理室叱責】不適格個体の侵入！！',
+            `『貴様、どこに目をつけている！判断ミスは貴様の処分に直結すると思え！』（精神力 -${visitor.sanityDamage}）`
           );
         } else {
           // 正規の住人・職員を乗せた（1〜2階で自動降車、車内は最大2名まで）
@@ -364,14 +447,14 @@ export function App() {
           setRepelledThreatCount((prev) => prev + 1);
           outcome = {
             type: 'SAFE_REJECTED_THREAT',
-            title: '【排除成功】危険な対象を遮断',
+            title: '【排除完了】不適格対象を遮断',
             detail: `${floor}F 通過完了`,
             sanityDelta: 0,
             complaintDelta: 0,
           };
           setActiveSubtitle(visitor.rejectedDialogue);
         } else {
-          // 正規の住人・警備員を誤って閉め出した → クレーム +1 ＆ 上部トースト3秒表示
+          // 正規の住人・警備員を誤って閉め出した → クレーム +1 ＆ 上部トースト表示
           soundManager.playComplaintBuzzer();
           setScreenShake('SUBTLE');
           nextComplaints = Math.min(MAX_COMPLAINTS, nextComplaints + 1);
@@ -379,7 +462,7 @@ export function App() {
 
           outcome = {
             type: 'MISTAKE_REJECTED_RESIDENT',
-            title: '【通報】正規の住人を締め出した',
+            title: '【管理室警告】正規住人を閉め出した',
             detail: `苦情累積 ${nextComplaints}/${MAX_COMPLAINTS}`,
             sanityDelta: 0,
             complaintDelta: 1,
@@ -387,8 +470,8 @@ export function App() {
           setActiveSubtitle(visitor.rejectedDialogue);
           showToast(
             'COMPLAINT',
-            `【通報】不当閉鎖苦情 (${nextComplaints}/${MAX_COMPLAINTS})`,
-            '正規住人を締め出したため管理室へ通報されました（累積3件で業務停止）。'
+            `【管理室警告】不当閉鎖 (${nextComplaints}/${MAX_COMPLAINTS})`,
+            '『なぜ正規住人を閉め出した？監視カメラで全て見ているぞ。次はないと思え。』'
           );
         }
       }
@@ -399,11 +482,12 @@ export function App() {
     [currentVisitor, floor, showToast]
   );
 
-  // 下降完了後に次の階へ到着させる共通遷移処理（同乗者の自動降車を含む）
+  // 下降完了後に次の階へ到着させる共通遷移処理（同乗者の自動降車・1F/B1F最終フロア分岐を含む）
   const completeDescentToNextFloor = useCallback(
     (currentFloor: number) => {
       soundManager.stopMotorDrone();
       soundManager.stopMiasmaHeartbeat();
+      soundManager.stopAnomalyPresence();
       movingEventRef.current = null;
       setMovingEvent(null);
       setJumpscareFlash(false);
@@ -412,7 +496,7 @@ export function App() {
       if (sanityRef.current <= 0) {
         soundManager.playJumpscareNoise();
         setGameOverReason(
-          '下降中の車内異変（有毒な瘴気または背後の怪異）に対処できず、精神力が尽きました。'
+          '下降中の車内異変（有毒な瘴気または背後の怪異）に対処できず精神崩壊を確認。無能な作業員め、そのままシャフトの底で朽ち果てろ。'
         );
         setGameState('GAMEOVER');
         return;
@@ -420,26 +504,85 @@ export function App() {
       if (complaintsRef.current >= MAX_COMPLAINTS) {
         soundManager.playJumpscareNoise();
         setGameOverReason(
-          '乗客からのクレーム累積が3回に達したため、管理室より昇降機が強制ロックされ、シャフト内の怪異に呑み込まれました。'
+          '乗客からの苦情累積が3件に達したため、管理室より昇降機を強制ロック・廃棄処分とした。無能な作業員に次はない。'
         );
         setGameState('GAMEOVER');
         return;
       }
 
       const nextFloor = currentFloor - 1;
-      setFloor(nextFloor);
 
-      // 1階に到達したらゲームクリア！
+      // ★ 最終フロア（1F または 地下B1F突入）への到達処理
       if (nextFloor <= 1) {
-        soundManager.playClearChime();
-        soundManager.playDoorSlide(0.8, true);
-        setDoorOpenPercent(100);
-        setScreenShake('NONE');
+        setCurrentVisitor(null);
+        setEventOutcome(null);
+        isHoldingOpenRef.current = false;
+        setIsHoldingOpen(false);
+        doorPercentRef.current = 0;
+        setDoorOpenPercent(0);
+
+        if (trueEndUnlockedRef.current) {
+          // ② トゥルーエンディングルート：1Fで止まらずに通過し、火花と激しい振動と共にB1Fへ突入！
+          setEndingType('TRUE');
+          setFloor(1);
+          soundManager.playB1FBreakthrough();
+          setScreenShake('VIOLENT');
+          setJumpscareFlash(true);
+          window.setTimeout(() => setJumpscareFlash(false), 260);
+          setActiveSubtitle(
+            '『待て！なぜ1階で止まらない！？システム異常だ、止まれ！！』'
+          );
+          showToast(
+            'DANGER',
+            '【管理室恐慌】1F 制動不能・地下区域へ突入！！',
+            '『待て！なぜ1階で止まらない！？システム異常だ、止まれ！！』',
+            2600
+          );
+
+          window.setTimeout(() => {
+            setFloor(0); // 0 = B1F
+            soundManager.playArrivalChime(false);
+            setIsArrivingFlash(true);
+            window.setTimeout(() => setIsArrivingFlash(false), ARRIVING_FLASH_MS);
+            setScreenShake('SUBTLE');
+            decisionLockedRef.current = false;
+            setActiveSubtitle(
+              '『そこは封鎖したはずだ！開けるな！開けるなぁぁぁ！！』「…着いたわ、ここが本当の非常口よ！【開扉】を長押しして扉を最後まで開けて！」'
+            );
+            showToast(
+              'DANGER',
+              '【管理室発狂】B1F 封鎖区域到達',
+              '『そこは封鎖したはずだ！開けるな！開けるなぁぁぁ！！』',
+              4500
+            );
+            setGameState('FINAL_DOOR');
+          }, 2300);
+          return;
+        }
+
+        // ① 通常エンディングルート：1Fに到着し、FINAL_DOOR（手動開扉フェーズ）へ移行
+        setEndingType('NORMAL');
+        setFloor(1);
         setActivePassengers([]);
-        setActiveSubtitle('「【業務完了】1階エントランスに到達しました。すべての運行シフトを完了し、生還を確認しました。」');
-        setGameState('CLEAR');
+        soundManager.playArrivalChime(false);
+        setIsArrivingFlash(true);
+        window.setTimeout(() => setIsArrivingFlash(false), ARRIVING_FLASH_MS);
+        setScreenShake('NONE');
+        decisionLockedRef.current = false;
+        setActiveSubtitle(
+          '『【1F 到達】1階ロビーに到着した。右操作盤の「＜＞ 開扉」ボタンを長押しして扉を100%まで開けろ。』'
+        );
+        showToast(
+          'INFO',
+          '【管理室通達】1F 到達確認',
+          '『1階に到着した。右操作盤の【開扉】を長押しして扉を開けろ。』',
+          3800
+        );
+        setGameState('FINAL_DOOR');
         return;
       }
+
+      setFloor(nextFloor);
 
       // 同乗者の残り乗車階数を -1 し、0になった住人は静かに降車（ポップアップは出さない）
       const currentPassengers = activePassengersRef.current;
@@ -472,20 +615,20 @@ export function App() {
         if (nextFloor === 10) {
           showToast(
             'INFO',
-            '【待機所】10F 停止中',
-            '管理室より最新規程が届きました。確認後、運行を再開してください。'
+            '【管理室指令】10F 停止中',
+            '『追加規程を下達した。一字一句漏らさず読み、さっさと下降を再開しろ。』'
           );
           setActiveSubtitle(
-            '「【10F 待機所】追加規程（2枚）を確認し、『▼ 下降再開』を押して運行を継続してください。」'
+            '『【10F 待機所】追加規程（2枚）を下達した。愚図るな、確認したらさっさと「▼ 下降再開」を押せ。』'
           );
         } else {
           showToast(
             'INFO',
-            '【待機所】5F 停止中',
-            '低層階の緊急告示が届きました。確認後、運行を再開してください。'
+            '【管理室指令】5F 停止中',
+            '『低層階の緊急命令を下達した。余計な詮索はするな、さっさと下降を再開しろ。』'
           );
           setActiveSubtitle(
-            '「【5F 待機所】低層階の緊急告示（2枚）を確認し、『▼ 下降再開』を押して運行を継続してください。」'
+            '『【5F 待機所】低層階の緊急命令（2枚）を確認しろ。不審な走り書きは無視して、さっさと「▼ 下降再開」を押せ。』'
           );
         }
 
@@ -510,7 +653,7 @@ export function App() {
     [showToast]
   );
 
-  // 1. MOVING フェーズの管理（1回の移動につき最大1つのイベントを30〜40%程度の確率で発生）
+  // 1. MOVING フェーズの管理（2F→1Fの「鍵となる彼女」第2の試練 ＋ 通常の下降中イベント）
   useEffect(() => {
     if (gameState !== 'MOVING') return;
 
@@ -521,6 +664,7 @@ export function App() {
     movingEventRef.current = null;
 
     const passengers = activePassengersRef.current;
+    const keyWomanPassenger = passengers.find((p) => p.visitor.isKeyWoman);
     const pendingRequester = passengers.find(
       (p) => p.pendingRequest && !p.requestFulfilled
     );
@@ -530,7 +674,21 @@ export function App() {
     let scheduledEvent: MovingCabinEvent | null = null;
     const quietStreak = floorsSinceLastMovingEventRef.current;
 
-    if (pendingRequester && pendingRequester.pendingRequest) {
+    if (floor === 2 && keyWomanPassenger) {
+      // ★ 2F → 1F 固定クライマックスイベント（第2の試練：3.5秒間、非常ベルを押さずに耐え抜く）
+      scheduledEvent = {
+        id: `key-woman-trial-${Date.now()}`,
+        type: 'MIRROR_GHOST',
+        requiredAction: 'BELL',
+        timeLeftMs: KEY_WOMAN_MIRROR_WINDOW_MS,
+        maxTimeMs: KEY_WOMAN_MIRROR_WINDOW_MS,
+        status: 'ACTIVE',
+        isKeyWomanTrial: true,
+        promptText:
+          '『後ろを見ろ、殺されるぞ！今すぐ【非常ベル】を押してレーザーで焼き払え！早く押せ、死にたいのか！！』',
+        targetPassengerId: keyWomanPassenger.visitor.id,
+      };
+    } else if (pendingRequester && pendingRequester.pendingRequest) {
       // 同乗者の車内要求（換気要求）
       scheduledEvent = {
         id: `req-${Date.now()}`,
@@ -544,22 +702,23 @@ export function App() {
       };
     } else if (
       floor <= 5 &&
+      floor > 2 &&
       mirrorGhostTriggeredCountRef.current < 1 &&
       (sleeperPassenger ||
-        (passengers.length > 0 && (quietStreak >= 1 && Math.random() < 0.65 || floor <= 3)) ||
-        (passengers.length === 0 && floor <= 4 && (quietStreak >= 1 && Math.random() < 0.60 || floor === 3)))
+        (passengers.length > 0 && ((quietStreak >= 1 && Math.random() < 0.65) || floor <= 3)) ||
+        (passengers.length === 0 && floor <= 4 && ((quietStreak >= 1 && Math.random() < 0.60) || floor === 3)))
     ) {
-      // 非常ベル対応イベント（5階以下・鏡面怪異）：出現確率を底上げ（同乗者がいない場合でも鏡に怪異が映る）
+      // 非常ベル対応イベント（5階〜3階・鏡面怪異）
       mirrorGhostTriggeredCountRef.current += 1;
       const targetPassenger = sleeperPassenger || (passengers.length > 0 ? passengers[0] : null);
       const ghostPrompts = targetPassenger
         ? [
-            '「『……ねえ、もう死んでるのに何階へ行くの？ ……後ろ、振り向かないでね』――扉の鏡面に怪異の影！ 直ちに【非常ベル】で防衛レーザーを照射してください！」',
-            '「『……クスクス、あなたのすぐ後ろ、すごく冷たいでしょう？』――金属扉に怪異が映り込んでいます！ 直ちに【非常ベル】で防衛レーザーを照射してください！」',
+            '「『……ねえ、もう死んでるのに何階へ行くの？ ……後ろ、振り向かないでね』」『おい作業員、扉の鏡面に怪異が映っているぞ！直ちに【非常ベル】で防衛レーザーを照射しろ！』',
+            '「『……クスクス、あなたのすぐ後ろ、すごく冷たいでしょう？』」『おい作業員、金属扉に怪異が映り込んでいるぞ！直ちに【非常ベル】で防衛レーザーを照射しろ！』',
           ]
         : [
-            '「『……ふふ、ひとりぼっちだと思った？ あなたの後ろ、立ってるよ』――扉の鏡面に異様な影！ 直ちに【非常ベル】で防衛レーザーを照射してください！」',
-            '「『……クスクス、後ろ……振り向かないでね』――金属扉の鏡面に巨大な人影が接近中！ 直ちに【非常ベル】で防衛レーザーを照射してください！」',
+            '「『……ふふ、ひとりぼっちだと思った？ あなたの後ろ、立ってるよ』」『おい作業員、扉の鏡面に異様な影だ！直ちに【非常ベル】で防衛レーザーを照射しろ！』',
+            '「『……クスクス、後ろ……振り向かないでね』」『おい作業員、金属扉の鏡面に巨大な人影が接近中だ！直ちに【非常ベル】で防衛レーザーを照射しろ！』',
           ];
       scheduledEvent = {
         id: `mirror-${Date.now()}`,
@@ -573,10 +732,11 @@ export function App() {
       };
     } else if (
       floor < 15 &&
+      floor > 2 &&
       miasmaTriggeredCountRef.current < 2 &&
       ((quietStreak >= 2 && Math.random() < 0.20) || quietStreak >= 5)
     ) {
-      // 瘴気の発生（急速換気対応）：頻度を抑制（1ゲーム全体で1〜2回程度）
+      // 瘴気の発生（急速換気対応）
       miasmaTriggeredCountRef.current += 1;
       scheduledEvent = {
         id: `miasma-${Date.now()}`,
@@ -586,7 +746,7 @@ export function App() {
         maxTimeMs: EVENT_MOVING_WINDOW_MS,
         status: 'ACTIVE',
         promptText:
-          '「【車内異常】床下から黒紫色の有毒ガスが噴出！ 直ちに急速換気ボタンを押して排気してください！」',
+          '『【管理室警報】床下から黒紫色の有毒ガスが噴出しているぞ！ボサッとするな、直ちに【急速換気】ボタンを押して排気しろ！』',
       };
     }
 
@@ -595,10 +755,10 @@ export function App() {
       floorsSinceLastMovingEventRef.current += 1;
       if (passengers.length > 0) {
         setActiveSubtitle(
-          `「【下降巡航】${floor - 1}階へ降下中……（車内同乗者 ${passengers.length} 名・異常なし）」`
+          `『【下降監視】${floor - 1}階へ降下中……（車内収容者 ${passengers.length} 名・監視カメラ異常なし）』`
         );
       } else {
-        setActiveSubtitle(`「【下降巡航】${floor - 1}階へ降下中……（車内異常なし）」`);
+        setActiveSubtitle(`『【下降監視】${floor - 1}階へ降下中……（監視カメラ異常なし・気を抜くな）』`);
       }
 
       let quietRemaining = QUIET_MOVING_DURATION_MS;
@@ -616,7 +776,7 @@ export function App() {
 
     // イベントが発生する下降回（降下時間を長く重厚にする）
     floorsSinceLastMovingEventRef.current = 0;
-    setActiveSubtitle(`「【異常降下】${floor - 1}階へ下降中……（シャフト駆動音に変調が発生）」`);
+    setActiveSubtitle(`『【異常降下】${floor - 1}階へ下降中……（シャフト駆動音に変調を検知）』`);
 
     let countdownInterval: number | null | undefined = null;
     let finishInterval: number | null | undefined = null;
@@ -643,6 +803,15 @@ export function App() {
           soundManager.startMiasmaHeartbeat();
         } else if (scheduledEvent.type === 'MIRROR_GHOST') {
           soundManager.playMirrorGhostAppear();
+          if (scheduledEvent.isKeyWomanTrial) {
+            soundManager.playComplaintBuzzer();
+            showToast(
+              'DANGER',
+              '【管理室 緊急命令】非常ベルを押せ！！',
+              '『後ろを見ろ、殺されるぞ！今すぐ【非常ベル】を押してレーザーで焼き払え！早く押せ、死にたいのか！！』',
+              3600
+            );
+          }
         }
 
         movingEventRef.current = scheduledEvent;
@@ -661,7 +830,7 @@ export function App() {
               window.clearInterval(countdownInterval);
               countdownInterval = null;
             }
-            let successRemaining = 3200; // イベント終了後、次の階に着くまでたっぷり間をおく
+            let successRemaining = 3200;
             finishInterval = window.setInterval(() => {
               if (isPausedRef.current) return;
               successRemaining -= 50;
@@ -682,11 +851,54 @@ export function App() {
           const nextTime = Math.max(0, currentEv.timeLeftMs - delta);
 
           if (nextTime <= 0) {
-            // 制限時間切れ（FAILED）：十分な余韻を持たせてから次の階へ到着（3.4秒）
             if (countdownInterval) {
               window.clearInterval(countdownInterval);
               countdownInterval = null;
             }
+
+            // ★ 2F→1F「鍵となる彼女」第2の試練：3.5秒間、非常ベルを押さずに最後まで耐え抜いた場合（トゥルーエンド条件達成！）
+            if (currentEv.isKeyWomanTrial) {
+              soundManager.stopAnomalyPresence();
+              soundManager.playPeekInnocentReveal();
+              setScreenShake('NONE');
+              setJumpscareFlash(false);
+              trueEndUnlockedRef.current = true;
+              setEndingType('TRUE');
+
+              const survivedEv: MovingCabinEvent = {
+                ...currentEv,
+                timeLeftMs: 0,
+                status: 'RESOLVED',
+              };
+              movingEventRef.current = survivedEv;
+              setMovingEvent(survivedEv);
+
+              setActiveSubtitle(
+                '「…信じてくれたのね。1階の偽装ロックを解除するわ。しっかり掴まっていて！」'
+              );
+              showToast(
+                'INFO',
+                '【1F偽装ロック解除】彼女を信じ抜いた',
+                '警報ノイズがピタッと止み、1階の偽装ロックが解除されました！',
+                3400
+              );
+
+              let trueWaitRemaining = 3200;
+              finishInterval = window.setInterval(() => {
+                if (isPausedRef.current) return;
+                trueWaitRemaining -= 50;
+                if (trueWaitRemaining <= 0) {
+                  if (finishInterval) {
+                    window.clearInterval(finishInterval);
+                    finishInterval = null;
+                  }
+                  completeDescentToNextFloor(floor);
+                }
+              }, 50);
+              return;
+            }
+
+            // 通常の制限時間切れ（FAILED）：十分な余韻を持たせてから次の階へ到着（3.4秒）
             const failedEv: MovingCabinEvent = {
               ...currentEv,
               timeLeftMs: 0,
@@ -703,12 +915,12 @@ export function App() {
               const nextSanity = Math.max(0, sanityRef.current - 1);
               setSanity(nextSanity);
               setActiveSubtitle(
-                '「【呼吸困難】有毒ガスを吸い込んでしまった……激しい眩暈により精神力 -1。」'
+                '『おい作業員、なぜ換気ボタンを押さない！？』（有毒ガスを吸引し精神力 -1）'
               );
               showToast(
                 'DANGER',
-                '【精神汚染】毒素吸引',
-                '有毒ガスを吸入。精神力 -1。'
+                '【管理室叱責】毒素吸引（精神力 -1）',
+                '『ボサッとするな！換気遅れによる損害は貴様の給料から天引きだ！』'
               );
             } else if (currentEv.type === 'MIRROR_GHOST') {
               soundManager.playJumpscareNoise();
@@ -722,12 +934,12 @@ export function App() {
                 );
               }
               setActiveSubtitle(
-                '「『見ィつけた』――扉の鏡面から伸びた冷たい影に襲われた。精神力 -1。」'
+                '「『見ィつけた』」――『だから非常ベルを押せと言っただろうが！無能め！』（精神力 -1）'
               );
               showToast(
                 'DANGER',
-                '【背後侵蝕】怪異の襲撃',
-                '背後の怪異に襲われました。精神力 -1。'
+                '【背後侵蝕】怪異の襲撃（精神力 -1）',
+                '『命令通りベルを押さないからだ！次はないと思え！』'
               );
             } else if (currentEv.type === 'PASSENGER_REQUEST') {
               soundManager.playComplaintBuzzer();
@@ -745,16 +957,16 @@ export function App() {
                 )
               );
               setActiveSubtitle(
-                '「『おい、無視するな！ 組合に言いつけてやる！』【苦情発生】同乗要求不履行。」'
+                '「『おい、無視するな！管理室に言いつけてやる！』」『貴様、なぜ乗客の要求を無視した！次はないと思え！』'
               );
               showToast(
                 'COMPLAINT',
-                `【通報】要求無視 (${nextComplaints}/${MAX_COMPLAINTS})`,
-                '車内要求を放置したため管理室へ通報。'
+                `【管理室警告】要求無視 (${nextComplaints}/${MAX_COMPLAINTS})`,
+                '『乗客の換気要求を無視するとは何事だ！監視カメラで全て見ているぞ。』'
               );
             }
 
-            let failRemaining = 3400; // 失敗後の降下時間も3.4秒に延長して余韻を確保
+            let failRemaining = 3400;
             finishInterval = window.setInterval(() => {
               if (isPausedRef.current) return;
               failRemaining -= 50;
@@ -804,7 +1016,7 @@ export function App() {
     doorPercentRef.current = 0;
     setDoorOpenPercent(0);
     setIsArrivingFlash(true);
-    setActiveSubtitle(`「【${floor}F 到着】昇降機が停止しました……」`);
+    setActiveSubtitle(`『【${floor}F 到着】昇降機が停止した。気を抜くな。』`);
 
     let arrivingElapsed = 0;
     let doorSlideStarted = false;
@@ -821,7 +1033,7 @@ export function App() {
         doorPercentRef.current = 12;
         setDoorOpenPercent(12);
         setActiveSubtitle(
-          `「【${floor}F 到着】扉がわずかに開きました。相手の身元を規程と照合してください。」`
+          `『【${floor}F 到着】扉がわずかに開いた。相手の身元を通達と照合しろ。判断ミスは貴様の処分に直結すると思え。』`
         );
       }
 
@@ -833,20 +1045,33 @@ export function App() {
         if (currentVisitor) {
           setActiveSubtitle(currentVisitor.dialogue);
 
-          // ★ 扉が隙間まで開き、怪異・怪物が姿を現した瞬間のホラー音響
-          const isMonster =
-            currentVisitor.category === 'ANOMALY' || currentVisitor.requiredCloseClicks > 1;
-          if (isMonster) {
-            const isPrying = currentVisitor.requiredCloseClicks > 1;
-            soundManager.playMonsterArrival(isPrying);
-            if (isPrying) {
-              setScreenShake('VIOLENT');
-              setJumpscareFlash(true);
-              setTimeout(() => setJumpscareFlash(false), 160);
-              setTimeout(() => setScreenShake('NONE'), 300);
-            } else {
-              setScreenShake('SUBTLE');
-              setTimeout(() => setScreenShake('NONE'), 350);
+          // ★ 2階（2F）の「鍵となる彼女」出現時：管理室からの猛烈な赤色点滅＆警報ブザー命令
+          if (currentVisitor.isKeyWoman) {
+            soundManager.playComplaintBuzzer();
+            setScreenShake('VIOLENT');
+            setTimeout(() => setScreenShake('SUBTLE'), 360);
+            showToast(
+              'DANGER',
+              '【最優先命令】2階の個体は特級危険物だ！',
+              '『絶対に開けるな、直ちに扉を閉めろ！命令違反は即刻処分するぞ！！』',
+              6500
+            );
+          } else {
+            // ★ 扉が隙間まで開き、怪異・怪物が姿を現した瞬間のホラー音響
+            const isMonster =
+              currentVisitor.category === 'ANOMALY' || currentVisitor.requiredCloseClicks > 1;
+            if (isMonster) {
+              const isPrying = currentVisitor.requiredCloseClicks > 1;
+              soundManager.playMonsterArrival(isPrying);
+              if (isPrying) {
+                setScreenShake('VIOLENT');
+                setJumpscareFlash(true);
+                setTimeout(() => setJumpscareFlash(false), 160);
+                setTimeout(() => setScreenShake('NONE'), 300);
+              } else {
+                setScreenShake('SUBTLE');
+                setTimeout(() => setScreenShake('NONE'), 350);
+              }
             }
           }
         }
@@ -858,7 +1083,7 @@ export function App() {
       window.clearInterval(timer);
       setIsArrivingFlash(false);
     };
-  }, [gameState, floor, currentVisitor]);
+  }, [gameState, floor, currentVisitor, showToast]);
 
   // 3. JUDGING フェーズ（8.0秒ベース ＋ 張り紙拡大中は0.25倍速 ＋ 65%覗き込み段階変化 ＋ こじ開け怪異の6秒強制開扉）
   useEffect(() => {
@@ -975,7 +1200,7 @@ export function App() {
         if (sanityRef.current <= 0) {
           soundManager.playJumpscareNoise();
           setGameOverReason(
-            `危険個体（${currentVisitor?.name || '不明'}）をエレベーター内に招き入れ、精神力が尽きました。${currentVisitor?.description || ''}`
+            `危険個体（${currentVisitor?.name || '不明'}）を車内に招き入れ、精神崩壊に至った。無能な作業員め、そのまま処分対象とする。`
           );
           setGameState('GAMEOVER');
           return;
@@ -984,7 +1209,7 @@ export function App() {
         if (complaintsRef.current >= MAX_COMPLAINTS) {
           soundManager.playJumpscareNoise();
           setGameOverReason(
-            '乗客からのクレームが3回累積し、管理組合によってエレベーターが封鎖・隔離処分されました。'
+            '住人からの苦情通報が3回累積したため、管理室より昇降機を完全封鎖・隔離処分とした。貴様に次はない。'
           );
           setGameState('GAMEOVER');
           return;
@@ -1003,9 +1228,130 @@ export function App() {
     return () => window.clearInterval(timer);
   }, [gameState, currentVisitor]);
 
+  // 5. FINAL_DOOR フェーズ（最終フロア 1F / B1F にて、時間制限なしで重い扉を手動長押しで0%→100%まで開ける）
+  useEffect(() => {
+    if (gameState !== 'FINAL_DOOR') return;
+
+    let rewindTimer: number | null = null;
+    let sequenceTimeout1: number | null = null;
+    let sequenceTimeout2: number | null = null;
+
+    const intervalMs = 50;
+    const timer = window.setInterval(() => {
+      if (decisionLockedRef.current || isPausedRef.current) return;
+
+      if (isHoldingOpenRef.current) {
+        const nextDoor = Math.min(
+          100,
+          doorPercentRef.current + FINAL_DOOR_OPEN_STEP_PER_50MS
+        );
+        doorPercentRef.current = nextDoor;
+        setDoorOpenPercent(nextDoor);
+
+        // 100%まで開ききった瞬間のマルチエンディング結末演出！
+        if (nextDoor >= 100) {
+          decisionLockedRef.current = true;
+          isHoldingOpenRef.current = false;
+          setIsHoldingOpen(false);
+          soundManager.stopDoorMotor();
+          soundManager.playDoorBumperStop();
+
+          if (trueEndUnlockedRef.current || floor <= 0) {
+            // ② トゥルーエンディング（B1F）：管理室のシステムが「バチィッ！」とショートして沈黙し、朝の風と鳥のさえずりが響く
+            soundManager.playSystemShortCircuitExplosion();
+            soundManager.stopCabinRattle();
+            soundManager.stopMotorDrone();
+            soundManager.stopAnomalyPresence();
+            setScreenShake('NONE');
+            soundManager.startMorningAmbience();
+
+            setActivePassengers([]);
+            setActiveSubtitle('「ありがとう、これで私たちは自由よ」');
+            showToast(
+              'INFO',
+              '【管理室通信途絶】監視システム完全破壊',
+              'バチィッ！――管理室のスピーカーが火花を散らして沈黙し、外から朝の爽やかな風が吹き抜けた。',
+              4000
+            );
+
+            sequenceTimeout1 = window.setTimeout(() => {
+              setEndingOverlayFade('WHITEOUT');
+              sequenceTimeout2 = window.setTimeout(() => {
+                setEndingOverlayFade('NONE');
+                setGameState('CLEAR');
+              }, 1450);
+            }, 2800);
+          } else {
+            // ① 通常エンディング（1F）：同じエレベーターの箱が合わせ鏡のように並び、1F→15Fへ猛スピードで巻き戻される
+            soundManager.playComplaintBuzzer();
+            setActiveSubtitle(
+              '『1階到達を確認。本日の検問業務、ご苦労だったな。……では、ただちに第2シフトを開始しろ』'
+            );
+            showToast(
+              'DANGER',
+              '【管理室命令】第2シフト強制開始',
+              '『1階到達を確認。本日の検問業務、ご苦労だったな。……では、ただちに第2シフトを開始しろ』',
+              4200
+            );
+
+            sequenceTimeout1 = window.setTimeout(() => {
+              // 扉が強制的に閉まり、1F → 2F → ... → 15F へと猛スピードで巻き戻される
+              soundManager.playDoorSlide(0.35, false);
+              doorPercentRef.current = 0;
+              setDoorOpenPercent(0);
+              window.setTimeout(() => soundManager.playDoorLatchShut(), 260);
+              soundManager.startMotorDrone();
+              setScreenShake('VIOLENT');
+
+              let rewindFloor = 1;
+              rewindTimer = window.setInterval(() => {
+                rewindFloor += 1;
+                setFloor(rewindFloor);
+                soundManager.playFloorRewindTick(rewindFloor);
+
+                if (rewindFloor >= 15) {
+                  if (rewindTimer) {
+                    window.clearInterval(rewindTimer);
+                    rewindTimer = null;
+                  }
+                  setEndingOverlayFade('BLACKOUT');
+                  sequenceTimeout2 = window.setTimeout(() => {
+                    soundManager.stopMotorDrone();
+                    setScreenShake('NONE');
+                    setEndingOverlayFade('NONE');
+                    setGameState('CLEAR');
+                  }, 1200);
+                }
+              }, 125);
+            }, 2400);
+          }
+        }
+      } else if (doorPercentRef.current > 0) {
+        // 指を離すと重々しい扉がじわじわと閉まり戻る
+        const nextDoor = Math.max(0, doorPercentRef.current - 0.8);
+        doorPercentRef.current = nextDoor;
+        setDoorOpenPercent(nextDoor);
+      }
+    }, intervalMs);
+
+    return () => {
+      window.clearInterval(timer);
+      if (rewindTimer) window.clearInterval(rewindTimer);
+      if (sequenceTimeout1) window.clearTimeout(sequenceTimeout1);
+      if (sequenceTimeout2) window.clearTimeout(sequenceTimeout2);
+      soundManager.stopDoorMotor();
+    };
+  }, [gameState, floor, showToast]);
+
   // 操作盤ハンドラ：開（OPEN）長押し開始・終了
   const handleStartHoldOpen = () => {
-    if (isPausedRef.current || gameState !== 'JUDGING' || decisionLockedRef.current) return;
+    if (
+      isPausedRef.current ||
+      (gameState !== 'JUDGING' && gameState !== 'FINAL_DOOR') ||
+      decisionLockedRef.current
+    ) {
+      return;
+    }
     if (!isHoldingOpenRef.current) {
       soundManager.playButtonClick('OPEN');
       soundManager.startDoorMotor('OPEN');
@@ -1019,7 +1365,10 @@ export function App() {
     isHoldingOpenRef.current = false;
     setIsHoldingOpen(false);
     soundManager.stopDoorMotor();
-    if (gameState === 'JUDGING' && !decisionLockedRef.current && doorPercentRef.current > 12) {
+    if (
+      (gameState === 'JUDGING' && !decisionLockedRef.current && doorPercentRef.current > 12) ||
+      (gameState === 'FINAL_DOOR' && !decisionLockedRef.current && doorPercentRef.current > 0)
+    ) {
       soundManager.playDoorSlide(0.35, false);
     }
   };
@@ -1051,7 +1400,7 @@ export function App() {
       doorPercentRef.current = pushedBackDoor;
       setDoorOpenPercent(pushedBackDoor);
       setActiveSubtitle(
-        `「【扉破壊警報】怪異が扉をこじ開けようとしています！ 閉ボタンを連打して押し返してください！（残り ${nextRemaining} 回）」`
+        `『【扉破壊警報】怪異が扉をこじ開けようとしているぞ！愚図るな、【閉】ボタンを連打して押し返せ！（残り ${nextRemaining} 回）』`
       );
     } else {
       resolveJudgingDecision('REJECT');
@@ -1099,7 +1448,7 @@ export function App() {
       movingEventRef.current = resolvedEv;
       setMovingEvent(resolvedEv);
       setActiveSubtitle(
-        '「【急速換気稼働】強力な排気ファンが起動。毒素をダクトへ排出し、車内の空気を浄化しました。」'
+        '『【急速換気稼働】排気完了を確認。フン、当然の処置だ。そのまま下降を続けろ。』'
       );
       return;
     }
@@ -1138,7 +1487,10 @@ export function App() {
     }
 
     // 3. 空撃ちペナルティ（瘴気も換気要求もない平時に押し、同乗者がいる場合クレーム +1）
-    if (activePassengersRef.current.length > 0) {
+    const nonKeyPassengers = activePassengersRef.current.filter(
+      (p) => !p.visitor.isKeyWoman
+    );
+    if (nonKeyPassengers.length > 0) {
       soundManager.playComplaintBuzzer();
       setScreenShake('SUBTLE');
       window.setTimeout(() => setScreenShake('NONE'), 300);
@@ -1146,30 +1498,30 @@ export function App() {
       const nextComplaints = Math.min(MAX_COMPLAINTS, complaintsRef.current + 1);
       setComplaints(nextComplaints);
       setActiveSubtitle(
-        '「『ちょっと！ 異常もないのに風が強くてうるさいわ！ 管理室に通報するからね！』【通報】不要な換気により苦情が発生しました。」'
+        '「『ちょっと！ 異常もないのに風が強くてうるさいわ！ 管理室に通報するからね！』」『おい作業員、異常もないのに換気扇を回すな！次はないと思え！』'
       );
       showToast(
         'COMPLAINT',
-        `【通報】不要稼働苦情 (${nextComplaints}/${MAX_COMPLAINTS})`,
-        '平時の強制排気により乗客から通報。3件で隔離処分。'
+        `【管理室警告】不要稼働通報 (${nextComplaints}/${MAX_COMPLAINTS})`,
+        '『異常もないのに強制排気を行うな！乗客から苦情が来ているぞ。累積3件で即刻処分だ。』'
       );
 
       if (nextComplaints >= MAX_COMPLAINTS && gameState !== 'EVENT_RESULT') {
         soundManager.stopMotorDrone();
         soundManager.playJumpscareNoise();
         setGameOverReason(
-          'むやみな急速換気による苦情累積が3件に達したため、管理室より昇降機が保安隔離処分されました。'
+          'むやみな急速換気による苦情累積が3件に達したため、管理室より昇降機を強制ロック・廃棄処分とした。'
         );
         setGameState('GAMEOVER');
       }
     } else {
       setActiveSubtitle(
-        '「【急速換気稼働】強制排気中。異常がない平時の稼働は苦情の対象となります。」'
+        '『【管理室監視】異常もないのに換気装置を弄ぶな。無駄な電力消費は貴様の査定に響くと思え。』'
       );
     }
   };
 
-  // 操作盤ハンドラ：非常ベル押下（車内怪異の緊急排除 ＆ 扉こじ開け怪異の威嚇）
+  // 操作盤ハンドラ：非常ベル押下（車内怪異の緊急排除 ＆ 2F「鍵となる彼女」第2の試練の分岐 ＆ 扉こじ開け怪異の威嚇）
   const handlePressBell = () => {
     if (isPausedRef.current) return;
     soundManager.playEmergencyBell();
@@ -1178,7 +1530,7 @@ export function App() {
 
     const currentEv = movingEventRef.current;
 
-    // 1. 下降中の「車内怪異豹変・鏡面反射（MIRROR_GHOST）」への緊急停止＆排除
+    // 1. 下降中の「鏡面反射（MIRROR_GHOST）」へのレーザー照射
     if (
       gameState === 'MOVING' &&
       currentEv &&
@@ -1186,6 +1538,7 @@ export function App() {
       currentEv.status === 'ACTIVE'
     ) {
       soundManager.playElevatorJolt();
+      soundManager.stopAnomalyPresence();
       const resolvedEv: MovingCabinEvent = {
         ...currentEv,
         status: 'RESOLVED',
@@ -1199,8 +1552,24 @@ export function App() {
         );
       }
 
+      // ★ 2F→1F「鍵となる彼女」の第2の試練で非常ベルを押してしまった場合：彼女が消滅し、通常エンド（1F）へ進む
+      if (currentEv.isKeyWomanTrial) {
+        trueEndUnlockedRef.current = false;
+        setEndingType('NORMAL');
+        setActiveSubtitle(
+          '「…やっぱり、あいつらを信じるのね…」『フン、手間をかけさせるな』'
+        );
+        showToast(
+          'INFO',
+          '【管理室通達】特級対象を焼却処分',
+          '『フン、手間をかけさせるな。そのまま1階へ降りろ』',
+          3600
+        );
+        return;
+      }
+
       setActiveSubtitle(
-        '「【防衛レーザー照射】天井から高圧紫外線レーザーが掃射され、背後の怪異を閃光とともに焼き払いました。」'
+        '『【防衛レーザー照射】背後の怪異を焼却した。フン、手間をかけさせるな。そのまま下降を続けろ。』'
       );
       return;
     }
@@ -1215,7 +1584,7 @@ export function App() {
       setCloseClicksRemaining(1);
       soundManager.stopPryingLoop();
       setActiveSubtitle(
-        '「【防衛レーザー威嚇】高圧アーク閃光と轟音に怪異が怯みました！ 直ちに【閉】ボタンを押して扉を閉めてください！」'
+        '『【防衛レーザー威嚇】アーク閃光で怪異が怯んだぞ！ボサッとするな、今すぐ【閉】ボタンを押して扉を閉め切れ！』'
       );
     }
   };
@@ -1430,6 +1799,24 @@ export function App() {
         movingEvent={movingEvent}
       />
 
+      {/* エンディング遷移時の暗転（BLACKOUT）／ホワイトアウト（WHITEOUT）オーバーレイ */}
+      <AnimatePresence>
+        {endingOverlayFade !== 'NONE' && (
+          <motion.div
+            id="ending-fade-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.15, ease: 'easeInOut' }}
+            className={`fixed inset-0 z-55 pointer-events-none ${
+              endingOverlayFade === 'WHITEOUT'
+                ? 'bg-amber-50 shadow-[inset_0_0_120px_rgba(255,255,255,1)]'
+                : 'bg-black'
+            }`}
+          />
+        )}
+      </AnimatePresence>
+
       {/* オーバーレイ画面：TITLE / GAMEOVER / CLEAR / PAUSE */}
       <AnimatePresence>
         {gameState === 'TITLE' && (
@@ -1447,24 +1834,24 @@ export function App() {
                 <div className="flex items-start justify-between border-b-2 border-stone-800 pb-2.5 mb-3 sm:mb-4">
                   <div>
                     <span className="text-[11px] font-bold text-stone-700 tracking-widest block">
-                      管理組合 保安課 発令（機密第拾伍號）
+                      管理室 保安統制課 強制発令（機密第拾伍號）
                     </span>
                     <h1 className="text-xl sm:text-3xl font-extrabold text-stone-950 tracking-wider mt-0.5">
                       第十五號昇降機
                     </h1>
                     <span className="text-xs font-extrabold text-red-900 tracking-widest block mt-0.5">
-                      ― 夜間特別検閲業務 辞令書 ―
+                      ― 夜間特別検問業務 強制辞令書 ―
                     </span>
                   </div>
                   <div className="border-2 border-red-800 text-red-800 font-extrabold text-xs px-2 py-0.5 sm:px-2.5 sm:py-1 rotate-[-5deg] shrink-0 text-center leading-tight">
-                    <div>保安課印</div>
-                    <div className="text-[10px] border-t border-red-800 mt-0.5 pt-0.5">極秘扱</div>
+                    <div>絶対服従</div>
+                    <div className="text-[10px] border-t border-red-800 mt-0.5 pt-0.5">処分対象</div>
                   </div>
                 </div>
 
                 {/* リード文 */}
                 <p className="text-xs sm:text-sm text-stone-900 font-bold mb-3 sm:mb-4 leading-relaxed">
-                  貴殿に、当ビル「第十五號昇降機」の夜間検閲業務を命じます。15階から1階へと降下しながら、各階で乗車を求める者の身元を厳格に照合・選別してください。
+                  作業員である貴様に、当ビル「第十五號昇降機」の夜間検問業務を命じる。15階から1階へ降下しながら、各階で乗車を乞う連中の身元を冷徹に照合・選別しろ。判断ミスは貴様の処分に直結すると思え。
                 </p>
 
                 {/* 罫線枠の業務要綱（3箇条） */}
@@ -1474,23 +1861,23 @@ export function App() {
                       【第一条：扉操作と身元照合】
                     </strong>
                     <span className="text-stone-800">
-                      「開扉」ボタンを長押しして隙間を広げ、胸元の名札・服装・眼光を照合してください。正規居住者は全開にして乗車を許可し、規程違反者や怪異は直ちに「閉扉」を押して遮断・排除すること。（扉に手をかけて侵入を試みる個体には「閉扉」を連打してください）
+                      「開扉」を長押しして隙間を広げ、名札・服装・眼光を監視しろ。正規住人のみ全開で収容し、規程違反者や怪異は直ちに「閉扉」で遮断・排除しろ。（扉に手をかけてこじ開ける個体には「閉扉」を連打して押し返せ）
                     </span>
                   </div>
                   <div className="p-2 sm:p-2.5">
                     <strong className="text-stone-950 block mb-0.5 font-bold">
-                      【第二条：通達文書の改定】
+                      【第二条：管理室通達への絶対服従】
                     </strong>
                     <span className="text-stone-800">
-                      15階・10階・5階の待機所にて、管理室より新たな追加通達が下達されます。最新の張り紙は以前の規則を上書きするため、常に最新の通達に従って検閲を行ってください。
+                      15階・10階・5階の待機所にて、管理室より追加通達を下達する。最新の通達は過去の規程を上書きする。余計な詮索はせず、常に最新の命令通りに手を下せ。
                     </span>
                   </div>
                   <div className="p-2 sm:p-2.5">
                     <strong className="text-red-950 block mb-0.5 font-bold">
-                      【第三条：車内保安と隔離処分】
+                      【第三条：車内保安と即時処分】
                     </strong>
                     <span className="text-stone-800">
-                      下降中の有毒瘴気には「急速換気」、背後に迫る怪異には「非常ベル（緊急防衛レーザー照射）」で対処してください。精神が尽きるか、住人からの苦情通報が3回累積した時点で、直ちに隔離処分（業務失敗）となります。
+                      下降中の有毒瘴気は「急速換気」、背後に映る怪異は「非常ベル（防衛レーザー照射）」で排除しろ。精神が尽きるか、苦情通報が3回累積した時点で貴様を即刻廃棄処分とする。
                     </span>
                   </div>
                 </div>
@@ -1503,7 +1890,7 @@ export function App() {
                   className="w-full py-3 sm:py-3.5 px-4 sm:px-6 bg-stone-900 hover:bg-stone-800 border-2 border-amber-600/80 text-amber-400 font-mincho font-black tracking-widest text-xs sm:text-base rounded-xs shadow-[0_6px_20px_rgba(0,0,0,0.6)] transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-current" />
-                  <span>【着務宣誓】15階 検問待機所へ入室する</span>
+                  <span>【服従宣誓】15階 検問待機所へ入る</span>
                 </button>
               </div>
             </div>
@@ -1522,14 +1909,14 @@ export function App() {
               <div className="flex items-center justify-between border-b-2 border-red-900 pb-3 mb-4">
                 <div className="text-left">
                   <span className="text-xs font-bold text-red-400 tracking-widest block">
-                    管理組合 特別対策室 // 事後監査記録
+                    管理室 特別統制課 // 廃棄処分記録
                   </span>
                   <h2 className="text-2xl sm:text-3xl font-extrabold text-red-100 mt-0.5">
-                    保安隔離・業務失敗
+                    保安隔離・作業員処分
                   </h2>
                 </div>
                 <div className="border-2 border-red-500 text-red-400 font-extrabold text-xs px-2 py-1 rotate-[-5deg] shrink-0">
-                  殉職処理
+                  廃棄済
                 </div>
               </div>
 
@@ -1540,7 +1927,9 @@ export function App() {
               <div className="bg-red-950/50 border-2 border-red-800 p-4 rounded-xs text-sm text-red-100 mb-6 leading-relaxed text-left">
                 <div className="text-xs font-bold text-red-400 mb-1.5 flex items-center gap-1.5 border-b border-red-900/80 pb-1">
                   <AlertOctagon className="w-4 h-4 shrink-0" />
-                  <span>【事故報告書】第十五號昇降機（最終確認地点：{floor}階）</span>
+                  <span>
+                    【処分通知】第十五號昇降機（最終地点：{floor <= 0 ? 'B1F' : `${floor}階`}）
+                  </span>
                 </div>
                 {gameOverReason}
               </div>
@@ -1552,7 +1941,7 @@ export function App() {
                 className="w-full py-3 px-6 bg-red-800 hover:bg-red-700 border border-red-500 text-stone-100 font-bold tracking-widest rounded-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>【再着務】15階より検閲業務をやり直す</span>
+                <span>【再配置】15階へ戻され検問をやり直す</span>
               </button>
             </div>
           </motion.div>
@@ -1564,64 +1953,130 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/88 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
+            className={`fixed inset-0 z-50 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y ${
+              endingType === 'TRUE' ? 'bg-sky-950/80' : 'bg-black/94'
+            }`}
           >
-            <div className="max-w-lg w-full max-h-[92dvh] overflow-y-auto overscroll-contain touch-pan-y metal-panel-surface border-2 border-stone-600 p-2 sm:p-3 shadow-[0_0_70px_rgba(16,185,129,0.3)] my-auto shrink-0">
-              <div className="aged-paper border-2 border-stone-800 p-4 sm:p-6 text-stone-900 font-mincho">
-                <div className="flex items-center justify-between border-b-2 border-stone-800 pb-3 mb-4">
-                  <div className="text-left">
-                    <span className="text-xs font-bold text-stone-700 tracking-widest block">
-                      管理組合 保安課 // 業務完了証明
-                    </span>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-950 mt-0.5">
-                      全シフト検閲完了・生還
-                    </h2>
+            {endingType === 'TRUE' ? (
+              /* ★ ② TRUE END：地下B1F突破・完全脱出リザルト画面 */
+              <div className="max-w-lg w-full max-h-[92dvh] overflow-y-auto overscroll-contain touch-pan-y bg-amber-50/95 border-2 border-sky-600 p-2 sm:p-3 shadow-[0_0_90px_rgba(56,189,248,0.65)] my-auto shrink-0">
+                <div className="border-2 border-stone-800 p-4 sm:p-6 text-stone-900 font-mincho bg-linear-to-b from-sky-50 via-amber-50/70 to-stone-100">
+                  <div className="flex items-center justify-between border-b-2 border-sky-900 pb-3 mb-4">
+                    <div className="text-left">
+                      <span className="text-xs font-extrabold text-sky-800 tracking-widest block">
+                        地下B1F 封鎖非常口突破 // 監視システム完全破壊
+                      </span>
+                      <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-950 mt-0.5">
+                        TRUE END：完全脱出
+                      </h2>
+                    </div>
+                    <div className="border-2 border-sky-700 text-sky-800 font-extrabold text-xs px-2.5 py-1 rotate-[-5deg] shrink-0 bg-sky-100">
+                      自由獲得
+                    </div>
                   </div>
-                  <div className="border-2 border-emerald-800 text-emerald-900 font-extrabold text-xs px-2.5 py-1 rotate-[-5deg] shrink-0">
-                    検閲済
+
+                  <div className="flex justify-center my-2">
+                    <Sun className="w-12 h-12 text-amber-500 animate-spin" style={{ animationDuration: '18s' }} />
                   </div>
+
+                  <p className="text-xs sm:text-sm text-stone-900 font-bold mb-4 leading-relaxed text-left">
+                    管理室の嘘の警報と脅迫に屈せず、2階の「彼女」を最後まで信じ抜いたことで1階の偽装ロックは解除された。火花を散らして沈黙したエレベーターの向こうには、コンクリート階段の先に広がる眩い朝の青空と爽やかな風が待っていた。――あなたは永遠の飼育ループを打ち破り、ついに外の世界へと脱出した。
+                  </p>
+
+                  <div className="grid grid-cols-3 divide-x divide-stone-400 border-2 border-stone-800 bg-white/70 mb-5 text-center text-xs">
+                    <div className="p-2 sm:p-2.5">
+                      <span className="text-stone-700 font-bold block text-[10px]">到達フロア</span>
+                      <span className="text-lg font-extrabold text-sky-800">
+                        B1F 非常口
+                      </span>
+                    </div>
+                    <div className="p-2 sm:p-2.5">
+                      <span className="text-stone-700 font-bold block text-[10px]">残存精神力</span>
+                      <span className="text-lg font-extrabold text-emerald-800">
+                        {sanity} / {MAX_SANITY}
+                      </span>
+                    </div>
+                    <div className="p-2 sm:p-2.5">
+                      <span className="text-stone-700 font-bold block text-[10px]">遮断排除 / 収容</span>
+                      <span className="text-lg font-extrabold text-stone-950">
+                        {repelledThreatCount} / {boardedSafeCount}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    id="play-again-btn"
+                    type="button"
+                    onClick={startGame}
+                    className="w-full py-3 px-6 bg-sky-900 hover:bg-sky-800 border-2 border-amber-400 text-amber-200 font-black tracking-widest rounded-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>【最初から遊ぶ】もう一度15階からプレイする</span>
+                  </button>
                 </div>
-
-                <div className="flex justify-center my-2">
-                  <ShieldCheck className="w-11 h-11 text-emerald-800" />
-                </div>
-
-                <p className="text-xs sm:text-sm text-stone-900 font-bold mb-4 leading-relaxed text-left">
-                  重苦しい鉄扉が開き、1階ロビーの冷たい夜気が流れ込んできました。貴殿は次々と書き換わる規程と異形の偽装を見極め、本日の夜間検閲シフトを無事に完遂しました。
-                </p>
-
-                <div className="grid grid-cols-3 divide-x divide-stone-700 border-2 border-stone-800 bg-stone-900/5 mb-5 text-center text-xs">
-                  <div className="p-2 sm:p-2.5">
-                    <span className="text-stone-700 font-bold block text-[10px]">残存精神安定度</span>
-                    <span className="text-lg font-extrabold text-emerald-900">
-                      {sanity} / {MAX_SANITY}
-                    </span>
-                  </div>
-                  <div className="p-2 sm:p-2.5">
-                    <span className="text-stone-700 font-bold block text-[10px]">累積苦情通報</span>
-                    <span className="text-lg font-extrabold text-amber-900">
-                      {complaints} / {MAX_COMPLAINTS}
-                    </span>
-                  </div>
-                  <div className="p-2 sm:p-2.5">
-                    <span className="text-stone-700 font-bold block text-[10px]">遮断排除 / 収容</span>
-                    <span className="text-lg font-extrabold text-stone-950">
-                      {repelledThreatCount} / {boardedSafeCount}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  id="play-again-btn"
-                  type="button"
-                  onClick={startGame}
-                  className="w-full py-3 px-6 bg-stone-900 hover:bg-stone-800 border-2 border-emerald-600/70 text-emerald-400 font-black tracking-widest rounded-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>【再着務】15階より次のシフトに就く</span>
-                </button>
               </div>
-            </div>
+            ) : (
+              /* ★ ① NORMAL END：第十五號昇降機・無限勤務リザルト画面 */
+              <div className="max-w-lg w-full max-h-[92dvh] overflow-y-auto overscroll-contain touch-pan-y metal-panel-surface border-2 border-red-900/80 p-2 sm:p-3 shadow-[0_0_80px_rgba(185,28,28,0.45)] my-auto shrink-0">
+                <div className="aged-paper border-2 border-stone-900 p-4 sm:p-6 text-stone-900 font-mincho">
+                  <div className="flex items-center justify-between border-b-2 border-stone-900 pb-3 mb-4">
+                    <div className="text-left">
+                      <span className="text-xs font-extrabold text-red-900 tracking-widest block">
+                        管理室 保安統制課 // 第2シフト強制発令
+                      </span>
+                      <h2 className="text-xl sm:text-2xl font-extrabold text-stone-950 mt-0.5">
+                        NORMAL END：第十五號昇降機・無限勤務
+                      </h2>
+                    </div>
+                    <div className="border-2 border-red-900 text-red-900 font-extrabold text-xs px-2.5 py-1 rotate-[-5deg] shrink-0">
+                      永久継続
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center my-2">
+                    <ShieldCheck className="w-11 h-11 text-stone-800" />
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-stone-900 font-bold mb-3 leading-relaxed text-left">
+                    1階で重苦しい扉を開けた先にあったのは外の出口ではなく、今自分が乗っているのと全く同じ薄暗い昇降機の箱だった。『本日の検問業務、ご苦労だったな。……では、ただちに第2シフトを開始しろ』――無情なアナウンスと共にインジケーターは15階へと巻き戻され、終わりのない飼育が再び始まる。
+                  </p>
+                  <div className="bg-red-950/10 border border-red-900/50 px-3 py-2 rounded-xs text-[11px] font-bold text-red-950 mb-4 text-left">
+                    【ヒント】5階で追加された「血に塗れた走り書き」を思い出し、2階で現れる“彼女”を信じて管理室の命令に逆らってみましょう。
+                  </div>
+
+                  <div className="grid grid-cols-3 divide-x divide-stone-700 border-2 border-stone-800 bg-stone-900/5 mb-5 text-center text-xs">
+                    <div className="p-2 sm:p-2.5">
+                      <span className="text-stone-700 font-bold block text-[10px]">残存精神力</span>
+                      <span className="text-lg font-extrabold text-stone-900">
+                        {sanity} / {MAX_SANITY}
+                      </span>
+                    </div>
+                    <div className="p-2 sm:p-2.5">
+                      <span className="text-stone-700 font-bold block text-[10px]">累積苦情通報</span>
+                      <span className="text-lg font-extrabold text-amber-900">
+                        {complaints} / {MAX_COMPLAINTS}
+                      </span>
+                    </div>
+                    <div className="p-2 sm:p-2.5">
+                      <span className="text-stone-700 font-bold block text-[10px]">遮断排除 / 収容</span>
+                      <span className="text-lg font-extrabold text-stone-950">
+                        {repelledThreatCount} / {boardedSafeCount}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    id="play-again-btn"
+                    type="button"
+                    onClick={startGame}
+                    className="w-full py-3 px-6 bg-stone-900 hover:bg-stone-800 border-2 border-red-700/80 text-amber-400 font-black tracking-widest rounded-xs shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>【第2シフト開始】15階へ戻され業務を再開する</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -1636,9 +2091,11 @@ export function App() {
             <div className="max-w-md w-full max-h-[92dvh] overflow-y-auto overscroll-contain touch-pan-y metal-panel-surface border-2 border-stone-600 rounded-xs p-4 sm:p-6 shadow-[0_25px_70px_rgba(0,0,0,0.98)] text-center font-mincho relative my-auto shrink-0">
               <div className="flex items-center justify-between border-b border-stone-700 pb-2 mb-4">
                 <span className="text-xs font-bold text-amber-500 tracking-widest">
-                  【業務中断】保安点検待機
+                  【業務中断】管理室監視一時保留
                 </span>
-                <span className="text-xs font-bold text-stone-400">現在地：{floor}階</span>
+                <span className="text-xs font-bold text-stone-400">
+                  現在地：{floor <= 0 ? 'B1F' : `${floor}階`}
+                </span>
               </div>
 
               <Pause className="w-10 h-10 text-amber-500 mx-auto mb-2 animate-pulse" />
@@ -1646,8 +2103,8 @@ export function App() {
                 昇降機 一時停止中
               </h2>
               <p className="text-xs text-stone-300 mb-6 leading-relaxed">
-                現在、昇降機の運行を一時停止しています。<br />
-                検閲業務へ復帰する際は、下記の復帰ボタンを押してください。
+                『おい作業員、いつまでサボっているつもりだ。<br />
+                さっさと下のボタンを押して検問業務へ復帰しろ。』
               </p>
 
               <button
@@ -1657,7 +2114,7 @@ export function App() {
                 className="w-full py-3 px-6 bg-amber-600 hover:bg-amber-500 text-stone-950 font-black tracking-widest rounded-xs shadow-[0_0_20px_rgba(245,158,11,0.4)] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Play className="w-4 h-4 fill-current" />
-                <span>【業務再開】検閲シフトへ復帰する</span>
+                <span>【業務再開】検問シフトへ復帰する</span>
               </button>
             </div>
           </motion.div>
