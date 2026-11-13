@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type {
   ActivePassenger,
@@ -118,6 +118,31 @@ export function App() {
   const arrivingFlashTimeoutRef = useRef<number | null>(null);
   const trueEndUnlockedRef = useRef<boolean>(false);
   const floorRef = useRef<number>(15);
+  const gameStateRef = useRef<GameState>('TITLE');
+  const isMutedRef = useRef<boolean>(false);
+  const currentVisitorRef = useRef<VisitorData | null>(null);
+  const closeClicksRemainingRef = useRef<number>(1);
+  const isFanOnRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
+  useEffect(() => {
+    currentVisitorRef.current = currentVisitor;
+  }, [currentVisitor]);
+
+  useEffect(() => {
+    closeClicksRemainingRef.current = closeClicksRemaining;
+  }, [closeClicksRemaining]);
+
+  useEffect(() => {
+    isFanOnRef.current = isFanOn;
+  }, [isFanOn]);
 
   useEffect(() => {
     floorRef.current = floor;
@@ -185,18 +210,21 @@ export function App() {
   );
 
   // ミュート切替
-  const handleToggleMute = () => {
-    const nextMuted = !isMuted;
+  const handleToggleMute = useCallback(() => {
+    const nextMuted = !isMutedRef.current;
+    isMutedRef.current = nextMuted;
     setIsMuted(nextMuted);
+    const gs = gameStateRef.current;
     soundManager.setMuted(
       nextMuted,
-      gameState !== 'TITLE' && gameState !== 'GAMEOVER' && gameState !== 'CLEAR'
+      gs !== 'TITLE' && gs !== 'GAMEOVER' && gs !== 'CLEAR'
     );
-  };
+  }, []);
 
   // 一時停止（ポーズ）切替
   const handleTogglePause = useCallback(() => {
-    if (gameState === 'TITLE' || gameState === 'GAMEOVER' || gameState === 'CLEAR') return;
+    const gs = gameStateRef.current;
+    if (gs === 'TITLE' || gs === 'GAMEOVER' || gs === 'CLEAR') return;
     const nextPaused = !isPausedRef.current;
     setIsPaused(nextPaused);
     isPausedRef.current = nextPaused;
@@ -205,7 +233,7 @@ export function App() {
     } else {
       soundManager.resumeAudio();
     }
-  }, [gameState]);
+  }, []);
 
   // 張り紙・紙片を既読にする
   const handleMarkRuleRead = useCallback((id: string) => {
@@ -239,7 +267,7 @@ export function App() {
   }, []);
 
   // ゲーム開始・リトライ初期化（15FのPREPAREフェーズから開始・全フラグ完全リセット）
-  const startGame = () => {
+  const startGame = useCallback(() => {
     if (fanTimerRef.current) {
       window.clearInterval(fanTimerRef.current);
       fanTimerRef.current = null;
@@ -284,6 +312,9 @@ export function App() {
     miasmaTriggeredCountRef.current = 0;
     trueEndUnlockedRef.current = false;
     isPausedRef.current = false;
+    currentVisitorRef.current = null;
+    closeClicksRemainingRef.current = 1;
+    isFanOnRef.current = false;
     setIsPaused(false);
 
     floorRef.current = 15;
@@ -314,25 +345,28 @@ export function App() {
     setActiveSubtitle(
       '『【15F 待機所】保安通達（3通）をすべて確認しろ。確認完了後、「▼ 下降開始」を押して業務を開始しろ。』'
     );
+    gameStateRef.current = 'PREPARE';
     setGameState('PREPARE');
-  };
+  }, []);
 
   // PREPARE（15F・10F・5F）から下降を開始/再開する
-  const handleStartDescent = () => {
-    if (gameState !== 'PREPARE') return;
+  const handleStartDescent = useCallback(() => {
+    if (gameStateRef.current !== 'PREPARE') return;
     if (scrapToastTimerRef.current) {
       window.clearTimeout(scrapToastTimerRef.current);
       scrapToastTimerRef.current = null;
     }
     soundManager.playButtonClick('SWITCH');
     soundManager.playDoorLatchShut();
+    gameStateRef.current = 'MOVING';
     setGameState('MOVING');
-  };
+  }, []);
 
   // JUDGING中の決定処理（乗車許可 / 閉め出し拒否 / 時間切れ強制乗車）
   const resolveJudgingDecision = useCallback(
     (decision: 'BOARD' | 'REJECT' | 'TIMEOUT_BOARD') => {
-      if (decisionLockedRef.current || !currentVisitor) return;
+      const visitor = currentVisitorRef.current;
+      if (decisionLockedRef.current || !visitor) return;
       decisionLockedRef.current = true;
       isHoldingOpenRef.current = false;
       setIsHoldingOpen(false);
@@ -343,7 +377,7 @@ export function App() {
       soundManager.stopPryingLoop();
       soundManager.stopAnomalyPresence();
 
-      const visitor = currentVisitor;
+      const currentFloor = floorRef.current;
       let nextSanity = sanityRef.current;
       let nextComplaints = complaintsRef.current;
       let outcome: EventOutcome;
@@ -362,7 +396,7 @@ export function App() {
           setBoardedSafeCount((prev) => prev + 1);
           const newPassenger: ActivePassenger = {
             visitor,
-            boardedFloor: floor,
+            boardedFloor: currentFloor,
             remainingFloors: 99,
             requestFulfilled: true,
           };
@@ -460,7 +494,7 @@ export function App() {
 
           const newPassenger: ActivePassenger = {
             visitor,
-            boardedFloor: floor,
+            boardedFloor: currentFloor,
             remainingFloors: stayFloors,
             pendingRequest: visitor.cabinRequest,
             requestFulfilled: !visitor.cabinRequest,
@@ -474,7 +508,7 @@ export function App() {
           outcome = {
             type: 'SAFE_BOARDED',
             title: '【検閲通過】乗客収容完了',
-            detail: `${floor}Fより収容（残${stayFloors}階で退出）`,
+            detail: `${currentFloor}Fより収容（残${stayFloors}階で退出）`,
             sanityDelta: 0,
             complaintDelta: 0,
           };
@@ -493,7 +527,7 @@ export function App() {
           outcome = {
             type: 'SAFE_REJECTED_THREAT',
             title: '【排除完了】不適格対象を遮断',
-            detail: `${floor}F 通過完了`,
+            detail: `${currentFloor}F 通過完了`,
             sanityDelta: 0,
             complaintDelta: 0,
           };
@@ -524,7 +558,7 @@ export function App() {
       setEventOutcome(outcome);
       setGameState('EVENT_RESULT');
     },
-    [currentVisitor, floor, showToast]
+    [showToast]
   );
 
   // 下降完了後に次の階へ到着させる共通遷移処理（同乗者の自動降車・1F/B1F最終フロア分岐を含む）
@@ -560,6 +594,7 @@ export function App() {
 
       // ★ 最終フロア（1F または 地下B1F突入）への到達処理
       if (nextFloor <= 1) {
+        currentVisitorRef.current = null;
         setCurrentVisitor(null);
         setEventOutcome(null);
         isHoldingOpenRef.current = false;
@@ -674,6 +709,7 @@ export function App() {
       // 10F・5Fは中間チェックポイント（10F: 公式通達2通 / 5F: 公式通達1通 ＋ 独立して血の紙片が隙間から滑り込む）
       if (nextFloor === 10 || nextFloor === 5) {
         soundManager.playCheckpointNotice();
+        currentVisitorRef.current = null;
         setCurrentVisitor(null);
         setEventOutcome(null);
         setScreenShake('NONE');
@@ -721,7 +757,9 @@ export function App() {
         recentVisitorIdsRef.current
       );
       recentVisitorIdsRef.current = [...recentVisitorIdsRef.current, nextVisitor.id];
+      currentVisitorRef.current = nextVisitor;
       setCurrentVisitor(nextVisitor);
+      closeClicksRemainingRef.current = nextVisitor.requiredCloseClicks;
       setCloseClicksRemaining(nextVisitor.requiredCloseClicks);
       setIsPeekTransformed(false);
       isPeekTransformedRef.current = false;
@@ -1432,10 +1470,11 @@ export function App() {
   }, [gameState, showToast]);
 
   // 操作盤ハンドラ：開（OPEN）長押し開始・終了
-  const handleStartHoldOpen = () => {
+  const handleStartHoldOpen = useCallback(() => {
+    const gs = gameStateRef.current;
     if (
       isPausedRef.current ||
-      (gameState !== 'JUDGING' && gameState !== 'FINAL_DOOR') ||
+      (gs !== 'JUDGING' && gs !== 'FINAL_DOOR') ||
       decisionLockedRef.current
     ) {
       return;
@@ -1446,30 +1485,32 @@ export function App() {
     }
     isHoldingOpenRef.current = true;
     setIsHoldingOpen(true);
-  };
+  }, []);
 
-  const handleStopHoldOpen = () => {
+  const handleStopHoldOpen = useCallback(() => {
     if (!isHoldingOpenRef.current) return;
     isHoldingOpenRef.current = false;
     setIsHoldingOpen(false);
     soundManager.stopDoorMotor();
+    const gs = gameStateRef.current;
     if (
-      (gameState === 'JUDGING' && !decisionLockedRef.current && doorPercentRef.current > 12) ||
-      (gameState === 'FINAL_DOOR' && !decisionLockedRef.current && doorPercentRef.current > 0)
+      (gs === 'JUDGING' && !decisionLockedRef.current && doorPercentRef.current > 12) ||
+      (gs === 'FINAL_DOOR' && !decisionLockedRef.current && doorPercentRef.current > 0)
     ) {
       soundManager.playDoorSlide(0.35, false);
     }
-  };
+  }, []);
 
   // 操作盤ハンドラ：閉（CLOSE）押下
-  const handlePressClose = () => {
+  const handlePressClose = useCallback(() => {
     if (isPausedRef.current) return;
     soundManager.playButtonClick('CLOSE');
 
     // 検問フェーズ（JUDGING）中の閉め出し操作
-    if (gameState !== 'JUDGING' || decisionLockedRef.current) return;
+    if (gameStateRef.current !== 'JUDGING' || decisionLockedRef.current) return;
 
-    const nextRemaining = closeClicksRemaining - 1;
+    const nextRemaining = closeClicksRemainingRef.current - 1;
+    closeClicksRemainingRef.current = nextRemaining;
     setCloseClicksRemaining(nextRemaining);
 
     if (nextRemaining > 0) {
@@ -1493,13 +1534,14 @@ export function App() {
     } else {
       resolveJudgingDecision('REJECT');
     }
-  };
+  }, [resolveJudgingDecision]);
 
   // 操作盤ハンドラ：急速換気（FAN）ボタン（押すと3秒間だけ作動して自動停止＋空撃ちペナルティ）
-  const handleToggleFan = () => {
-    if (isPausedRef.current || isFanOn) return; // ポーズ中または既に稼働中なら無視
+  const handleToggleFan = useCallback(() => {
+    if (isPausedRef.current || isFanOnRef.current) return; // ポーズ中または既に稼働中なら無視
 
     soundManager.playButtonClick('SWITCH');
+    isFanOnRef.current = true;
     setIsFanOn(true);
     soundManager.startRapidVentilation(RAPID_FAN_DURATION_MS);
 
@@ -1511,6 +1553,7 @@ export function App() {
       if (isPausedRef.current) return;
       fanRemainingMs -= 50;
       if (fanRemainingMs <= 0) {
+        isFanOnRef.current = false;
         setIsFanOn(false);
         if (fanTimerRef.current) {
           window.clearInterval(fanTimerRef.current);
@@ -1520,10 +1563,11 @@ export function App() {
     }, 50);
 
     const currentEv = movingEventRef.current;
+    const gs = gameStateRef.current;
 
     // 1. 下降中の「瘴気（MIASMA）」イベントへの対処
     if (
-      gameState === 'MOVING' &&
+      gs === 'MOVING' &&
       currentEv &&
       currentEv.type === 'MIASMA' &&
       currentEv.status === 'ACTIVE'
@@ -1594,7 +1638,7 @@ export function App() {
         '『異常のない平時に強制排気を行うな。乗客から苦情が記録された。累積3件で運行停止とする。』'
       );
 
-      if (nextComplaints >= MAX_COMPLAINTS && gameState !== 'EVENT_RESULT') {
+      if (nextComplaints >= MAX_COMPLAINTS && gs !== 'EVENT_RESULT') {
         soundManager.stopMotorDrone();
         soundManager.playJumpscareNoise();
         setGameOverReason(
@@ -1607,20 +1651,22 @@ export function App() {
         '『【管理室監視】異常のない平時に換気装置を作動させるな。指示された場合のみ使用しろ。』'
       );
     }
-  };
+  }, [showToast]);
 
   // 操作盤ハンドラ：非常ベル押下（車内怪異の緊急排除 ＆ 2F「鍵となる彼女」第2の試練の分岐 ＆ 扉こじ開け怪異の威嚇）
-  const handlePressBell = () => {
+  const handlePressBell = useCallback(() => {
     if (isPausedRef.current) return;
     soundManager.playEmergencyBell();
     setScreenShake('VIOLENT');
     setTimeout(() => setScreenShake('NONE'), 320);
 
     const currentEv = movingEventRef.current;
+    const gs = gameStateRef.current;
+    const visitor = currentVisitorRef.current;
 
     // 1. 下降中の「鏡面反射（MIRROR_GHOST）」へのレーザー照射
     if (
-      gameState === 'MOVING' &&
+      gs === 'MOVING' &&
       currentEv &&
       currentEv.type === 'MIRROR_GHOST' &&
       currentEv.status === 'ACTIVE'
@@ -1664,21 +1710,25 @@ export function App() {
 
     // 2. 検問中（JUDGING）のこじ開け怪異に対する威嚇
     if (
-      gameState === 'JUDGING' &&
-      currentVisitor &&
-      currentVisitor.isThreat &&
-      closeClicksRemaining > 1
+      gs === 'JUDGING' &&
+      visitor &&
+      visitor.isThreat &&
+      closeClicksRemainingRef.current > 1
     ) {
+      closeClicksRemainingRef.current = 1;
       setCloseClicksRemaining(1);
       soundManager.stopPryingLoop();
       setActiveSubtitle(
         '『【防衛レーザー威嚇】アーク閃光により対象が怯んだ。直ちに【閉扉】を押して扉を閉め切れ。』'
       );
     }
-  };
+  }, [showToast]);
 
   const isSlowMotionActive = gameState === 'JUDGING' && isInspectingModalOpen;
-  const unlockedRules = INITIAL_NOTICE_RULES.filter((r) => floor <= r.unlockedAtFloor);
+  const unlockedRules = useMemo(
+    () => INITIAL_NOTICE_RULES.filter((r) => floor <= r.unlockedAtFloor),
+    [floor]
+  );
 
   return (
     <motion.div
@@ -1706,6 +1756,7 @@ export function App() {
       style={{
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',
+        willChange: 'transform',
       }}
     >
       {/* 全体の薄汚れた錆・ビネット・走査線エフェクト */}
@@ -1935,7 +1986,7 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
+            className="fixed inset-0 z-50 bg-black/94 flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
           >
             {/* 公文書・業務辞令書風の重厚なUI */}
             <div className="max-w-xl w-full max-h-[92dvh] flex flex-col metal-panel-surface border-2 border-stone-700 p-2 sm:p-3.5 shadow-[0_25px_70px_rgba(0,0,0,0.98)] relative my-auto shrink-0">
@@ -2013,7 +2064,7 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-red-950/90 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
+            className="fixed inset-0 z-50 bg-red-950/95 flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
           >
             <div className="max-w-lg w-full max-h-[92dvh] overflow-y-auto overscroll-contain touch-pan-y bg-stone-950 border-2 border-red-700 rounded-xs p-4 sm:p-6 shadow-[0_0_80px_rgba(220,38,38,0.75)] font-mincho my-auto shrink-0">
               <div className="flex items-center justify-between border-b-2 border-red-900 pb-3 mb-4">
@@ -2063,8 +2114,8 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={`fixed inset-0 z-50 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y ${
-              endingType === 'TRUE' ? 'bg-sky-950/80' : 'bg-black/94'
+            className={`fixed inset-0 z-50 flex flex-col items-center justify-start p-2 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y ${
+              endingType === 'TRUE' ? 'bg-sky-950/92' : 'bg-black/96'
             }`}
           >
             {endingType === 'TRUE' ? (
@@ -2196,7 +2247,7 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-60 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 select-none overflow-y-auto overscroll-contain touch-pan-y"
+            className="fixed inset-0 z-60 bg-black/92 flex flex-col items-center justify-start p-2 sm:p-4 select-none overflow-y-auto overscroll-contain touch-pan-y"
           >
             <div className="max-w-md w-full max-h-[92dvh] overflow-y-auto overscroll-contain touch-pan-y metal-panel-surface border-2 border-stone-600 rounded-xs p-4 sm:p-6 shadow-[0_25px_70px_rgba(0,0,0,0.98)] text-center font-mincho relative my-auto shrink-0">
               <div className="flex items-center justify-between border-b border-stone-700 pb-2 mb-4">

@@ -14,7 +14,7 @@ interface PryingHandProps {
  * - 爪が擦れて生じた金属削れの白い傷跡と、滴り落ちる暗赤色の血痕
  * - 閉ボタン連打時の衝撃痙攣と、怪力で引き裂こうとする微細な震えアニメーション
  */
-export const PryingHand: React.FC<PryingHandProps> = ({ side, closeClicksRemaining }) => {
+export const PryingHand: React.FC<PryingHandProps> = React.memo(({ side, closeClicksRemaining }) => {
   const isLeft = side === 'left';
 
   return (
@@ -26,29 +26,26 @@ export const PryingHand: React.FC<PryingHandProps> = ({ side, closeClicksRemaini
         ...(isLeft
           ? {
               right: '-28px',
-              transform: 'translateY(-50%)',
+              transform: 'translate3d(0, -50%, 0)',
             }
           : {
               left: '-28px',
-              transform: 'translateY(-50%)',
+              transform: 'translate3d(0, -50%, 0)',
             }),
       }}
     >
       <motion.div
         key={closeClicksRemaining}
         className="w-[96px] h-[170px] sm:w-[124px] sm:h-[220px] overflow-visible"
+        style={{ willChange: 'transform' }}
         initial={{
           scale: 1.08,
-          filter:
-            'brightness(1.4) drop-shadow(0 0 16px rgba(220,38,38,0.95)) drop-shadow(0 4px 14px rgba(0,0,0,0.95))',
         }}
         animate={{
           scale: 1,
           x: isLeft ? [0, -1.8, 1, -1.2, 0.4, 0] : [0, 1.8, -1, 1.2, -0.4, 0],
           y: [0, 1.2, -0.8, 1, -0.5, 0],
           rotate: isLeft ? [0, -0.5, 0.4, -0.3, 0.1, 0] : [0, 0.5, -0.4, 0.3, -0.1, 0],
-          filter:
-            'brightness(1) drop-shadow(0 0 10px rgba(185,28,28,0.65)) drop-shadow(0 4px 14px rgba(0,0,0,0.95))',
         }}
         transition={{
           duration: 0.16,
@@ -255,4 +252,4 @@ export const PryingHand: React.FC<PryingHandProps> = ({ side, closeClicksRemaini
       </motion.div>
     </div>
   );
-};
+});

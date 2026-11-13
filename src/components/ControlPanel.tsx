@@ -23,7 +23,7 @@ interface ControlPanelProps {
   variant?: 'desktop' | 'mobile';
 }
 
-export const ControlPanel: React.FC<ControlPanelProps> = ({
+export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
   floor,
   gameState,
   doorOpenPercent,
@@ -88,7 +88,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           disabled={!isPrepare}
           onClick={onStartDescent}
           whileTap={isPrepare ? { scale: 0.97 } : undefined}
-          className={`w-full py-1.5 px-2 rounded border-2 flex items-center justify-center gap-1 font-black text-xs tracking-wider transition-all whitespace-nowrap ${
+          className={`w-full py-1.5 px-2 rounded border-2 flex items-center justify-center gap-1 font-black text-xs tracking-wider transition-colors whitespace-nowrap ${
             isPrepare
               ? 'bg-amber-500 hover:bg-amber-400 border-amber-200 text-stone-950 shadow-[0_0_16px_rgba(245,158,11,0.65)] animate-pulse cursor-pointer'
               : 'bg-stone-900/50 border-stone-800 text-stone-600 cursor-not-allowed'
@@ -113,36 +113,30 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               onPointerLeave={onStopHoldOpen}
               onPointerCancel={onStopHoldOpen}
               onContextMenu={(e) => e.preventDefault()}
+              style={{ willChange: 'transform' }}
               animate={
                 isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
-                  ? {
-                      scale: [1, 1.03, 1],
-                      boxShadow: [
-                        '0 0 12px rgba(245,158,11,0.65)',
-                        '0 0 24px rgba(16,185,129,0.9)',
-                        '0 0 12px rgba(245,158,11,0.65)',
-                      ],
-                    }
-                  : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
+                  ? { scale: [1, 1.03, 1] }
+                  : { scale: 1 }
               }
               transition={
                 isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
                   ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
                   : { duration: 0.15 }
               }
-              className={`relative flex-1 py-1.5 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-all overflow-hidden touch-hold-btn select-none ${
+              className={`relative flex-1 py-1.5 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-colors overflow-hidden touch-hold-btn select-none ${
                 !canHoldOpen
                   ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
                   : isHoldingOpen
                   ? 'bg-emerald-950/90 border-emerald-400 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.5)] cursor-pointer'
                   : isFinalDoor
-                  ? 'bg-stone-900 border-amber-400 text-amber-100 cursor-pointer ring-2 ring-amber-400/70'
+                  ? 'bg-stone-900 border-amber-400 text-amber-100 cursor-pointer ring-2 ring-amber-400/70 shadow-[0_0_18px_rgba(245,158,11,0.75)]'
                   : 'bg-stone-900 border-stone-600 text-stone-100 cursor-pointer'
               }`}
             >
               <div
-                className="absolute left-0 top-0 bottom-0 bg-emerald-500/30 transition-all duration-75 pointer-events-none"
-                style={{ width: `${openHoldProgress}%` }}
+                className="absolute inset-0 bg-emerald-500/30 origin-left will-change-transform transition-transform duration-75 pointer-events-none"
+                style={{ transform: `scaleX(${openHoldProgress / 100})` }}
               />
               <span className="relative z-10 text-xs sm:text-sm font-mincho font-black tracking-wider">
                 ＜＞ 開扉
@@ -156,8 +150,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             {/* プログレスバー */}
             <div className="relative w-full bg-stone-950 border border-stone-800 h-2 rounded-xs overflow-hidden p-0.5 shrink-0">
               <div
-                className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-75"
-                style={{ width: `${openHoldProgress}%` }}
+                className="h-full w-full origin-left will-change-transform bg-gradient-to-r from-amber-500 to-emerald-400 transition-transform duration-75"
+                style={{ transform: `scaleX(${openHoldProgress / 100})` }}
               />
               {!isFinalDoor && (
                 <div
@@ -173,17 +167,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             type="button"
             disabled={!isJudging}
             onClick={onPressClose}
+            style={{ willChange: 'transform' }}
             animate={
               isUrgentClose
-                ? {
-                    scale: [1, 1.03, 1],
-                    boxShadow: [
-                      '0 0 14px rgba(239,68,68,0.85)',
-                      '0 0 30px rgba(239,68,68,1)',
-                      '0 0 14px rgba(239,68,68,0.85)',
-                    ],
-                  }
-                : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
+                ? { scale: [1, 1.03, 1] }
+                : { scale: 1 }
             }
             transition={
               isUrgentClose
@@ -195,7 +183,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               !isJudging
                 ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
                 : isUrgentClose
-                ? 'bg-red-900 border-red-400 text-white cursor-pointer ring-2 ring-red-400/90'
+                ? 'bg-red-900 border-red-400 text-white cursor-pointer ring-2 ring-red-400/90 shadow-[0_0_22px_rgba(239,68,68,0.9)]'
                 : 'bg-stone-900 border-stone-700 text-stone-200 cursor-pointer'
             }`}
           >
@@ -221,17 +209,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             id="mobile-btn-cabin-fan"
             type="button"
             onClick={onToggleFan}
+            style={{ willChange: 'transform' }}
             animate={
               needFanAction && !isFanOn
-                ? {
-                    scale: [1, 1.04, 1],
-                    boxShadow: [
-                      '0 0 14px rgba(168,85,247,0.85)',
-                      '0 0 28px rgba(216,180,254,1)',
-                      '0 0 14px rgba(168,85,247,0.85)',
-                    ],
-                  }
-                : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
+                ? { scale: [1, 1.04, 1] }
+                : { scale: 1 }
             }
             transition={
               needFanAction && !isFanOn
@@ -240,7 +222,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             }
             className={`relative py-1.5 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors cursor-pointer overflow-hidden ${
               needFanAction && !isFanOn
-                ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90'
+                ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90 shadow-[0_0_22px_rgba(168,85,247,0.9)]'
                 : isFanOn
                 ? 'bg-stone-800 border-emerald-500 text-emerald-200'
                 : 'bg-stone-900 border-stone-700 text-stone-300'
@@ -267,17 +249,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             id="mobile-btn-emergency-bell"
             type="button"
             onClick={onPressBell}
+            style={{ willChange: 'transform' }}
             animate={
               needBellAction
-                ? {
-                    scale: [1, 1.04, 1],
-                    boxShadow: [
-                      '0 0 14px rgba(239,68,68,0.9)',
-                      '0 0 30px rgba(248,113,113,1)',
-                      '0 0 14px rgba(239,68,68,0.9)',
-                    ],
-                  }
-                : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
+                ? { scale: [1, 1.04, 1] }
+                : { scale: 1 }
             }
             transition={
               needBellAction
@@ -286,7 +262,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             }
             className={`relative py-1.5 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors cursor-pointer overflow-hidden ${
               needBellAction
-                ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90'
+                ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90 shadow-[0_0_24px_rgba(239,68,68,0.95)]'
                 : 'bg-stone-900 border-stone-700 active:scale-95 text-stone-300'
             }`}
           >
@@ -318,7 +294,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           disabled={!isPrepare}
           onClick={onStartDescent}
           whileTap={isPrepare ? { scale: 0.97 } : undefined}
-          className={`w-full py-2.5 lg:py-3 px-2 rounded border-2 flex items-center justify-center gap-1.5 font-black text-xs lg:text-sm tracking-wider transition-all whitespace-nowrap ${
+          className={`w-full py-2.5 lg:py-3 px-2 rounded border-2 flex items-center justify-center gap-1.5 font-black text-xs lg:text-sm tracking-wider transition-colors whitespace-nowrap ${
             isPrepare
               ? 'bg-amber-500 hover:bg-amber-400 border-amber-200 text-stone-950 shadow-[0_0_20px_rgba(245,158,11,0.65)] animate-pulse cursor-pointer'
               : 'bg-stone-900/50 border-stone-800 text-stone-600 cursor-not-allowed'
@@ -345,17 +321,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             onPointerLeave={onStopHoldOpen}
             onPointerCancel={onStopHoldOpen}
             onContextMenu={(e) => e.preventDefault()}
+            style={{ willChange: 'transform' }}
             animate={
               isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
-                ? {
-                    scale: [1, 1.03, 1],
-                    boxShadow: [
-                      '0 0 14px rgba(245,158,11,0.65)',
-                      '0 0 28px rgba(16,185,129,0.9)',
-                      '0 0 14px rgba(245,158,11,0.65)',
-                    ],
-                  }
-                : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
+                ? { scale: [1, 1.03, 1] }
+                : { scale: 1 }
             }
             transition={
               isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
@@ -363,20 +333,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 : { duration: 0.15 }
             }
             whileTap={canHoldOpen ? { scale: 0.97 } : undefined}
-            className={`relative w-full py-2.5 lg:py-3.5 px-2 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-all overflow-hidden touch-hold-btn select-none ${
+            className={`relative w-full py-2.5 lg:py-3.5 px-2 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-colors overflow-hidden touch-hold-btn select-none ${
               !canHoldOpen
                 ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
                 : isHoldingOpen
                 ? 'bg-emerald-950/90 border-emerald-400 text-emerald-100 shadow-[0_0_18px_rgba(16,185,129,0.5)] cursor-pointer'
                 : isFinalDoor
-                ? 'bg-stone-900 hover:bg-stone-800 border-amber-400 text-amber-100 cursor-pointer ring-2 ring-amber-400/70'
+                ? 'bg-stone-900 hover:bg-stone-800 border-amber-400 text-amber-100 cursor-pointer ring-2 ring-amber-400/70 shadow-[0_0_20px_rgba(245,158,11,0.75)]'
                 : 'bg-stone-900 hover:bg-stone-800 border-stone-600 text-stone-100 shadow-md cursor-pointer'
             }`}
           >
             {/* 長押し充填プログレス背景 */}
             <div
-              className="absolute left-0 top-0 bottom-0 bg-emerald-500/30 transition-all duration-75 pointer-events-none"
-              style={{ width: `${openHoldProgress}%` }}
+              className="absolute inset-0 bg-emerald-500/30 origin-left will-change-transform transition-transform duration-75 pointer-events-none"
+              style={{ transform: `scaleX(${openHoldProgress / 100})` }}
             />
 
             <span className="relative z-10 text-sm lg:text-base font-mincho font-black tracking-widest whitespace-nowrap">
@@ -392,12 +362,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           {/* 長押しゲージバー（深覗きポイント目盛り付き） */}
           <div className="relative w-full bg-stone-950 border border-stone-800 h-2.5 rounded-xs overflow-hidden p-0.5">
             <div
-              className={`h-full transition-all duration-75 ${
+              className={`h-full w-full origin-left will-change-transform transition-transform duration-75 ${
                 doorOpenPercent >= 65
                   ? 'bg-gradient-to-r from-amber-400 to-emerald-300'
                   : 'bg-gradient-to-r from-amber-500 to-emerald-400'
               }`}
-              style={{ width: `${openHoldProgress}%` }}
+              style={{ transform: `scaleX(${openHoldProgress / 100})` }}
             />
             {!isFinalDoor && (
               <div
@@ -415,17 +385,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           type="button"
           disabled={!isJudging}
           onClick={onPressClose}
+          style={{ willChange: 'transform' }}
           animate={
             isUrgentClose
-              ? {
-                  scale: [1, 1.03, 1],
-                  boxShadow: [
-                    '0 0 18px rgba(239,68,68,0.85)',
-                    '0 0 38px rgba(239,68,68,1)',
-                    '0 0 18px rgba(239,68,68,0.85)',
-                  ],
-                }
-              : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
+              ? { scale: [1, 1.03, 1] }
+              : { scale: 1 }
           }
           transition={
             isUrgentClose
@@ -437,7 +401,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             !isJudging
               ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
               : isUrgentClose
-              ? 'bg-red-900 hover:bg-red-800 border-red-400 text-white cursor-pointer ring-2 ring-red-400/90'
+              ? 'bg-red-900 hover:bg-red-800 border-red-400 text-white cursor-pointer ring-2 ring-red-400/90 shadow-[0_0_26px_rgba(239,68,68,0.95)]'
               : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-200 cursor-pointer'
           }`}
         >
@@ -469,17 +433,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           id="btn-cabin-fan"
           type="button"
           onClick={onToggleFan}
+          style={{ willChange: 'transform' }}
           animate={
             needFanAction && !isFanOn
-              ? {
-                  scale: [1, 1.05, 1],
-                  boxShadow: [
-                    '0 0 16px rgba(168,85,247,0.85)',
-                    '0 0 34px rgba(216,180,254,1)',
-                    '0 0 16px rgba(168,85,247,0.85)',
-                  ],
-                }
-              : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
+              ? { scale: [1, 1.05, 1] }
+              : { scale: 1 }
           }
           transition={
             needFanAction && !isFanOn
@@ -488,7 +446,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           }
           className={`relative py-2 px-1 rounded border flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer overflow-hidden ${
             needFanAction && !isFanOn
-              ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90'
+              ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90 shadow-[0_0_24px_rgba(168,85,247,0.9)]'
               : isFanOn
               ? 'bg-stone-800 border-emerald-500 text-emerald-200'
               : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-300'
@@ -531,17 +489,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           id="btn-emergency-bell"
           type="button"
           onClick={onPressBell}
+          style={{ willChange: 'transform' }}
           animate={
             needBellAction
-              ? {
-                  scale: [1, 1.05, 1],
-                  boxShadow: [
-                    '0 0 18px rgba(239,68,68,0.9)',
-                    '0 0 38px rgba(248,113,113,1)',
-                    '0 0 18px rgba(239,68,68,0.9)',
-                  ],
-                }
-              : { scale: 1, boxShadow: '0 0 0px rgba(0,0,0,0)' }
+              ? { scale: [1, 1.05, 1] }
+              : { scale: 1 }
           }
           transition={
             needBellAction
@@ -550,7 +502,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           }
           className={`relative py-2 px-1 rounded border flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer overflow-hidden ${
             needBellAction
-              ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90'
+              ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90 shadow-[0_0_26px_rgba(239,68,68,0.95)]'
               : 'bg-stone-900 hover:bg-stone-800 border-stone-700 active:scale-95 text-stone-300'
           }`}
         >
@@ -576,4 +528,4 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
     </aside>
   );
-};
+});

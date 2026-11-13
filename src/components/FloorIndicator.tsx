@@ -19,7 +19,7 @@ interface FloorIndicatorProps {
   onTogglePause: () => void;
 }
 
-export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
+export const FloorIndicator: React.FC<FloorIndicatorProps> = React.memo(({
   floor,
   gameState,
   sanity,
@@ -185,14 +185,14 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
         <div className="flex-1 h-1.5 bg-stone-900 rounded-full overflow-hidden border border-stone-800">
           {isJudging ? (
             <div
-              className={`h-full transition-all duration-75 ${
+              className={`h-full w-full origin-left will-change-transform transition-transform duration-75 ${
                 isSlowMotion
                   ? 'bg-red-500'
                   : timeProgress < 30
                   ? 'bg-red-500'
                   : 'bg-amber-400'
               }`}
-              style={{ width: `${timeProgress}%` }}
+              style={{ transform: `scaleX(${timeProgress / 100})` }}
             />
           ) : (
             <div
@@ -219,7 +219,7 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
             return (
               <div
                 key={idx}
-                className={`w-5 h-3 rounded-xs border transition-all ${
+                className={`w-5 h-3 rounded-xs border transition-colors ${
                   active
                     ? sanity === 1
                       ? 'bg-red-500 border-red-300 shadow-[0_0_6px_rgba(239,68,68,0.8)]'
@@ -240,6 +240,7 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
         {/* 下降矢印＋7セグ階層表示 */}
         <div className="flex items-center gap-1.5">
           <motion.div
+            style={{ willChange: 'transform, opacity' }}
             animate={
               isMoving
                 ? { y: [-4, 4], opacity: [0.35, 1, 0.35] }
@@ -287,14 +288,14 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
           <div className="w-full h-1.5 bg-stone-900 rounded-full overflow-hidden border border-stone-800">
             {isJudging ? (
               <div
-                className={`h-full transition-all duration-75 ${
+                className={`h-full w-full origin-left will-change-transform transition-transform duration-75 ${
                   isSlowMotion
                     ? 'bg-red-500'
                     : timeProgress < 30
                     ? 'bg-red-500'
                     : 'bg-amber-400'
                 }`}
-                style={{ width: `${timeProgress}%` }}
+                style={{ transform: `scaleX(${timeProgress / 100})` }}
               />
             ) : (
               <div
@@ -320,7 +321,7 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
               return (
                 <div
                   key={idx}
-                  className={`w-3.5 h-3.5 rounded-full border transition-all ${
+                  className={`w-3.5 h-3.5 rounded-full border transition-colors ${
                     isLit
                       ? 'bg-red-600 border-red-300 shadow-[0_0_10px_rgba(239,68,68,0.95)] animate-pulse'
                       : 'bg-stone-900 border-stone-700'
@@ -373,4 +374,4 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = ({
       </div>
     </header>
   );
-};
+});

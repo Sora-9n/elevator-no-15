@@ -18,7 +18,7 @@ interface BottomConsoleProps {
   movingEvent: MovingCabinEvent | null;
 }
 
-export const BottomConsole: React.FC<BottomConsoleProps> = ({
+export const BottomConsole: React.FC<BottomConsoleProps> = React.memo(({
   gameState,
   activeSubtitle,
   eventOutcome,
@@ -162,4 +162,4 @@ export const BottomConsole: React.FC<BottomConsoleProps> = ({
       </div>
     </footer>
   );
-};
+});

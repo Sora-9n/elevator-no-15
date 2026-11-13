@@ -87,6 +87,7 @@
     radial-gradient(ellipse at 85% 90%, rgba(55, 32, 14, 0.26) 0%, transparent 55%),
     radial-gradient(circle at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.78) 100%);
   pointer-events: none;
+  transform: translateZ(0);
 }
 
 /* Scanline / CRT subtle effect */
@@ -100,6 +101,7 @@
   );
   background-size: 100% 4px;
   pointer-events: none;
+  transform: translateZ(0);
 }
 
 /* 7-segment LED glow */
@@ -129,23 +131,25 @@
 
 /* Subtle & eerie distortion for extreme anomalies without bright flashing */
 @keyframes anomaly-jitter {
-  0%, 100% { transform: translate(0, 0); }
-  30% { transform: translate(-1px, 0.5px); }
-  70% { transform: translate(1px, -0.5px); }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  30% { transform: translate3d(-1px, 0.5px, 0); }
+  70% { transform: translate3d(1px, -0.5px, 0); }
 }
 
 @keyframes anomaly-heavy-glitch {
-  0%, 92%, 100% { transform: translate(0, 0) skewX(0deg); }
-  94% { transform: translate(-3px, 1px) skewX(-2.5deg); }
-  97% { transform: translate(3px, -1px) skewX(2.5deg); }
+  0%, 92%, 100% { transform: translate3d(0, 0, 0) skewX(0deg); }
+  94% { transform: translate3d(-3px, 1px, 0) skewX(-2.5deg); }
+  97% { transform: translate3d(3px, -1px, 0) skewX(2.5deg); }
 }
 
 .glitch-subtle {
   animation: anomaly-jitter 3.5s infinite ease-in-out;
+  will-change: transform;
 }
 
 .glitch-heavy {
   animation: anomaly-heavy-glitch 2.2s infinite steps(2, end);
+  will-change: transform;
 }
 
 @keyframes fluorescent-flicker {
@@ -159,29 +163,31 @@
 
 .fluorescent-light {
   animation: fluorescent-flicker 9s infinite;
+  will-change: opacity;
 }
 
 .cctv-chromatic-subtle {
-  filter: drop-shadow(-1px 0 0 rgba(220, 38, 38, 0.22)) drop-shadow(1px 0 0 rgba(56, 189, 248, 0.22));
+  opacity: 0.96;
 }
 
 .cctv-chromatic-heavy {
-  filter: drop-shadow(-2px 0 0 rgba(220, 38, 38, 0.45)) drop-shadow(2px 0 0 rgba(56, 189, 248, 0.35));
+  opacity: 0.94;
 }
 
 /* 扉こじ開け時の激しい金属振動と非常灯明滅 */
 @keyframes door-pry-rattle {
-  0% { transform: translate(0, 0) rotate(0deg); }
-  15% { transform: translate(-4px, 2px) rotate(-0.5deg); }
-  30% { transform: translate(4px, -2px) rotate(0.6deg); }
-  45% { transform: translate(-3px, -1px) rotate(-0.3deg); }
-  60% { transform: translate(3px, 2px) rotate(0.4deg); }
-  75% { transform: translate(-2px, 1px) rotate(-0.2deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  15% { transform: translate3d(-4px, 2px, 0) rotate(-0.5deg); }
+  30% { transform: translate3d(4px, -2px, 0) rotate(0.6deg); }
+  45% { transform: translate3d(-3px, -1px, 0) rotate(-0.3deg); }
+  60% { transform: translate3d(3px, 2px, 0) rotate(0.4deg); }
+  75% { transform: translate3d(-2px, 1px, 0) rotate(-0.2deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); }
 }
 
 .door-prying-shake {
   animation: door-pry-rattle 0.12s infinite ease-in-out;
+  will-change: transform;
 }
 
 @keyframes emergency-red-pulse {
@@ -191,6 +197,7 @@
 
 .door-emergency-light {
   animation: emergency-red-pulse 0.45s infinite ease-in-out;
+  will-change: opacity;
 }
 
 /* 車内怪異豹変時の赤黒い照明点滅演出 */
@@ -219,38 +226,38 @@
 
 .cabin-red-black-flicker {
   animation: cabin-red-flicker 0.65s infinite steps(2, end);
+  will-change: opacity;
 }
 
-/* 瘴気（MIASMA）発生時の心音脈動と視界歪み */
+/* 瘴気（MIASMA）発生時の心音脈動と視界歪み（GPU transformのみで軽量化） */
 @keyframes miasma-heartbeat-pulse {
   0%, 100% {
-    transform: scale(1);
-    filter: blur(0.4px) hue-rotate(0deg);
+    transform: scale(1) translateZ(0);
   }
   25% {
-    transform: scale(1.018);
-    filter: blur(1.6px) hue-rotate(-12deg);
+    transform: scale(1.018) translateZ(0);
   }
   45% {
-    transform: scale(1.008);
-    filter: blur(0.8px) hue-rotate(8deg);
+    transform: scale(1.008) translateZ(0);
   }
 }
 
 .miasma-vision-warp {
   animation: miasma-heartbeat-pulse 0.62s infinite ease-in-out;
+  will-change: transform;
 }
 
 /* 急速換気稼働中（3秒間）のダクト・箱の微振動 */
 @keyframes rapid-fan-rattle {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-1.5px, 1px); }
-  50% { transform: translate(1.5px, -1px); }
-  75% { transform: translate(-1px, -1px); }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(-1.5px, 1px, 0); }
+  50% { transform: translate3d(1.5px, -1px, 0); }
+  75% { transform: translate3d(-1px, -1px, 0); }
 }
 
 .fan-duct-vibration {
   animation: rapid-fan-rattle 0.08s infinite linear;
+  will-change: transform;
 }
 
 /* ボロボロの血塗れメモ用紙（5F 怪文書専用・管理室フォーマットと完全別系統） */

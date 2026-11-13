@@ -22,7 +22,7 @@ interface NoticeModalsProps {
   onClose: () => void;
 }
 
-export const NoticeModals: React.FC<NoticeModalsProps> = ({
+export const NoticeModals: React.FC<NoticeModalsProps> = React.memo(({
   modalState,
   unlockedRules,
   corruptedMemo,
@@ -43,7 +43,7 @@ export const NoticeModals: React.FC<NoticeModalsProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-[2px] flex flex-col items-center justify-start p-2.5 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
+          className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-start p-2.5 sm:p-4 overflow-y-auto overscroll-contain touch-pan-y"
         >
           {/* 検問中（JUDGING）に開いている場合は背後の迫る猶予警告を表示 */}
           {gameState === 'JUDGING' && (
@@ -333,4 +333,4 @@ export const NoticeModals: React.FC<NoticeModalsProps> = ({
       )}
     </AnimatePresence>
   );
-};
+});

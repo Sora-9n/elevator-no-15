@@ -20,7 +20,7 @@ interface ElevatorDoorProps {
   onOpenMemo?: () => void;
 }
 
-export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
+export const ElevatorDoor: React.FC<ElevatorDoorProps> = React.memo(({
   doorOpenPercent,
   floor,
   gameState,
@@ -41,6 +41,11 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
     currentVisitor.requiredCloseClicks > 1 &&
     gameState === 'JUDGING' &&
     closeClicksRemaining > 0;
+
+  const isIncrementalDoorMotion = gameState === 'JUDGING' || gameState === 'FINAL_DOOR';
+  const doorTransformTransition = isIncrementalDoorMotion
+    ? 'transform 65ms linear'
+    : 'transform 340ms cubic-bezier(0.22, 1, 0.36, 1)';
 
   const isMiasmaEvent = movingEvent?.type === 'MIASMA';
   const isMirrorGhostEvent = movingEvent?.type === 'MIRROR_GHOST';
@@ -75,20 +80,18 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
           isPeekTransformed={isPeekTransformed}
         />
 
-        {/* 手前のレイヤー：左側の金属扉 */}
-        <motion.div
+        {/* 手前のレイヤー：左側の金属扉（GPU translate3dで描画） */}
+        <div
           id="elevator-door-left"
           className={`absolute top-0 bottom-0 left-0 w-1/2 metal-door-surface border-r-[4px] z-20 flex flex-col justify-center overflow-visible shadow-[14px_0_35px_rgba(0,0,0,0.95)] ${
             isPryingDoor
               ? 'border-red-600 shadow-[14px_0_40px_rgba(220,38,38,0.6)]'
               : 'border-stone-950'
           }`}
-          animate={{ x: `-${slideOffsetPercent}%` }}
-          transition={{
-            type: isHoldingOpen ? 'tween' : 'spring',
-            duration: isHoldingOpen ? 0.06 : undefined,
-            stiffness: 165,
-            damping: 24,
+          style={{
+            transform: `translate3d(-${slideOffsetPercent}%, 0, 0)`,
+            willChange: 'transform',
+            transition: doorTransformTransition,
           }}
         >
           <div className="mx-4 h-3/5 border border-stone-800/45 bg-black/15 rounded-xs" />
@@ -107,22 +110,20 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
               />
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
 
-        {/* 手前のレイヤー：右側の金属扉 */}
-        <motion.div
+        {/* 手前のレイヤー：右側の金属扉（GPU translate3dで描画） */}
+        <div
           id="elevator-door-right"
           className={`absolute top-0 bottom-0 right-0 w-1/2 metal-door-surface border-l-[4px] z-20 flex flex-col justify-center overflow-visible shadow-[-14px_0_35px_rgba(0,0,0,0.95)] ${
             isPryingDoor
               ? 'border-red-600 shadow-[-14px_0_40px_rgba(220,38,38,0.6)]'
               : 'border-stone-950'
           }`}
-          animate={{ x: `${slideOffsetPercent}%` }}
-          transition={{
-            type: isHoldingOpen ? 'tween' : 'spring',
-            duration: isHoldingOpen ? 0.06 : undefined,
-            stiffness: 165,
-            damping: 24,
+          style={{
+            transform: `translate3d(${slideOffsetPercent}%, 0, 0)`,
+            willChange: 'transform',
+            transition: doorTransformTransition,
           }}
         >
           <div className="mx-4 h-3/5 border border-stone-800/45 bg-black/15 rounded-xs" />
@@ -141,7 +142,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
               />
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
 
         {/* ============================================================
             ★ 演出A：ステンレス扉への「背後（肩越し）の怪異の鏡面映り込み」演出
@@ -161,7 +162,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                 <div className="absolute inset-0 cabin-red-black-flicker mix-blend-multiply" />
               )}
 
-              {/* ステンレス扉表面の鏡面反射レイヤー（少しボヤッとした金属反射質感） */}
+              {/* ステンレス扉表面の鏡面反射レイヤー */}
               <motion.div
                 animate={
                   movingEvent.status === 'FAILED'
@@ -169,7 +170,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                       ? { scale: 0.96, y: 0, opacity: 0.55 }
                       : { scale: 2.35, y: 30, opacity: 1 }
                     : movingEvent.status === 'RESOLVED'
-                    ? { scale: 0.7, opacity: 0, filter: 'blur(12px)' }
+                    ? { scale: 0.7, opacity: 0 }
                     : {
                         scale: 1.0 + eventUrgency * 0.38,
                         y: [0, -3, 2, 0],
@@ -183,8 +184,8 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                 }
                 className="relative w-full h-full flex items-end justify-center"
                 style={{
-                  filter: movingEvent.status === 'FAILED' ? 'blur(0.3px)' : 'blur(1.4px)',
                   mixBlendMode: 'screen',
+                  willChange: 'transform, opacity',
                 }}
               >
                 <svg viewBox="0 0 360 440" className="w-full h-full">
@@ -355,11 +356,14 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                       {/* 水平走査レーザーライン */}
                       <motion.line
                         x1="0"
+                        y1="0"
                         x2="360"
+                        y2="0"
                         stroke="#7dd3fc"
                         strokeWidth="4"
-                        initial={{ y1: 10, y2: 10 }}
-                        animate={{ y1: 420, y2: 420 }}
+                        style={{ willChange: 'transform' }}
+                        initial={{ y: 10 }}
+                        animate={{ y: 420 }}
                         transition={{ duration: 0.45, ease: 'linear' }}
                       />
                     </svg>
@@ -388,6 +392,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
           {isMiasmaEvent && movingEvent && (
             <motion.div
               key="miasma-fog-overlay"
+              style={{ willChange: 'transform, opacity' }}
               initial={{ opacity: 0, y: 120 }}
               animate={
                 movingEvent.status === 'RESOLVED'
@@ -421,7 +426,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                 }}
               />
 
-              {/* うごめく瘴気のモヤ塊（複数レイヤー） */}
+              {/* うごめく瘴気のモヤ塊（radial-gradientの自然フェード＋GPU transformのみ） */}
               <motion.div
                 animate={{
                   x: [-18, 18, -12, 0],
@@ -429,8 +434,9 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                   scale: [1, 1.12, 1.05, 1],
                 }}
                 transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute -bottom-12 inset-x-[-15%] h-[85%] rounded-full blur-2xl"
+                className="absolute -bottom-12 inset-x-[-15%] h-[85%] rounded-full"
                 style={{
+                  willChange: 'transform',
                   background:
                     'radial-gradient(ellipse at 50% 65%, rgba(107, 33, 168, 0.75) 0%, rgba(22, 101, 52, 0.65) 48%, transparent 80%)',
                 }}
@@ -441,8 +447,9 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                   y: [0, -35, -10, 0],
                 }}
                 transition={{ duration: 1.9, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute bottom-0 inset-x-[-10%] h-[70%] rounded-full blur-xl"
+                className="absolute bottom-0 inset-x-[-10%] h-[70%] rounded-full"
                 style={{
+                  willChange: 'transform',
                   background:
                     'radial-gradient(ellipse at 45% 70%, rgba(20, 83, 45, 0.8) 0%, rgba(76, 29, 149, 0.65) 55%, transparent 85%)',
                 }}
@@ -484,8 +491,8 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                     delay: i * 0.08,
                     ease: 'linear',
                   }}
-                  style={{ left: `${leftPct}%` }}
-                  className="absolute w-0.5 h-28 bg-gradient-to-t from-transparent via-emerald-200/50 to-white/80 blur-[0.5px]"
+                  style={{ left: `${leftPct}%`, willChange: 'transform, opacity' }}
+                  className="absolute w-0.5 h-28 bg-gradient-to-t from-transparent via-emerald-200/50 to-white/80"
                 />
               ))}
             </motion.div>
@@ -548,7 +555,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35, duration: 0.4 }}
                 onClick={onOpenMemo}
-                className="bloody-scrap-paper border-2 border-red-900/90 px-3.5 py-2 max-w-sm w-full text-left shadow-[0_8px_25px_rgba(127,29,29,0.75)] pointer-events-auto cursor-pointer hover:brightness-105 transition-all"
+                className="bloody-scrap-paper border-2 border-red-900/90 px-3.5 py-2 max-w-sm w-full text-left shadow-[0_8px_25px_rgba(127,29,29,0.75)] pointer-events-auto cursor-pointer hover:brightness-105 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] sm:text-xs font-mincho font-black text-red-950">
@@ -568,23 +575,24 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
           {(gameState === 'ARRIVING' || gameState === 'FINAL_DOOR') && isArrivingFlash && (
             <motion.div
               key={`arriving-floor-${floor}`}
-              initial={{ opacity: 0, scale: 0.92, filter: 'blur(6px)' }}
-              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, scale: 1.06, filter: 'blur(8px)' }}
+              style={{ willChange: 'transform, opacity' }}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.06 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
               className="absolute inset-0 z-25 pointer-events-none flex flex-col items-center justify-center select-none"
             >
-              {/* 背後の暗赤・琥珀色のバックライト暈し */}
+              {/* 背後の暗赤・琥珀色のバックライト暈し（radial-gradientで軽量表現） */}
               <div
-                className="absolute w-64 h-64 rounded-full blur-2xl"
+                className="absolute w-72 h-72 rounded-full"
                 style={{
                   background:
                     floor <= 0
-                      ? 'radial-gradient(circle, rgba(56,189,248,0.42) 0%, rgba(0,0,0,0) 70%)'
+                      ? 'radial-gradient(circle, rgba(56,189,248,0.45) 0%, rgba(56,189,248,0.12) 40%, rgba(0,0,0,0) 70%)'
                       : currentVisitor?.category === 'ANOMALY' ||
                         (currentVisitor?.requiredCloseClicks ?? 1) > 1
-                      ? 'radial-gradient(circle, rgba(220,38,38,0.38) 0%, rgba(0,0,0,0) 70%)'
-                      : 'radial-gradient(circle, rgba(245,158,11,0.32) 0%, rgba(0,0,0,0) 70%)',
+                      ? 'radial-gradient(circle, rgba(220,38,38,0.42) 0%, rgba(220,38,38,0.1) 40%, rgba(0,0,0,0) 70%)'
+                      : 'radial-gradient(circle, rgba(245,158,11,0.36) 0%, rgba(245,158,11,0.08) 40%, rgba(0,0,0,0) 70%)',
                 }}
               />
               <div className="relative flex flex-col items-center">
@@ -594,12 +602,21 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
                 <span
                   className={`font-seven-seg text-6xl sm:text-7xl font-black tracking-widest ${
                     floor <= 0
-                      ? 'text-sky-300 drop-shadow-[0_0_28px_rgba(56,189,248,0.95)]'
+                      ? 'text-sky-300'
                       : currentVisitor?.category === 'ANOMALY' ||
                         (currentVisitor?.requiredCloseClicks ?? 1) > 1
-                      ? 'text-red-500 drop-shadow-[0_0_28px_rgba(239,68,68,0.95)]'
-                      : 'text-amber-400 drop-shadow-[0_0_26px_rgba(245,158,11,0.9)]'
+                      ? 'text-red-500'
+                      : 'text-amber-400'
                   }`}
+                  style={{
+                    textShadow:
+                      floor <= 0
+                        ? '0 0 26px rgba(56,189,248,0.95)'
+                        : currentVisitor?.category === 'ANOMALY' ||
+                          (currentVisitor?.requiredCloseClicks ?? 1) > 1
+                        ? '0 0 26px rgba(239,68,68,0.95)'
+                        : '0 0 24px rgba(245,158,11,0.9)',
+                  }}
                 >
                   {floor <= 0 ? 'B1F' : `${String(floor).padStart(2, '0')}F`}
                 </span>
@@ -613,4 +630,4 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = ({
       </div>
     </div>
   );
-};
+});

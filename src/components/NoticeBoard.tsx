@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { CorruptedMemo, NoticeRule } from '../types/game';
 import { ClipboardList, BookOpen, ChevronRight } from 'lucide-react';
 import { soundManager } from '../utils/SoundManager';
@@ -13,7 +13,7 @@ interface NoticeBoardProps {
   onOpenMemo: () => void;
 }
 
-export const NoticeBoard: React.FC<NoticeBoardProps> = ({
+export const NoticeBoard: React.FC<NoticeBoardProps> = React.memo(({
   rules,
   corruptedMemo,
   currentFloor,
@@ -23,7 +23,10 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
   onOpenMemo,
 }) => {
   // 現在の階層までに発令された公式通達のみ表示（15F:3通 → 10F:5通 → 5F:6通）
-  const unlockedRules = rules.filter((r) => currentFloor <= r.unlockedAtFloor);
+  const unlockedRules = useMemo(
+    () => rules.filter((r) => currentFloor <= r.unlockedAtFloor),
+    [rules, currentFloor]
+  );
   const showCorruptedMemo = currentFloor <= corruptedMemo.unlockedAtFloor;
   const isMemoUnread = !readRuleIds.includes(corruptedMemo.id);
 
@@ -115,7 +118,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({
       </div>
     </aside>
   );
-};
+});
 
 interface MobileDocButtonsProps {
   rules: NoticeRule[];
@@ -127,7 +130,7 @@ interface MobileDocButtonsProps {
   onOpenMemo: () => void;
 }
 
-export const MobileDocButtons: React.FC<MobileDocButtonsProps> = ({
+export const MobileDocButtons: React.FC<MobileDocButtonsProps> = React.memo(({
   rules,
   corruptedMemo,
   currentFloor,
@@ -136,8 +139,14 @@ export const MobileDocButtons: React.FC<MobileDocButtonsProps> = ({
   onOpenManual,
   onOpenMemo,
 }) => {
-  const unlockedRules = rules.filter((r) => currentFloor <= r.unlockedAtFloor);
-  const unreadRuleCount = unlockedRules.filter((r) => !readRuleIds.includes(r.id)).length;
+  const unlockedRules = useMemo(
+    () => rules.filter((r) => currentFloor <= r.unlockedAtFloor),
+    [rules, currentFloor]
+  );
+  const unreadRuleCount = useMemo(
+    () => unlockedRules.filter((r) => !readRuleIds.includes(r.id)).length,
+    [unlockedRules, readRuleIds]
+  );
   const showCorruptedMemo = currentFloor <= corruptedMemo.unlockedAtFloor;
   const isMemoUnread = !readRuleIds.includes(corruptedMemo.id);
 
@@ -198,4 +207,4 @@ export const MobileDocButtons: React.FC<MobileDocButtonsProps> = ({
       )}
     </div>
   );
-};
+});
