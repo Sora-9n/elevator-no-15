@@ -1702,7 +1702,7 @@ export function App() {
           : { duration: 0.25 }
       }
       onContextMenu={(e) => e.preventDefault()}
-      className="relative w-full h-full overflow-hidden flex flex-col justify-between metal-wall select-none touch-manipulation"
+      className="relative w-full h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between metal-wall select-none touch-manipulation"
       style={{
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',
@@ -1807,7 +1807,7 @@ export function App() {
         </div>
 
         {/* 中央メイン：エレベーターの両開き金属扉（端末の画面高に合わせて自動伸縮） */}
-        <div className="flex-1 min-h-0 md:col-span-6 h-full overflow-hidden relative">
+        <div className="flex-1 min-h-0 md:col-span-6 md:h-full overflow-hidden relative">
           <ElevatorDoor
             doorOpenPercent={doorOpenPercent}
             floor={floor}
