@@ -1702,7 +1702,7 @@ export function App() {
           : { duration: 0.25 }
       }
       onContextMenu={(e) => e.preventDefault()}
-      className="fixed inset-0 w-full h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between metal-wall select-none touch-manipulation"
+      className="relative w-full h-full overflow-hidden flex flex-col justify-between metal-wall select-none touch-manipulation"
       style={{
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',

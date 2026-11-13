@@ -7,24 +7,33 @@
     --font-mono: 'Share Tech Mono', monospace;
   }
 
-  html,
-  body,
-  #root {
+  html {
     width: 100%;
     height: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
     margin: 0;
     padding: 0;
     overflow: hidden;
   }
 
   body {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
     font-family: var(--font-sans);
     background-color: #090a09;
     color: #d6d3d1;
     user-select: none;
     -webkit-user-select: none;
+  }
+
+  #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
 }
 
