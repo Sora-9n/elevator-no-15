@@ -51,7 +51,7 @@ export const VisitorView: React.FC<VisitorViewProps> = ({
       : '';
 
   const isNormalEndingView =
-    floor === 1 && (gameState === 'FINAL_DOOR' || gameState === 'CLEAR');
+    floor >= 1 && (gameState === 'FINAL_DOOR' || gameState === 'CLEAR');
   const isTrueEndingView =
     floor <= 0 && (gameState === 'FINAL_DOOR' || gameState === 'CLEAR');
 

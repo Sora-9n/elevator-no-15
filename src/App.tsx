@@ -114,7 +114,14 @@ export function App() {
   const isModalOpenRef = useRef<boolean>(false);
   const toastTimeoutRef = useRef<number | null>(null);
   const scrapToastTimerRef = useRef<number | null>(null);
+  const b1fTransitionTimerRef = useRef<number | null>(null);
+  const arrivingFlashTimeoutRef = useRef<number | null>(null);
   const trueEndUnlockedRef = useRef<boolean>(false);
+  const floorRef = useRef<number>(15);
+
+  useEffect(() => {
+    floorRef.current = floor;
+  }, [floor]);
 
   useEffect(() => {
     activePassengersRef.current = activePassengers;
@@ -245,6 +252,14 @@ export function App() {
       window.clearTimeout(scrapToastTimerRef.current);
       scrapToastTimerRef.current = null;
     }
+    if (b1fTransitionTimerRef.current) {
+      window.clearTimeout(b1fTransitionTimerRef.current);
+      b1fTransitionTimerRef.current = null;
+    }
+    if (arrivingFlashTimeoutRef.current) {
+      window.clearTimeout(arrivingFlashTimeoutRef.current);
+      arrivingFlashTimeoutRef.current = null;
+    }
     soundManager.init();
     soundManager.playButtonClick('SWITCH');
     soundManager.stopDoorMotor();
@@ -270,6 +285,7 @@ export function App() {
     isPausedRef.current = false;
     setIsPaused(false);
 
+    floorRef.current = 15;
     setFloor(15);
     setSanity(MAX_SANITY);
     setComplaints(0);
@@ -553,6 +569,7 @@ export function App() {
         if (trueEndUnlockedRef.current) {
           // ② トゥルーエンディングルート：1Fで止まらずに通過し、火花と激しい振動と共にB1Fへ突入！
           setEndingType('TRUE');
+          floorRef.current = 1;
           setFloor(1);
           soundManager.playB1FBreakthrough();
           setScreenShake('VIOLENT');
@@ -568,11 +585,22 @@ export function App() {
             2600
           );
 
-          window.setTimeout(() => {
+          if (b1fTransitionTimerRef.current) {
+            window.clearTimeout(b1fTransitionTimerRef.current);
+          }
+          b1fTransitionTimerRef.current = window.setTimeout(() => {
+            b1fTransitionTimerRef.current = null;
+            floorRef.current = 0;
             setFloor(0); // 0 = B1F
             soundManager.playArrivalChime(false);
             setIsArrivingFlash(true);
-            window.setTimeout(() => setIsArrivingFlash(false), ARRIVING_FLASH_MS);
+            if (arrivingFlashTimeoutRef.current) {
+              window.clearTimeout(arrivingFlashTimeoutRef.current);
+            }
+            arrivingFlashTimeoutRef.current = window.setTimeout(
+              () => setIsArrivingFlash(false),
+              ARRIVING_FLASH_MS
+            );
             setScreenShake('SUBTLE');
             decisionLockedRef.current = false;
             setActiveSubtitle(
@@ -591,11 +619,18 @@ export function App() {
 
         // ① 通常エンディングルート：1Fに到着し、FINAL_DOOR（手動開扉フェーズ）へ移行
         setEndingType('NORMAL');
+        floorRef.current = 1;
         setFloor(1);
         setActivePassengers([]);
         soundManager.playArrivalChime(false);
         setIsArrivingFlash(true);
-        window.setTimeout(() => setIsArrivingFlash(false), ARRIVING_FLASH_MS);
+        if (arrivingFlashTimeoutRef.current) {
+          window.clearTimeout(arrivingFlashTimeoutRef.current);
+        }
+        arrivingFlashTimeoutRef.current = window.setTimeout(
+          () => setIsArrivingFlash(false),
+          ARRIVING_FLASH_MS
+        );
         setScreenShake('NONE');
         decisionLockedRef.current = false;
         setActiveSubtitle(
@@ -611,6 +646,7 @@ export function App() {
         return;
       }
 
+      floorRef.current = nextFloor;
       setFloor(nextFloor);
 
       // 同乗者の残り乗車階数を -1 し、0になった住人は静かに降車（ポップアップは出さない）
@@ -1283,6 +1319,7 @@ export function App() {
     let rewindTimer: number | null = null;
     let sequenceTimeout1: number | null = null;
     let sequenceTimeout2: number | null = null;
+    let latchTimeout: number | null = null;
 
     const intervalMs = 50;
     const timer = window.setInterval(() => {
@@ -1304,7 +1341,7 @@ export function App() {
           soundManager.stopDoorMotor();
           soundManager.playDoorBumperStop();
 
-          if (trueEndUnlockedRef.current || floor <= 0) {
+          if (trueEndUnlockedRef.current || floorRef.current <= 0) {
             // ② トゥルーエンディング（B1F）：管理室のシステムが「バチィッ！」とショートして沈黙し、朝の風と鳥のさえずりが響く
             soundManager.playSystemShortCircuitExplosion();
             soundManager.stopCabinRattle();
@@ -1347,13 +1384,14 @@ export function App() {
               soundManager.playDoorSlide(0.35, false);
               doorPercentRef.current = 0;
               setDoorOpenPercent(0);
-              window.setTimeout(() => soundManager.playDoorLatchShut(), 260);
+              latchTimeout = window.setTimeout(() => soundManager.playDoorLatchShut(), 260);
               soundManager.startMotorDrone();
               setScreenShake('VIOLENT');
 
               let rewindFloor = 1;
               rewindTimer = window.setInterval(() => {
                 rewindFloor += 1;
+                floorRef.current = rewindFloor;
                 setFloor(rewindFloor);
                 soundManager.playFloorRewindTick(rewindFloor);
 
@@ -1387,9 +1425,10 @@ export function App() {
       if (rewindTimer) window.clearInterval(rewindTimer);
       if (sequenceTimeout1) window.clearTimeout(sequenceTimeout1);
       if (sequenceTimeout2) window.clearTimeout(sequenceTimeout2);
+      if (latchTimeout) window.clearTimeout(latchTimeout);
       soundManager.stopDoorMotor();
     };
-  }, [gameState, floor, showToast]);
+  }, [gameState, showToast]);
 
   // 操作盤ハンドラ：開（OPEN）長押し開始・終了
   const handleStartHoldOpen = () => {
