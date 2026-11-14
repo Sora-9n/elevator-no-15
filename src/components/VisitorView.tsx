@@ -30,14 +30,9 @@ interface ColorPalette {
   tie?: string;
 }
 
-/**
- * 服装カラー（Hex）と属性から、キアロスクーロ（版画・影絵調）の多層カラーパレットを算出
- * 保安通達の識別条件（「青い服」「赤いコート」「白い服」等）が30%〜60%の隙間でも一目瞭然になるよう設計
- */
 function resolveClothingPalette(color: string, isKeyWoman: boolean): ColorPalette {
   const c = color.toLowerCase();
   if (isKeyWoman || c === '#d6d3d1') {
-    // 2F「鍵となる彼女」：薄汚れた白いワンピース・深い灰褐色のドレープ影
     return {
       base: '#9a948c',
       mid: '#b8b2a8',
@@ -49,7 +44,6 @@ function resolveClothingPalette(color: string, isKeyWoman: boolean): ColorPalett
     };
   }
   if (c === '#1d4ed8' || c === '#1e40af' || c === '#1e3a8a') {
-    // 青い服・青い警備制服（通達①・④対象：隙間からでも即座に「青」と判別できる鮮明な群青ハイライト＋漆黒影）
     return {
       base: '#17367a',
       mid: '#1e469e',
@@ -62,7 +56,6 @@ function resolveClothingPalette(color: string, isKeyWoman: boolean): ColorPalett
     };
   }
   if (c === '#991b1b') {
-    // 赤いコート（通達⑤対象：深紅のハイライト面と血黒色の落ち影）
     return {
       base: '#5c1111',
       mid: '#7f1818',
@@ -74,7 +67,6 @@ function resolveClothingPalette(color: string, isKeyWoman: boolean): ColorPalett
     };
   }
   if (c === '#18181b' || c === '#27272a') {
-    // 濡れた黒い喪服・暗い影シルエット
     return {
       base: '#18191c',
       mid: '#24262b',
@@ -85,16 +77,27 @@ function resolveClothingPalette(color: string, isKeyWoman: boolean): ColorPalett
       collar: '#2e3038',
     };
   }
-  // 作業着・スーツ・灰褐色コート類（セピア・冷たい灰褐色の重厚なキアロスクーロ）
+  if (c === '#44403c' || c === '#78716c' || c === '#57534e') {
+    return {
+      base: '#36312c',
+      mid: '#4a433c',
+      light: '#6b6156',
+      rim: '#96897a',
+      shadow: '#1a1715',
+      deep: '#0b0a09',
+      collar: '#595047',
+      tie: '#3b1313',
+    };
+  }
   return {
-    base: '#32302d',
-    mid: '#46423d',
-    light: '#666058',
-    rim: '#8f877b',
-    shadow: '#171614',
-    deep: '#0b0a09',
-    collar: '#544f48',
-    tie: '#291515',
+    base: '#2e3036',
+    mid: '#3f424a',
+    light: '#5c606b',
+    rim: '#858a99',
+    shadow: '#15161a',
+    deep: '#09090b',
+    collar: '#4c5059',
+    tie: '#1e1b4b',
   };
 }
 
@@ -102,7 +105,10 @@ type HairArchetype =
   | 'KEY_WOMAN_LONG'
   | 'ANOMALY_WET_LONG'
   | 'FEMALE_COAT_BOB'
+  | 'SHOULDER_LONG'
   | 'PARTED_NEAT'
+  | 'SLICKED_BACK'
+  | 'HEAVY_BANGS'
   | 'MESSY_SHORT'
   | 'HOODED_HUNCH';
 
@@ -113,21 +119,69 @@ function resolveHairArchetype(
 ): HairArchetype {
   if (isKeyWoman || visitorId === 'v-ch3-key-woman') return 'KEY_WOMAN_LONG';
   if (visitorId === 'v-any-neck-anomaly') return 'ANOMALY_WET_LONG';
-  if (
-    visitorId.includes('woman') ||
-    visitorId.includes('red-coat') ||
-    visitorId.includes('sick-fan')
-  ) {
+  if (appearance.silhouetteType === 'HUNCHED' && appearance.isShadowedFace) {
+    return 'HOODED_HUNCH';
+  }
+  if (visitorId === 'v-ch1-peek-trap-woman' || visitorId === 'v-ch2-sick-fan-resident') {
+    return 'SHOULDER_LONG';
+  }
+  if (visitorId.includes('red-coat')) {
     return 'FEMALE_COAT_BOB';
   }
+  if (visitorId === 'v-ch2-peek-trap-gentleman') {
+    return 'SLICKED_BACK';
+  }
   if (
-    appearance.silhouetteType === 'HUNCHED' &&
-    appearance.isShadowedFace
+    visitorId === 'v-ch1-blue-coat-intruder' ||
+    visitorId === 'v-ch1-sleeper-resident' ||
+    visitorId === 'v-ch1-floor12-phantom' ||
+    visitorId === 'v-ch3-room-number-ghost'
   ) {
-    return 'HOODED_HUNCH';
+    return 'HEAVY_BANGS';
   }
   if (appearance.silhouetteType === 'SUIT') return 'PARTED_NEAT';
   return 'MESSY_SHORT';
+}
+
+type GarmentArchetype =
+  | 'KEY_WOMAN_DRESS'
+  | 'TAILORED_SUIT'
+  | 'SECURITY_UNIFORM'
+  | 'RED_TRENCH_COAT'
+  | 'OVERCOAT_CARDIGAN'
+  | 'DELIVERY_JACKET'
+  | 'LOUNGE_HOODIE';
+
+function resolveGarmentArchetype(
+  visitorId: string,
+  appearance: VisitorAppearance,
+  isKeyWoman: boolean
+): GarmentArchetype {
+  if (isKeyWoman || visitorId === 'v-ch3-key-woman') return 'KEY_WOMAN_DRESS';
+  const c = appearance.clothingColor.toLowerCase();
+  if (c === '#991b1b') return 'RED_TRENCH_COAT';
+  if (c === '#1e40af' || c === '#1e3a8a' || visitorId === 'v-ch2-blue-no-cap-imposter') {
+    return 'SECURITY_UNIFORM';
+  }
+  if (appearance.silhouetteType === 'SUIT') return 'TAILORED_SUIT';
+  if (visitorId.includes('delivery')) return 'DELIVERY_JACKET';
+  if (
+    visitorId === 'v-ch1-floor12-phantom' ||
+    visitorId === 'v-ch1-peek-innocent-shadow'
+  ) {
+    return 'LOUNGE_HOODIE';
+  }
+  return 'OVERCOAT_CARDIGAN';
+}
+
+function resolveHasGlasses(visitorId: string, appearance: VisitorAppearance): boolean {
+  if (appearance.isShadowedFace) return false;
+  return (
+    visitorId === 'v-ch2-polite-resident' ||
+    visitorId === 'v-ch2-peek-trap-gentleman' ||
+    visitorId === 'v-ch1-sleeper-resident' ||
+    visitorId === 'v-ch2-sick-fan-resident'
+  );
 }
 
 const NormalEndingBackdrop = React.memo(() => {
@@ -461,9 +515,10 @@ const CorridorBackdrop = React.memo<{ floor: number }>(({ floor }) => (
 ));
 
 /**
- * ハイコントラスト・キアロスクーロ（版画・影絵調）訪問者ベクターイラスト
+ * ハイコントラスト・キアロスクーロ（版画・逆光シルエット調）訪問者ベクターイラスト
  * - 重いSVG filter（feGaussianBlur等）やCSS drop-shadowを一切排除
- * - 多層の<path>による骨格・鎖骨・喉仏の首接続、眼窩・鼻筋・頬骨の彫り、衣服のラペル・ドレープ・シワを描画
+ * - 顔内部の鼻筋・頬骨・シワ・厚い唇を廃止し、廊下の天井灯による逆光シルエット（#0c0c0e〜#141418）＋暗がりから覗く目元のみで表現
+ * - 訪問者ごとに異なる髪型・眼鏡・服装の徹底描き込みと、胸ポケット付近に安全ピンで直接留めた名札
  */
 const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
   ({ visitorId, appearance, isKeyWoman, isNameTagVisible }) => {
@@ -477,11 +532,20 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
       [visitorId, appearance, isKeyWoman]
     );
 
-    const isRedCoat = appearance.clothingColor.toLowerCase() === '#991b1b';
+    const garmentType = useMemo(
+      () => resolveGarmentArchetype(visitorId, appearance, isKeyWoman),
+      [visitorId, appearance, isKeyWoman]
+    );
+
+    const hasGlasses = useMemo(
+      () => resolveHasGlasses(visitorId, appearance),
+      [visitorId, appearance]
+    );
+
+    const isRedCoat = garmentType === 'RED_TRENCH_COAT';
     const isBlueGuardOrCoat =
-      appearance.clothingColor.toLowerCase() === '#1d4ed8' ||
-      appearance.clothingColor.toLowerCase() === '#1e40af' ||
-      appearance.clothingColor.toLowerCase() === '#1e3a8a';
+      garmentType === 'SECURITY_UNIFORM' ||
+      appearance.clothingColor.toLowerCase() === '#1d4ed8';
 
     const bodyTransform = useMemo(() => {
       switch (appearance.silhouetteType) {
@@ -502,21 +566,14 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
       return `translate(0, ${crouchY}) rotate(${tilt} 140 120)`;
     }, [appearance.headTiltDeg, appearance.silhouetteType]);
 
-    // 肌トーン（不気味なくすんだ青白い明部と深い影面）
-    const skinLight = isKeyWoman
-      ? '#cfc8be'
-      : appearance.isShadowedFace
-      ? '#3f3d3a'
-      : appearance.eyeStyle === 'HOLLOW' || appearance.eyeStyle === 'GLOWING_RED'
-      ? '#9e9a93'
-      : '#b8b0a4';
-    const skinMid = isKeyWoman
-      ? '#8f887e'
-      : appearance.isShadowedFace
-      ? '#242321'
-      : '#787167';
-    const skinShadow = '#141316';
-    const skinDeep = '#09090b';
+    // 逆光シルエット用の顔・首トーン（顔全体が暗い影 #0c0c0e〜#141418 に沈み、輪郭縁のみ微かな逆光ハイライト）
+    const faceSilhouetteBase = appearance.isShadowedFace
+      ? '#09090b'
+      : isKeyWoman
+      ? '#131318'
+      : '#101014';
+    const faceSilhouetteDeep = '#09090c';
+    const faceRimLight = isKeyWoman ? '#64748b' : '#3f3f46';
 
     return (
       <svg
@@ -524,13 +581,6 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
         className="w-full h-full overflow-visible select-none"
       >
         <defs>
-          {/* 廊下天井からのトップライトによるキアロスクーロ明暗グラデーション */}
-          <linearGradient id="chiaroscuroRim" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#e7e5e4" stopOpacity="0.32" />
-            <stop offset="45%" stopColor="#78716c" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="#09090b" stopOpacity="0.9" />
-          </linearGradient>
-
           {/* 2F「鍵となる彼女」背後の淡い月光オーラ（ブラーなしの軽量グラデーション） */}
           <radialGradient id="keyWomanBacklight" cx="50%" cy="34%" r="52%">
             <stop offset="0%" stopColor="rgba(226, 232, 240, 0.28)" />
@@ -564,18 +614,18 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
             <g>
               {/* 背後に広がる乱れた黒髪のベース塊 */}
               <path
-                d="M 96 68 C 80 96, 74 150, 70 228 C 84 222, 95 198, 104 168 L 176 168 C 185 198, 196 222, 210 228 C 206 150, 200 96, 184 68 Z"
+                d="M 96 68 C 80 96, 72 152, 68 236 C 84 228, 95 202, 104 168 L 176 168 C 185 202, 196 228, 212 236 C 208 152, 200 96, 184 68 Z"
                 fill="#09090b"
                 stroke="#27272a"
                 strokeWidth="1"
               />
               {/* 髪の立体ハイライト束 */}
               <path
-                d="M 92 84 C 83 122, 79 165, 76 212 C 82 186, 88 148, 96 112 Z"
+                d="M 92 84 C 82 122, 78 168, 74 218 C 81 190, 88 148, 96 112 Z"
                 fill="#27272a"
               />
               <path
-                d="M 188 84 C 195 122, 199 165, 202 210 C 194 182, 190 145, 183 112 Z"
+                d="M 188 84 C 196 122, 200 168, 204 216 C 195 186, 190 145, 183 112 Z"
                 fill="#1f1f23"
               />
             </g>
@@ -595,6 +645,15 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
               d="M 95 66 C 84 92, 82 132, 88 158 C 98 164, 182 164, 192 158 C 198 132, 196 92, 185 66 Z"
               fill="#0c0a09"
               stroke="#292524"
+              strokeWidth="1"
+            />
+          )}
+
+          {hairType === 'SHOULDER_LONG' && (
+            <path
+              d="M 96 68 C 86 98, 82 138, 80 176 L 98 168 L 106 146 L 174 146 L 182 168 L 200 176 C 198 138, 194 98, 184 68 Z"
+              fill="#0c0c0f"
+              stroke="#27272a"
               strokeWidth="1"
             />
           )}
@@ -633,68 +692,55 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
           )}
 
           {/* ============================================================
-              2. 首・鎖骨・喉仏の接続レイヤー（頭部の浮きを完全解消）
+              2. 首・鎖骨の逆光シルエット接続レイヤー（頭部の浮きを完全解消）
               ============================================================ */}
           <g>
-            {/* 襟元の奥の深い闇（インナー・首の後ろ影） */}
+            {/* 襟元の奥の深い闇 */}
             <path
               d="M 102 142 L 178 142 L 172 218 L 108 218 Z"
-              fill="#070709"
+              fill="#050507"
             />
 
-            {/* 首柱ベース（耳下から僧帽筋・鎖骨へ広がる自然な太さの首） */}
+            {/* 首柱ベース（逆光の暗い影に沈んだ自然な太さの首） */}
             <path
               d={
                 appearance.silhouetteType === 'TALL_DISTORTED'
                   ? 'M 118 98 C 120 118, 114 138, 102 156 L 178 156 C 166 138, 160 118, 162 98 Z'
                   : 'M 116 106 C 117 124, 111 138, 98 152 L 182 152 C 169 138, 163 124, 164 106 Z'
               }
-              fill={skinMid}
-              stroke={skinDeep}
-              strokeWidth="1.4"
+              fill={faceSilhouetteBase}
+              stroke="#050507"
+              strokeWidth="1.5"
             />
 
-            {/* 首の左側ハイライト面（トップライトを受ける胸鎖乳突筋） */}
+            {/* 顎下〜首右半分のさらに深い落ち影 */}
             <path
-              d="M 118 108 C 119 125, 115 138, 106 150 L 134 156 L 136 112 Z"
-              fill={skinLight}
-              opacity="0.78"
+              d="M 120 108 C 132 122, 148 124, 163 108 C 164 125, 170 139, 180 151 L 136 158 C 136 136, 130 122, 120 108 Z"
+              fill={faceSilhouetteDeep}
             />
 
-            {/* 首の右側〜顎下の濃いキアロスクーロ落ち影 */}
+            {/* 首左縁にだけ走る微かな逆光リムハイライトと胸鎖乳突筋のわずかな陰影 */}
             <path
-              d="M 122 108 C 132 122, 148 124, 163 108 C 164 125, 170 139, 180 151 L 138 158 C 138 136, 132 122, 122 108 Z"
-              fill={skinShadow}
+              d="M 117 110 C 118 125, 113 138, 103 149"
+              fill="none"
+              stroke={faceRimLight}
+              strokeWidth="1.3"
+              opacity="0.65"
             />
-
-            {/* 胸鎖乳突筋の筋スジ・喉仏（アダムの林檎）・鎖骨のくぼみ影 */}
             <path
-              d="M 122 115 L 135 152 M 157 115 L 144 152"
-              stroke={skinDeep}
+              d="M 124 118 L 136 152 M 156 118 L 144 152"
+              stroke="#050507"
               strokeWidth="1.8"
               strokeLinecap="round"
-              opacity="0.75"
-            />
-            {/* 喉仏の立体影 */}
-            <path
-              d="M 135 126 Q 140 132 145 126 Q 140 137 135 126 Z"
-              fill={skinDeep}
               opacity="0.85"
             />
-            {/* 鎖骨の水平シャドウと胸骨上窩（首の付け根のくぼみ） */}
+            {/* 鎖骨のほのかなリムライト（特に2Fの彼女や開襟時） */}
             <path
-              d="M 106 149 Q 126 156 140 159 Q 154 156 174 149"
+              d="M 110 148 Q 126 153 137 156 M 170 148 Q 154 153 143 156"
               fill="none"
-              stroke={skinDeep}
-              strokeWidth="2.4"
-              strokeLinecap="round"
-            />
-            <path
-              d="M 110 147 Q 126 152 137 155 M 170 147 Q 154 152 143 155"
-              fill="none"
-              stroke={skinLight}
-              strokeWidth="1.2"
-              opacity="0.6"
+              stroke={faceRimLight}
+              strokeWidth="1.1"
+              opacity={isKeyWoman ? 0.65 : 0.35}
             />
 
             {/* 異常個体：首の関節がズレた断層ライン */}
@@ -750,41 +796,77 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
               opacity="0.82"
             />
 
-            {/* 3-D. 服装タイプ別の襟・ラペル・ネクタイ・ドレープ描き込み */}
-            {isKeyWoman ? (
-              /* ★ 2F「鍵となる彼女」専用：薄汚れた白い服の深いドレープ影と鎖骨が開いた襟元 */
+            {/* 3-D. 服装タイプ別の高密度仕立て・ラペル・ポケット・ドレープ描き込み（情報量2倍強化） */}
+            {garmentType === 'KEY_WOMAN_DRESS' ? (
+              /* ★ 2F「鍵となる彼女」専用：薄汚れた白い服の幾重もの繊細なドレープ影と鎖骨が開いた襟元 */
               <g>
-                {/* 鎖骨が見える広く緩いネックライン */}
+                {/* 鎖骨が見える広く緩いネックラインと二重の布縁 */}
                 <path
-                  d="M 104 145 C 116 172, 164 172, 176 145 C 168 182, 112 182, 104 145 Z"
-                  fill="#0c0b0a"
+                  d="M 102 144 C 115 174, 165 174, 178 144 C 170 184, 110 184, 102 144 Z"
+                  fill="#0b0a09"
                   stroke={palette.light}
-                  strokeWidth="1.4"
+                  strokeWidth="1.5"
                 />
-                {/* 左胸〜裾へ流れる白い布のハイライト・ドレープ */}
                 <path
-                  d="M 92 154 C 104 195, 112 265, 106 388 L 128 388 C 130 270, 124 202, 112 164 Z"
+                  d="M 100 148 C 114 180, 166 180, 180 148"
+                  fill="none"
+                  stroke={palette.rim}
+                  strokeWidth="1.1"
+                  opacity="0.7"
+                />
+                {/* 左肩〜胸元〜裾へ流れる白い布のハイライト・ドレープ群 */}
+                <path
+                  d="M 88 152 C 102 194, 112 265, 104 388 L 128 388 C 130 268, 124 200, 110 162 Z"
                   fill={palette.light}
-                  opacity="0.72"
+                  opacity="0.78"
                 />
                 <path
-                  d="M 66 176 C 78 228, 82 295, 76 388 L 92 388 C 96 298, 92 228, 82 172 Z"
+                  d="M 62 174 C 74 226, 80 295, 74 388 L 92 388 C 96 298, 92 226, 80 170 Z"
                   fill={palette.rim}
-                  opacity="0.45"
+                  opacity="0.52"
+                />
+                <path
+                  d="M 46 202 C 56 248, 58 312, 52 388 L 64 388 C 68 310, 66 246, 56 198 Z"
+                  fill={palette.light}
+                  opacity="0.4"
+                />
+                {/* 鎖骨下から胸元へ集まる放射状のギャザー・カテナリー曲線シワ */}
+                <path
+                  d="M 106 168 Q 140 198 172 168 M 112 184 Q 140 214 168 184 M 116 204 Q 140 232 164 204"
+                  fill="none"
+                  stroke={palette.shadow}
+                  strokeWidth="1.6"
+                  opacity="0.75"
                 />
                 {/* 幾重にも刻まれた深い布の縦シワ・落ち影 */}
                 <path
-                  d="M 108 168 C 116 225, 114 300, 108 388 L 116 388 C 122 300, 122 225, 114 168 Z"
+                  d="M 96 172 C 102 228, 100 302, 94 388 L 101 388 C 107 302, 108 228, 101 172 Z"
+                  fill={palette.shadow}
+                  opacity="0.85"
+                />
+                <path
+                  d="M 114 170 C 120 228, 118 302, 112 388 L 121 388 C 127 302, 127 228, 120 170 Z"
                   fill={palette.shadow}
                 />
                 <path
-                  d="M 136 172 C 138 235, 134 310, 130 388 L 146 388 C 148 308, 148 232, 142 172 Z"
+                  d="M 136 174 C 138 235, 134 310, 130 388 L 146 388 C 148 308, 148 232, 142 174 Z"
                   fill={palette.deep}
-                  opacity="0.88"
+                  opacity="0.9"
                 />
                 <path
-                  d="M 162 166 C 170 228, 176 302, 182 388 L 194 388 C 186 298, 180 224, 170 162 Z"
+                  d="M 160 166 C 168 228, 174 302, 180 388 L 194 388 C 186 298, 180 224, 170 162 Z"
                   fill={palette.deep}
+                />
+                <path
+                  d="M 184 174 C 194 236, 200 308, 206 388 L 218 388 C 210 304, 204 232, 192 170 Z"
+                  fill="#09090b"
+                  opacity="0.82"
+                />
+                {/* 袖ぐり・肘周辺の細かい引き攣れシワ */}
+                <path
+                  d="M 68 214 L 94 236 L 72 230 Z M 74 242 L 98 262 L 78 256 Z M 208 216 L 178 240 L 202 232 Z"
+                  fill={palette.shadow}
+                  opacity="0.8"
                 />
                 {/* 薄汚れた裾・胸元の煤汚れ（ソリッドベクター斑） */}
                 <path
@@ -798,21 +880,150 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
                   opacity="0.5"
                 />
               </g>
-            ) : appearance.silhouetteType === 'SUIT' || isBlueGuardOrCoat ? (
-              /* ★ スーツ / 青い警備制服・青コート：シャープなVゾーン・ワイシャツ・ネクタイ・ラペル */
+            ) : garmentType === 'SECURITY_UNIFORM' ? (
+              /* ★ 警備制服（通達④対象）：エポーレット（肩章）・金ボタン・両胸フラップポケット・ネクタイピン・制服用切替線 */
               <g>
-                {/* Vゾーン内の白いシャツと影 */}
+                {/* Vゾーン内の制服用ブルーグレーシャツと影 */}
                 <polygon
                   points="114,148 166,148 140,236"
-                  fill="#d6d3d1"
-                  stroke="#18181b"
+                  fill="#cbd5e1"
+                  stroke="#0f172a"
                   strokeWidth="1.2"
                 />
-                <polygon points="140,148 166,148 140,236" fill="#78716c" />
+                <polygon points="140,148 166,148 140,236" fill="#64748b" />
                 {/* シャツの襟 */}
                 <polygon
                   points="113,144 138,166 124,180 108,154"
-                  fill="#f5f5f4"
+                  fill="#e2e8f0"
+                  stroke="#1e293b"
+                  strokeWidth="1.2"
+                />
+                <polygon
+                  points="167,144 142,166 156,180 172,154"
+                  fill="#94a3b8"
+                  stroke="#0f172a"
+                  strokeWidth="1.2"
+                />
+                {/* 濃紺ネクタイ（結び目・ディンプル影・剣先・金属タイピン） */}
+                <polygon
+                  points="134,164 146,164 143,177 137,177"
+                  fill={palette.tie ?? '#0f172a'}
+                  stroke="#09090b"
+                  strokeWidth="1"
+                />
+                <polygon
+                  points="137,177 143,177 147,232 140,244 133,232"
+                  fill={palette.tie ?? '#0f172a'}
+                  stroke="#09090b"
+                  strokeWidth="1"
+                />
+                <line x1="140" y1="177" x2="140" y2="205" stroke="#020617" strokeWidth="1.2" />
+                {/* 銀色のネクタイピン */}
+                <rect x="134" y="198" width="13" height="2.8" fill="#e2e8f0" stroke="#09090b" strokeWidth="0.7" />
+                {/* 制服用ノッチドラペル（左：明部＋ステッチ、右：暗部＋ロール影） */}
+                <path
+                  d="M 96 144 L 115 148 L 140 242 L 112 242 C 102 214, 92 184, 84 166 L 96 160 L 88 150 Z"
+                  fill="#040508"
+                  opacity="0.55"
+                />
+                <path
+                  d="M 96 144 L 115 148 L 140 242 L 106 232 L 86 184 L 98 174 L 88 162 Z"
+                  fill={palette.light}
+                  stroke={palette.deep}
+                  strokeWidth="1.8"
+                />
+                <path
+                  d="M 99 148 L 113 151 L 136 235 L 108 227 L 90 184 L 101 174 L 92 162"
+                  fill="none"
+                  stroke={palette.rim}
+                  strokeWidth="0.9"
+                  opacity="0.75"
+                />
+                <path
+                  d="M 184 144 L 165 148 L 140 242 L 174 232 L 194 184 L 182 174 L 192 162 Z"
+                  fill={palette.collar}
+                  stroke={palette.deep}
+                  strokeWidth="1.8"
+                />
+                {/* 両肩のエポーレット（肩章）＋金ボタン */}
+                <polygon
+                  points="54,168 96,147 104,157 60,178"
+                  fill={palette.rim}
+                  stroke="#09090b"
+                  strokeWidth="1.4"
+                />
+                <circle cx="94" cy="153" r="2.8" fill="#fbbf24" stroke="#78350f" strokeWidth="0.8" />
+                <polygon
+                  points="226,168 184,147 176,157 220,178"
+                  fill={palette.light}
+                  stroke="#09090b"
+                  strokeWidth="1.4"
+                />
+                <circle cx="186" cy="153" r="2.8" fill="#d97706" stroke="#09090b" strokeWidth="0.8" />
+                {/* 右胸（向かって左）のプリーツ付きフラップポケット＆金ボタン・警備徽章 */}
+                <rect
+                  x="76"
+                  y="214"
+                  width="36"
+                  height="34"
+                  rx="1.5"
+                  fill={palette.mid}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                />
+                <line x1="94" y1="224" x2="94" y2="248" stroke={palette.deep} strokeWidth="1.4" />
+                <polygon
+                  points="75,212 113,212 111,225 94,230 77,225"
+                  fill={palette.light}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                />
+                <circle cx="94" cy="224" r="2.4" fill="#fbbf24" stroke="#09090b" strokeWidth="0.7" />
+                {/* 左胸（向かって右）のフラップポケット（名札の下地にもなる） */}
+                <rect
+                  x="166"
+                  y="214"
+                  width="36"
+                  height="34"
+                  rx="1.5"
+                  fill={palette.shadow}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                />
+                <polygon
+                  points="165,212 203,212 201,225 184,230 167,225"
+                  fill={palette.collar}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                />
+                {/* フロント合わせ目・金ボタン列・脇ダーツ */}
+                <line x1="140" y1="242" x2="140" y2="390" stroke="#09090b" strokeWidth="2.6" />
+                <circle cx="133" cy="260" r="3.4" fill="#fbbf24" stroke="#451a03" strokeWidth="1" />
+                <circle cx="133" cy="292" r="3.4" fill="#fbbf24" stroke="#451a03" strokeWidth="1" />
+                <circle cx="133" cy="324" r="3.4" fill="#d97706" stroke="#451a03" strokeWidth="1" />
+                <path
+                  d="M 94 252 L 102 388 M 186 252 L 178 388"
+                  stroke={palette.deep}
+                  strokeWidth="1.5"
+                  opacity="0.75"
+                />
+              </g>
+            ) : garmentType === 'TAILORED_SUIT' ? (
+              /* ★ テーラードスーツ：多層ノッチドラペル・フラワーホール・ネクタイのディンプル・バルカ胸ポケット・ダーツ・袖シワ */
+              <g>
+                {/* Vゾーン内のドレスシャツ（明部と右半分の影面＋前立て） */}
+                <polygon
+                  points="114,148 166,148 140,242"
+                  fill="#e7e5e4"
+                  stroke="#18181b"
+                  strokeWidth="1.2"
+                />
+                <polygon points="140,148 166,148 140,242" fill="#78716c" />
+                {/* ワイドスプレッド・シャツカラーと襟下の落ち影 */}
+                <polygon points="112,148 139,170 122,186 106,158" fill="#09090b" opacity="0.55" />
+                <polygon
+                  points="113,144 138,166 124,180 108,154"
+                  fill="#fafaf9"
                   stroke="#27272a"
                   strokeWidth="1.2"
                 />
@@ -822,133 +1033,365 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
                   stroke="#18181b"
                   strokeWidth="1.2"
                 />
-                {/* ネクタイ（結び目と剣先） */}
+                {/* ネクタイ（立体ノット・ディンプルのくぼみ影・剣先・斜めストライプ織柄） */}
                 <polygon
-                  points="134,164 146,164 143,177 137,177"
-                  fill={palette.tie ?? '#1e1b4b'}
+                  points="133,164 147,164 144,178 136,178"
+                  fill={palette.tie ?? '#312e81'}
                   stroke="#09090b"
-                  strokeWidth="1"
+                  strokeWidth="1.1"
                 />
                 <polygon
-                  points="137,177 143,177 147,232 140,244 133,232"
-                  fill={palette.tie ?? '#1e1b4b'}
+                  points="136,178 144,178 148,232 140,245 132,232"
+                  fill={palette.tie ?? '#312e81'}
                   stroke="#09090b"
-                  strokeWidth="1"
+                  strokeWidth="1.1"
                 />
-                {/* 左ラペル（明部：青い服やスーツの色が隙間からくっきり見える大きな襟） */}
+                {/* ネクタイのディンプル（くぼみ影）と斜めレジメンタル織線 */}
+                <path d="M 139 178 L 140 198 L 142 178 Z" fill="#09090b" opacity="0.7" />
+                <line x1="135" y1="192" x2="145" y2="184" stroke="#ffffff" strokeWidth="1" opacity="0.28" />
+                <line x1="134" y1="210" x2="146" y2="202" stroke="#ffffff" strokeWidth="1" opacity="0.28" />
+                <line x1="133" y1="226" x2="147" y2="218" stroke="#ffffff" strokeWidth="1" opacity="0.24" />
+                {/* 左ラペル下のロール落ち影（立体感を生む濃い影層） */}
+                <path
+                  d="M 94 146 L 140 245 L 102 238 L 82 186 L 94 175 L 84 162 Z"
+                  fill="#050507"
+                  opacity="0.65"
+                />
+                {/* 左ノッチドラペル（明部＋ゴージライン＋AMFステッチ＋フラワーホール） */}
                 <path
                   d="M 96 144 L 115 148 L 140 242 L 106 232 L 86 184 L 98 174 L 88 162 Z"
                   fill={palette.light}
                   stroke={palette.deep}
                   strokeWidth="1.8"
                 />
-                {/* 右ラペル（暗部） */}
+                <path
+                  d="M 99 148 L 113 151 L 136 235 L 108 227 L 90 184 L 101 174 L 92 162"
+                  fill="none"
+                  stroke={palette.rim}
+                  strokeWidth="0.9"
+                  opacity="0.8"
+                />
+                {/* ゴージラインの刻みとフラワーホール（ラペル穴） */}
+                <line x1="88" y1="162" x2="108" y2="167" stroke={palette.deep} strokeWidth="1.4" />
+                <line x1="95" y1="184" x2="104" y2="186" stroke={palette.deep} strokeWidth="1.8" strokeLinecap="round" />
+                {/* 右ノッチドラペル（暗部＋ロール落ち影） */}
+                <path
+                  d="M 186 146 L 140 245 L 178 238 L 198 186 L 186 175 L 196 162 Z"
+                  fill="#050507"
+                  opacity="0.75"
+                />
                 <path
                   d="M 184 144 L 165 148 L 140 242 L 174 232 L 194 184 L 182 174 L 192 162 Z"
                   fill={palette.collar}
                   stroke={palette.deep}
                   strokeWidth="1.8"
                 />
-                {/* 警備制服の肩章（エポーレット） */}
-                {isBlueGuardOrCoat && appearance.hasCap && (
-                  <g>
-                    <polygon
-                      points="58,166 96,148 102,157 62,176"
-                      fill={palette.rim}
-                      stroke="#09090b"
-                      strokeWidth="1.3"
-                    />
-                    <circle cx="93" cy="154" r="2.5" fill="#fbbf24" />
-                    <polygon
-                      points="222,166 184,148 178,157 218,176"
-                      fill={palette.light}
-                      stroke="#09090b"
-                      strokeWidth="1.3"
-                    />
-                    <circle cx="187" cy="154" r="2.5" fill="#d97706" />
-                  </g>
-                )}
-                {/* フロント合わせ目とボタン */}
-                <line x1="140" y1="242" x2="140" y2="390" stroke="#09090b" strokeWidth="2.5" />
-                <circle cx="134" cy="264" r="3" fill="#09090b" stroke={palette.rim} strokeWidth="0.8" />
-                <circle cx="134" cy="298" r="3" fill="#09090b" stroke={palette.rim} strokeWidth="0.8" />
+                <line x1="192" y1="162" x2="172" y2="167" stroke={palette.deep} strokeWidth="1.4" />
+                {/* 右胸の切り替えダーツ線と左胸のバルカポケット（箱ポケット＋チーフの端） */}
+                <path
+                  d="M 96 236 C 102 285, 104 335, 102 388"
+                  fill="none"
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                  opacity="0.75"
+                />
+                <path
+                  d="M 184 236 C 178 285, 176 335, 178 388"
+                  fill="none"
+                  stroke="#050507"
+                  strokeWidth="1.6"
+                  opacity="0.85"
+                />
+                {/* 左胸バルカポケット（名札が留められる胸ポケット） */}
+                <polygon
+                  points="156,196 196,191 196,199 156,204"
+                  fill={palette.collar}
+                  stroke="#09090b"
+                  strokeWidth="1.2"
+                />
+                {/* フロント合わせ目・スーツボタン・ボタンホール */}
+                <line x1="140" y1="242" x2="140" y2="390" stroke="#09090b" strokeWidth="2.6" />
+                <line x1="138" y1="244" x2="138" y2="388" stroke={palette.rim} strokeWidth="0.8" opacity="0.45" />
+                <circle cx="133" cy="262" r="3.3" fill="#09090b" stroke={palette.rim} strokeWidth="0.9" />
+                <line x1="133" y1="262" x2="139" y2="262" stroke="#09090b" strokeWidth="1.2" />
+                <circle cx="133" cy="298" r="3.3" fill="#09090b" stroke={palette.rim} strokeWidth="0.9" />
+                <line x1="133" y1="298" x2="139" y2="298" stroke="#09090b" strokeWidth="1.2" />
+                {/* ボタンへ引っ張られるX字の布テンションシワ */}
+                <path
+                  d="M 110 250 Q 124 260 133 262 Q 118 270 104 282"
+                  fill="none"
+                  stroke={palette.deep}
+                  strokeWidth="1.3"
+                  opacity="0.7"
+                />
               </g>
             ) : isRedCoat ? (
-              /* ★ 赤いコート（通達⑤対象：隙間からでも赤いトレンチコートと即座に判別できる大きな襟と合わせ目） */
+              /* ★ 赤いトレンチコート（通達⑤対象）：大きなアルスターカラー・ストームフラップ（ガンフラップ）・スロートラッチ・ダブルブレスト */
               <g>
-                {/* 首元の黒タートルインナー */}
-                <path d="M 114 146 L 166 146 L 140 208 Z" fill="#09090b" />
-                {/* 大きく立ち上がった赤いコートの左襟（鮮明な深紅ハイライト） */}
+                {/* 首元の黒タートルインナーとリブ縦畝 */}
+                <path d="M 114 146 L 166 146 L 140 212 Z" fill="#09090b" />
+                <line x1="132" y1="148" x2="136" y2="196" stroke="#27272a" strokeWidth="1" />
+                <line x1="140" y1="148" x2="140" y2="202" stroke="#27272a" strokeWidth="1" />
+                <line x1="148" y1="148" x2="144" y2="196" stroke="#27272a" strokeWidth="1" />
+                {/* 左胸のガンフラップ（トレンチコート特有の覆い布） */}
+                <polygon
+                  points="58,172 118,162 128,236 68,220"
+                  fill={palette.mid}
+                  stroke={palette.deep}
+                  strokeWidth="1.6"
+                />
+                <circle cx="88" cy="212" r="2.8" fill="#1c1917" stroke="#fca5a5" strokeWidth="0.9" />
+                {/* 大きく立ち上がった赤いコートの左襟（鮮明な深紅ハイライト＋ステッチ） */}
                 <path
-                  d="M 88 136 L 116 144 L 142 232 L 98 218 L 76 174 L 92 162 Z"
+                  d="M 86 134 L 116 144 L 142 232 L 96 218 L 74 174 L 92 162 Z"
                   fill={palette.light}
                   stroke={palette.deep}
                   strokeWidth="2"
                 />
                 <path
-                  d="M 90 138 L 114 145 L 136 220"
+                  d="M 90 138 L 114 145 L 137 222 L 98 212 L 79 174 L 95 162"
                   fill="none"
                   stroke={palette.rim}
-                  strokeWidth="1.6"
+                  strokeWidth="1.2"
+                  opacity="0.85"
                 />
-                {/* 赤いコートの右襟 */}
+                {/* 襟元のスロートラッチ（チンストラップ＆金属バックル） */}
+                <rect x="92" y="152" width="24" height="7" rx="1" fill={palette.collar} stroke="#09090b" strokeWidth="1.1" />
+                <rect x="108" y="151" width="5" height="9" fill="none" stroke="#d6d3d1" strokeWidth="1.1" />
+                {/* 赤いコートの右襟とストームケープ影 */}
                 <path
-                  d="M 192 136 L 164 144 L 132 232 L 182 218 L 204 174 L 188 162 Z"
+                  d="M 194 134 L 164 144 L 132 232 L 184 218 L 206 174 L 188 162 Z"
                   fill={palette.collar}
                   stroke={palette.deep}
                   strokeWidth="2"
                 />
-                {/* ダブルブレストのコート合わせ目と飾りボタン */}
-                <line x1="130" y1="228" x2="124" y2="390" stroke="#09090b" strokeWidth="2.4" />
-                <circle cx="116" cy="246" r="3.5" fill="#1c1917" stroke="#fca5a5" strokeWidth="1" />
-                <circle cx="114" cy="282" r="3.5" fill="#1c1917" stroke="#fca5a5" strokeWidth="1" />
-                <circle cx="152" cy="246" r="3.5" fill="#09090b" stroke="#7f1d1d" strokeWidth="1" />
-                <circle cx="150" cy="282" r="3.5" fill="#09090b" stroke="#7f1d1d" strokeWidth="1" />
-              </g>
-            ) : (
-              /* ★ 作業着・普段着・部屋着・コート（ファスナー襟や緩い襟元とリアルな布シワ） */
-              <g>
-                {/* インナーTシャツの丸首 */}
+                {/* ダブルブレストの重なり前立て・2列の飾りボタン・深いドレープ影 */}
                 <path
-                  d="M 114 148 Q 140 168 166 148 L 154 192 L 126 192 Z"
+                  d="M 132 228 L 122 390 L 128 390 L 138 228 Z"
+                  fill="#09090b"
+                />
+                <circle cx="114" cy="246" r="3.8" fill="#1c1917" stroke="#fca5a5" strokeWidth="1.1" />
+                <circle cx="112" cy="282" r="3.8" fill="#1c1917" stroke="#fca5a5" strokeWidth="1.1" />
+                <circle cx="110" cy="318" r="3.8" fill="#1c1917" stroke="#fca5a5" strokeWidth="1.1" />
+                <circle cx="152" cy="246" r="3.8" fill="#09090b" stroke="#7f1d1d" strokeWidth="1.1" />
+                <circle cx="150" cy="282" r="3.8" fill="#09090b" stroke="#7f1d1d" strokeWidth="1.1" />
+                <circle cx="148" cy="318" r="3.8" fill="#09090b" stroke="#7f1d1d" strokeWidth="1.1" />
+              </g>
+            ) : garmentType === 'DELIVERY_JACKET' ? (
+              /* ★ 作業ブルゾン・配達員ジャケット（通達③等）：折り返し作業襟・胸ヨーク切替・比翼ジッパー・両胸フラップポケット */
+              <g>
+                {/* インナーのクルーネックTシャツと首元のリブ */}
+                <path
+                  d="M 114 148 Q 140 168 166 148 L 154 196 L 126 196 Z"
                   fill="#1c1917"
                   stroke="#09090b"
                   strokeWidth="1.2"
                 />
-                {/* 作業着・ジャケットの折り返し襟 */}
                 <path
-                  d="M 94 140 L 116 146 L 136 210 L 98 196 L 84 164 Z"
+                  d="M 117 151 Q 140 171 163 151"
+                  fill="none"
+                  stroke="#44403c"
+                  strokeWidth="2"
+                />
+                {/* 肩〜胸を横断するワークジャケットのヨーク切り替え線と反射パイピング */}
+                <path
+                  d="M 52 188 L 118 196 M 162 196 L 228 188"
+                  stroke={palette.deep}
+                  strokeWidth="2"
+                />
+                <path
+                  d="M 52 190 L 118 198 M 162 198 L 228 190"
+                  stroke={palette.rim}
+                  strokeWidth="1"
+                  opacity="0.7"
+                />
+                {/* 作業ブルゾンの立体折り返し襟 */}
+                <path
+                  d="M 92 138 L 116 146 L 136 206 L 96 192 L 82 162 Z"
                   fill={palette.light}
                   stroke={palette.deep}
                   strokeWidth="1.8"
                 />
                 <path
-                  d="M 186 140 L 164 146 L 144 210 L 182 196 L 196 164 Z"
+                  d="M 188 138 L 164 146 L 144 206 L 184 192 L 198 162 Z"
                   fill={palette.collar}
                   stroke={palette.deep}
                   strokeWidth="1.8"
                 />
-                {/* フロントジッパーライン */}
-                <line x1="140" y1="192" x2="140" y2="390" stroke="#09090b" strokeWidth="2.6" />
-                <line x1="137" y1="196" x2="137" y2="388" stroke={palette.rim} strokeWidth="0.9" opacity="0.55" />
+                {/* 右胸の斜めフラップ付き作業ポケット＆ペン差しステッチ */}
+                <polygon
+                  points="74,202 116,206 116,242 74,238"
+                  fill={palette.mid}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                />
+                <polygon
+                  points="72,200 118,204 116,216 74,212"
+                  fill={palette.light}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                />
+                <circle cx="95" cy="211" r="2" fill="#a8a29e" stroke="#09090b" strokeWidth="0.7" />
+                {/* 左胸の作業ポケット */}
+                <polygon
+                  points="164,206 206,202 206,238 164,242"
+                  fill={palette.shadow}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                />
+                <polygon
+                  points="162,204 208,200 206,212 164,216"
+                  fill={palette.collar}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                />
+                {/* フロントの比翼（ストームフラップ）＋金属ファスナーとスライダー引手 */}
+                <rect
+                  x="134"
+                  y="192"
+                  width="12"
+                  height="198"
+                  fill={palette.mid}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
+                />
+                <line x1="140" y1="192" x2="140" y2="390" stroke="#09090b" strokeWidth="2.4" />
+                {/* 金属ファスナースライダー */}
+                <rect x="137" y="200" width="6" height="10" rx="1" fill="#d6d3d1" stroke="#09090b" strokeWidth="0.9" />
+              </g>
+            ) : garmentType === 'LOUNGE_HOODIE' ? (
+              /* ★ スウェットパーカー・部屋着（v-norm-3、猫背個体など）：ボリュームのある首回りフード・ハトメ穴・ドローコード紐・ラグラン袖線 */
+              <g>
+                {/* 緩いクルーネックインナー */}
+                <path
+                  d="M 112 146 Q 140 172 168 146 L 158 202 L 122 202 Z"
+                  fill="#09090b"
+                />
+                {/* ラグランスリーブの斜めシームライン */}
+                <path
+                  d="M 98 152 C 84 182, 72 214, 62 252 M 182 152 C 196 182, 208 214, 218 252"
+                  fill="none"
+                  stroke={palette.deep}
+                  strokeWidth="2"
+                />
+                {/* 首回りにたまる多層フードの肉厚な布ヒダ */}
+                <path
+                  d="M 82 142 C 92 178, 118 198, 140 202 C 122 184, 112 164, 108 144 Z"
+                  fill={palette.light}
+                  stroke={palette.deep}
+                  strokeWidth="1.8"
+                />
+                <path
+                  d="M 198 142 C 188 178, 162 198, 140 202 C 158 184, 168 164, 172 144 Z"
+                  fill={palette.collar}
+                  stroke={palette.deep}
+                  strokeWidth="1.8"
+                />
+                <path
+                  d="M 88 156 Q 112 182 136 192 M 192 156 Q 168 182 144 192"
+                  fill="none"
+                  stroke={palette.deep}
+                  strokeWidth="1.5"
+                />
+                {/* フードの金属ハトメ（アイレット）と垂れ下がる2本のドローコード（紐） */}
+                <circle cx="122" cy="186" r="2.5" fill="#18181b" stroke="#a1a1aa" strokeWidth="1.1" />
+                <circle cx="158" cy="186" r="2.5" fill="#18181b" stroke="#71717a" strokeWidth="1.1" />
+                <path
+                  d="M 122 188 C 120 212, 123 232, 121 254"
+                  fill="none"
+                  stroke="#d6d3d1"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 158 188 C 160 210, 157 228, 159 246"
+                  fill="none"
+                  stroke="#a8a29e"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+                {/* センタージップと胸〜腹部の柔らかい布のたるみシワ */}
+                <line x1="140" y1="202" x2="140" y2="390" stroke="#09090b" strokeWidth="2.4" />
+                <path
+                  d="M 92 224 Q 118 242 136 236 M 98 258 Q 120 274 138 268 M 186 228 Q 162 244 144 238"
+                  fill="none"
+                  stroke={palette.deep}
+                  strokeWidth="1.6"
+                  opacity="0.75"
+                />
+              </g>
+            ) : (
+              /* ★ オーバーコート・厚手チェスター（OVERCOAT_CARDIGAN）：深いバルマカーン襟・インナーニット・比翼ボタン・重厚な縦ドレープ */
+              <g>
+                {/* インナーのリブ編みタートル・モックネック */}
+                <path
+                  d="M 112 144 Q 140 164 168 144 L 154 218 L 126 218 Z"
+                  fill="#18181b"
+                  stroke="#09090b"
+                  strokeWidth="1.2"
+                />
+                <line x1="130" y1="154" x2="133" y2="206" stroke="#27272a" strokeWidth="1.2" />
+                <line x1="140" y1="156" x2="140" y2="212" stroke="#27272a" strokeWidth="1.2" />
+                <line x1="150" y1="154" x2="147" y2="206" stroke="#27272a" strokeWidth="1.2" />
+                {/* 大きく重厚なオーバーコートの左ラペル・カラー */}
+                <path
+                  d="M 88 138 L 116 146 L 140 232 L 96 214 L 78 172 L 92 160 Z"
+                  fill={palette.light}
+                  stroke={palette.deep}
+                  strokeWidth="1.9"
+                />
+                <path
+                  d="M 91 142 L 113 149 L 135 224 L 99 209 L 83 172 L 95 160"
+                  fill="none"
+                  stroke={palette.rim}
+                  strokeWidth="1"
+                  opacity="0.75"
+                />
+                {/* 右ラペル・カラー */}
+                <path
+                  d="M 192 138 L 164 146 L 140 232 L 184 214 L 202 172 L 188 160 Z"
+                  fill={palette.collar}
+                  stroke={palette.deep}
+                  strokeWidth="1.9"
+                />
+                {/* オーバーコートの前立て・水牛ボタン・深い縦ドレープ溝 */}
+                <line x1="140" y1="228" x2="140" y2="390" stroke="#09090b" strokeWidth="2.8" />
+                <circle cx="132" cy="252" r="3.6" fill="#09090b" stroke={palette.rim} strokeWidth="1" />
+                <circle cx="132" cy="292" r="3.6" fill="#09090b" stroke={palette.rim} strokeWidth="1" />
+                <circle cx="132" cy="332" r="3.6" fill="#09090b" stroke={palette.rim} strokeWidth="1" />
+                <path
+                  d="M 96 222 C 102 276, 100 332, 94 388 M 184 222 C 178 276, 180 332, 186 388"
+                  fill="none"
+                  stroke={palette.deep}
+                  strokeWidth="1.8"
+                  opacity="0.8"
+                />
               </g>
             )}
 
-            {/* 3-E. 脇下・肘・胸元の立体的な布シワ（全服装共通の版画調シャドウパス） */}
+            {/* 3-E. 脇下・肘・胸元の立体的な布シワ（全服装共通の版画調シャドウパス強化） */}
             <path
               d="M 68 198 C 76 232, 74 285, 62 355 L 72 355 C 82 288, 84 234, 74 198 Z"
               fill={palette.deep}
-              opacity="0.82"
+              opacity="0.85"
             />
             <path
               d="M 212 198 C 204 232, 206 285, 218 355 L 208 355 C 198 288, 196 234, 206 198 Z"
               fill={palette.deep}
-              opacity="0.9"
+              opacity="0.92"
             />
             <path
-              d="M 78 228 L 106 254 L 82 246 Z M 202 224 L 168 252 L 196 244 Z"
+              d="M 76 224 L 108 252 L 80 244 Z M 68 262 L 98 286 L 72 278 Z M 204 222 L 168 250 L 198 242 Z M 212 260 L 180 284 L 206 276 Z"
               fill={palette.deep}
-              opacity="0.72"
+              opacity="0.76"
+            />
+            {/* 肩先から上腕へ走る布の張力ハイライト線 */}
+            <path
+              d="M 62 184 C 54 218, 48 262, 44 318 M 78 192 C 74 228, 70 268, 66 310"
+              fill="none"
+              stroke={palette.rim}
+              strokeWidth="1"
+              opacity="0.45"
             />
 
             {/* ★ 65%覗き込みで判明する衣服の大量の血痕（シャープな飛沫ベクター） */}
@@ -972,37 +1415,26 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
             )}
 
             {/* ============================================================
-                3-F. 胸元の名札・IDカード（ネックストラップ＋金属クリップ＋顔写真枠）
-                扉を30%〜50%開けた隙間からでも確実に見える中央寄りの胸位置（x=148〜184）に配置
+                3-F. 胸元の名札・IDカード（首掛けストラップを廃止し、左胸に金属製「安全ピン」で直接留めた表現）
+                扉を30%〜60%開けた隙間からでも確実に見える左胸上部（x=146〜186, y=198〜232）に配置
                 ============================================================ */}
             {appearance.hasNameTag && isNameTagVisible && (
-              <g>
-                {/* 首元からカードへ繋がるネックストラップ紐 */}
+              <g transform="rotate(-2 165 214)">
+                {/* 安全ピンで布地が引っ張られて寄る微小な布シワ影 */}
                 <path
-                  d="M 114 148 L 164 202 L 169 202 L 168 148"
+                  d="M 148 197 Q 165 202 182 197"
                   fill="none"
-                  stroke="#d97706"
+                  stroke="#050507"
                   strokeWidth="2.2"
-                  opacity="0.9"
+                  opacity="0.85"
                 />
-                {/* 金属クリップ */}
-                <rect
-                  x="161"
-                  y="197"
-                  width="10"
-                  height="8"
-                  rx="1"
-                  fill="#d6d3d1"
-                  stroke="#09090b"
-                  strokeWidth="1"
-                />
-                {/* IDカードの落ち影 */}
+                {/* IDカードの濃い落ち影 */}
                 <rect
                   x="148"
-                  y="206"
+                  y="207"
                   width="38"
                   height="26"
-                  rx="2"
+                  rx="1.8"
                   fill="#050507"
                 />
                 {/* IDカード本体（高コントラストなクリーム白＋アンバー枠） */}
@@ -1011,21 +1443,82 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
                   y="204"
                   width="38"
                   height="26"
-                  rx="2"
+                  rx="1.8"
                   fill="#f5f5f4"
                   stroke="#f59e0b"
-                  strokeWidth="2"
+                  strokeWidth="1.8"
                 />
                 {/* カード上部の所属帯 */}
                 <rect x="147" y="205" width="36" height="5" fill="#b45309" />
-                {/* 証明写真の小枠 */}
-                <rect x="150" y="213" width="9" height="12" fill="#292524" />
-                <circle cx="154.5" cy="217" r="2.2" fill="#a8a29e" />
-                <path d="M 151 224 C 152 220, 157 220, 158 224 Z" fill="#78716c" />
+                {/* 証明写真の小枠（逆光シルエット顔） */}
+                <rect x="150" y="213" width="9" height="12" fill="#1c1917" />
+                <circle cx="154.5" cy="217" r="2.2" fill="#78716c" />
+                <path d="M 151 224 C 152 220, 157 220, 158 224 Z" fill="#57534e" />
                 {/* 氏名・バーコード線 */}
                 <line x1="162" y1="215" x2="180" y2="215" stroke="#1c1917" strokeWidth="2.2" />
                 <line x1="162" y1="220" x2="177" y2="220" stroke="#57534e" strokeWidth="1.6" />
                 <line x1="162" y1="224" x2="179" y2="224" stroke="#78716c" strokeWidth="1.4" />
+
+                {/* ★ 金属製「安全ピン（Safety Pin）」の精密ベクター描画 */}
+                {/* ピンが服の布地を貫通している左右の刺し穴シャドウ */}
+                <circle cx="155" cy="200" r="1.6" fill="#050507" />
+                <circle cx="175" cy="200" r="1.6" fill="#050507" />
+                {/* 右端のバネ巻き（コイルループ） */}
+                <circle
+                  cx="178.5"
+                  cy="200.5"
+                  r="2.4"
+                  fill="none"
+                  stroke="#09090b"
+                  strokeWidth="2.4"
+                />
+                <circle
+                  cx="178.5"
+                  cy="200.5"
+                  r="2.4"
+                  fill="none"
+                  stroke="#e4e4e7"
+                  strokeWidth="1.3"
+                />
+                {/* 露出した銀色のピン軸（上辺バーと斜めにカードホルダーを吊るす下辺バー） */}
+                <line
+                  x1="152"
+                  y1="199.5"
+                  x2="177"
+                  y2="199.5"
+                  stroke="#09090b"
+                  strokeWidth="2.8"
+                  strokeLinecap="round"
+                />
+                <line
+                  x1="152"
+                  y1="199.5"
+                  x2="177"
+                  y2="199.5"
+                  stroke="#f4f4f5"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+                {/* カード上辺中央を挟む透明/金属タブ留め具 */}
+                <rect
+                  x="161"
+                  y="200"
+                  width="8"
+                  height="6"
+                  rx="1"
+                  fill="#d4d4d8"
+                  stroke="#09090b"
+                  strokeWidth="1"
+                />
+                <circle cx="165" cy="203" r="1.1" fill="#27272a" />
+                {/* 左端の安全ピン留め具ヘッド（クラスプキャップ）＋金属ハイライト */}
+                <path
+                  d="M 149 197.5 C 149 196.5, 154.5 196.5, 154.5 198.5 L 154.5 201.5 C 154.5 203, 149 203, 149 201 Z"
+                  fill="#d4d4d8"
+                  stroke="#09090b"
+                  strokeWidth="1.1"
+                />
+                <line x1="150.5" y1="198.5" x2="153.5" y2="198.5" stroke="#ffffff" strokeWidth="0.9" />
               </g>
             )}
 
@@ -1113,16 +1606,16 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
                 {/* 柄（ハンドル）と鍔 */}
                 <rect x="13" y="42" width="18" height="6" fill="#52525b" stroke="#09090b" strokeWidth="1.2" />
                 <rect x="15" y="48" width="12" height="32" rx="2" fill="#1c1917" stroke="#09090b" strokeWidth="1.4" />
-                {/* 包丁を強く握りしめる節くれだった指 */}
+                {/* 包丁を強く握りしめる節くれだった指（逆光シルエット） */}
                 <path
                   d="M 8 52 C 8 46, 30 46, 30 53 C 30 66, 28 74, 14 74 C 8 72, 8 60, 8 52 Z"
-                  fill={skinMid}
-                  stroke={skinDeep}
+                  fill="#18181b"
+                  stroke="#050507"
                   strokeWidth="1.6"
                 />
-                <line x1="11" y1="57" x2="28" y2="57" stroke={skinDeep} strokeWidth="1.4" />
-                <line x1="11" y1="63" x2="28" y2="63" stroke={skinDeep} strokeWidth="1.4" />
-                <line x1="12" y1="69" x2="27" y2="69" stroke={skinDeep} strokeWidth="1.4" />
+                <line x1="11" y1="57" x2="28" y2="57" stroke="#050507" strokeWidth="1.4" />
+                <line x1="11" y1="63" x2="28" y2="63" stroke="#050507" strokeWidth="1.4" />
+                <line x1="12" y1="69" x2="27" y2="69" stroke="#050507" strokeWidth="1.4" />
                 {/* 刃先から滴る血の雫 */}
                 <path d="M 12 -44 L 10 -54 L 14 -54 Z" fill="#ef4444" />
                 <circle cx="12" cy="-58" r="2.2" fill="#dc2626" />
@@ -1131,201 +1624,139 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
           </g>
 
           {/* ============================================================
-              4. 頭部・彫刻的顔面陰影・髪型・帽子のベクター描画
+              4. 頭部：強い逆光シルエット（#0c0c0e〜#141418）＋暗がりから覗く目元＋髪型・眼鏡・帽子
+              （クローン感の原因だった鼻筋・頬骨・眉間のシワ・厚い唇をすべて廃止）
               ============================================================ */}
           <g transform={headTransform}>
-            {/* 4-A. 左右の耳（側頭骨から顎へ繋がるリアルな耳介と耳穴影） */}
+            {/* 4-A. 左右の耳の逆光シルエット（輪郭外縁のみ微かなリムライト） */}
             <g>
-              {/* 左耳（明部側） */}
               <path
                 d="M 103 74 C 95 72, 93 84, 96 93 C 98 99, 103 101, 106 98 Z"
-                fill={skinMid}
-                stroke={skinDeep}
+                fill={faceSilhouetteBase}
+                stroke="#050507"
                 strokeWidth="1.4"
               />
-              <path d="M 98 80 C 97 85, 98 91, 102 93" fill="none" stroke={skinDeep} strokeWidth="1.4" />
-              {/* 右耳（暗部側） */}
+              <path
+                d="M 96 75 C 94 82, 95 89, 98 95"
+                fill="none"
+                stroke={faceRimLight}
+                strokeWidth="1"
+                opacity="0.55"
+              />
               <path
                 d="M 177 74 C 185 72, 187 84, 184 93 C 182 99, 177 101, 174 98 Z"
-                fill={skinShadow}
-                stroke={skinDeep}
+                fill={faceSilhouetteDeep}
+                stroke="#050507"
                 strokeWidth="1.4"
               />
             </g>
 
-            {/* 4-B. 頭蓋・頬骨・エラ・顎先の骨格シルエット（単純な楕円を廃止） */}
+            {/* 4-B. 顔全体の逆光シルエット（#0c0c0e〜#141418 の深い影に沈む頭部輪郭） */}
             <path
               d={
                 isKeyWoman
-                  ? /* 女性的な細くシャープな顎と頬骨 */
+                  ? /* 女性的なシャープで繊細な顎・輪郭 */
                     'M 140 34 C 112 34, 101 54, 103 78 C 104 92, 107 103, 114 113 C 122 122, 133 128, 140 129 C 147 128, 158 122, 166 113 C 173 103, 176 92, 177 78 C 179 54, 168 34, 140 34 Z'
                   : appearance.silhouetteType === 'BROAD'
-                  ? /* がっしりした角張ったエラと顎 */
+                  ? /* がっしりした骨格輪郭 */
                     'M 140 34 C 110 34, 99 52, 101 78 C 102 94, 104 108, 112 117 C 121 125, 131 129, 140 129 C 149 129, 159 125, 168 117 C 176 108, 178 94, 179 78 C 181 52, 170 34, 140 34 Z'
-                  : /* 彫りの深いこけた頬と骨格的な顎ライン */
+                  : /* 標準〜細身のシャープな頭部シルエット */
                     'M 140 33 C 111 33, 101 53, 102 78 C 103 92, 106 105, 113 115 C 121 124, 132 129, 140 130 C 148 129, 159 124, 167 115 C 174 105, 177 92, 178 78 C 179 53, 169 33, 140 33 Z'
               }
-              fill={skinLight}
-              stroke={skinDeep}
+              fill={faceSilhouetteBase}
+              stroke="#050507"
               strokeWidth="1.8"
             />
 
-            {/* 4-C. 顔面キアロスクーロ：右半分・こけた頬・顎下を覆う深い版画調の影面 */}
+            {/* 顔面右半分〜顎下をさらに深い漆黒（#08080b）へ沈めるグラデーションなしの2トーン影 */}
             <path
-              d="M 140 34 C 143 52, 142 74, 144 92 C 138 96, 136 103, 140 110 C 137 117, 134 124, 138 130 C 147 129, 159 124, 167 115 C 174 105, 177 92, 178 78 C 179 53, 169 34, 140 34 Z"
-              fill={skinMid}
-            />
-            {/* さらに深い右頬〜顎側面の漆黒シャドウ */}
-            <path
-              d="M 154 40 C 164 56, 166 78, 162 96 C 156 108, 148 118, 138 130 C 148 129, 159 124, 167 115 C 174 105, 177 92, 178 78 C 179 56, 170 42, 154 40 Z"
-              fill={skinShadow}
-              opacity="0.9"
+              d="M 140 34 C 144 58, 144 96, 138 130 C 148 129, 159 124, 167 115 C 174 105, 177 92, 178 78 C 179 53, 169 34, 140 34 Z"
+              fill={faceSilhouetteDeep}
+              opacity="0.92"
             />
 
-            {/* 左頬のコケ影（頬骨の下に落ちる三角形の彫り影） */}
+            {/* 廊下の天井灯による逆光リムハイライト（左側の輪郭縁・顎ラインにのみうっすら走る細い光線） */}
             <path
-              d="M 106 88 C 114 91, 121 96, 122 106 C 116 109, 111 104, 106 88 Z"
-              fill={skinMid}
-              opacity="0.82"
-            />
-            <path
-              d="M 108 92 C 114 95, 118 99, 119 105"
+              d="M 103 74 C 104 90, 107 104, 114 114 C 121 122, 130 127, 139 129"
               fill="none"
-              stroke={skinShadow}
-              strokeWidth="1.3"
-              opacity="0.7"
+              stroke={faceRimLight}
+              strokeWidth={isKeyWoman ? '1.6' : '1.2'}
+              opacity={appearance.isShadowedFace ? 0.25 : isKeyWoman ? 0.8 : 0.55}
+            />
+            <path
+              d="M 177 82 C 175 96, 171 107, 165 115"
+              fill="none"
+              stroke={faceRimLight}
+              strokeWidth="0.9"
+              opacity="0.3"
             />
 
-            {/* 額のシワ・眉間の縦ジワ */}
-            {!isKeyWoman && (
-              <g opacity="0.65">
-                <path d="M 121 58 Q 140 55 159 58" fill="none" stroke={skinShadow} strokeWidth="1.2" />
-                <path d="M 125 63 Q 140 61 155 63" fill="none" stroke={skinShadow} strokeWidth="1" />
-                <line x1="137" y1="66" x2="136" y2="74" stroke={skinDeep} strokeWidth="1.4" />
-                <line x1="143" y1="66" x2="144" y2="74" stroke={skinDeep} strokeWidth="1.4" />
+            {/* 4-C. 暗がりの中からこちらをじっと見据える目元（鼻筋・頬骨・シワを排し、視線の恐怖と人間味を際立たせる） */}
+            {/* 眼窩のさらに深い暗がりベース */}
+            <ellipse cx="123" cy="79" rx="12" ry="6.5" fill="#050507" />
+            <ellipse cx="157" cy="79" rx="12" ry="6.5" fill="#050507" />
+
+            {/* 2Fの彼女のみ：暗がりの中でわずかに浮かぶ切なげな眉のシルエット */}
+            {isKeyWoman && (
+              <g opacity="0.85">
+                <path
+                  d="M 113 72 Q 123 69 132 66"
+                  fill="none"
+                  stroke="#cbd5e1"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  opacity="0.45"
+                />
+                <path
+                  d="M 148 66 Q 157 69 167 72"
+                  fill="none"
+                  stroke="#94a3b8"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  opacity="0.4"
+                />
               </g>
             )}
 
-            {/* 65%未満で顔が暗い影に沈んでいる演出（REVEAL_INNOCENTの初期状態など） */}
-            {appearance.isShadowedFace && (
-              <path
-                d="M 101 34 L 179 34 L 178 108 Q 140 122 102 108 Z"
-                fill="#09090b"
-                opacity="0.84"
-              />
-            )}
-
-            {/* 4-D. 鼻梁（鼻筋のハイライトと小鼻の強い落ち影） */}
-            <g>
-              {/* 鼻筋の明部ポリゴン */}
-              <polygon
-                points="139,73 135,95 140,97 141,73"
-                fill="#e7e5e4"
-                opacity={appearance.isShadowedFace ? 0.25 : 0.72}
-              />
-              {/* 鼻の右側面と鼻下の濃い影 */}
-              <path
-                d="M 141 73 L 147 94 L 140 99 L 133 96 L 135 94 L 140 96 Z"
-                fill={skinDeep}
-              />
-              {/* 人中（鼻の下の溝） */}
-              <line x1="140" y1="99" x2="140" y2="105" stroke={skinDeep} strokeWidth="1.5" />
-            </g>
-
-            {/* 4-E. 深くくぼんだ眼窩（アイソケット）と眉の影 */}
-            <g>
-              {/* 左眼窩の彫り影 */}
-              <path
-                d="M 111 74 C 116 69, 131 70, 135 76 C 134 84, 129 88, 122 88 C 114 88, 110 82, 111 74 Z"
-                fill={skinDeep}
-                opacity="0.88"
-              />
-              {/* 右眼窩の彫り影 */}
-              <path
-                d="M 145 76 C 149 70, 164 69, 169 74 C 170 82, 166 88, 158 88 C 151 88, 146 84, 145 76 Z"
-                fill={skinDeep}
-                opacity="0.92"
-              />
-              {/* 眉のシルエット（2Fの彼女は悲しげに八の字に傾いた眉、他は険しい眉） */}
-              {isKeyWoman ? (
-                <g>
-                  <path
-                    d="M 112 73 Q 123 70 133 66"
-                    fill="none"
-                    stroke="#09090b"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 147 66 Q 157 70 168 73"
-                    fill="none"
-                    stroke="#09090b"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                  />
-                </g>
-              ) : (
-                <g>
-                  <path
-                    d="M 110 70 L 124 68 L 135 72"
-                    fill="none"
-                    stroke="#09090b"
-                    strokeWidth="2.8"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M 145 72 L 156 68 L 170 70"
-                    fill="none"
-                    stroke="#09090b"
-                    strokeWidth="2.8"
-                    strokeLinecap="round"
-                  />
-                </g>
-              )}
-            </g>
-
-            {/* 4-F. 眼球・瞳孔の描画（白目を抑え、小さな瞳孔でこちらを射抜く不気味な視線） */}
             {appearance.eyeStyle === 'NORMAL' && (
-              <g>
-                {/* 落ち着いたくすんだ強膜（白目） */}
+              <g opacity={appearance.isShadowedFace ? 0.45 : 1}>
+                {/* 暗がりの中で鈍く浮かぶ細めの強膜（白目） */}
                 <path
-                  d="M 114 79 Q 123 74 132 79 Q 123 84 114 79 Z"
-                  fill={isKeyWoman ? '#e7e5e4' : '#cbd5e1'}
-                  stroke="#09090b"
+                  d="M 114 79 Q 123 74.5 132 79 Q 123 83.5 114 79 Z"
+                  fill={isKeyWoman ? '#e2e8f0' : '#94a3b8'}
+                  stroke="#050507"
                   strokeWidth="1.2"
                 />
                 <path
-                  d="M 148 79 Q 157 74 166 79 Q 157 84 148 79 Z"
-                  fill={isKeyWoman ? '#d6d3d1' : '#94a3b8'}
-                  stroke="#09090b"
+                  d="M 148 79 Q 157 74.5 166 79 Q 157 83.5 148 79 Z"
+                  fill={isKeyWoman ? '#cbd5e1' : '#64748b'}
+                  stroke="#050507"
                   strokeWidth="1.2"
                 />
-                {/* 焦点の合った小さな暗い虹彩とピンホール瞳孔 */}
-                <circle cx="123" cy="79" r={isKeyWoman ? 3.2 : 2.5} fill="#09090b" />
-                <circle cx="157" cy="79" r={isKeyWoman ? 3.2 : 2.5} fill="#09090b" />
-                {/* 微小なキャッチライト（2Fの彼女は切迫した潤み、一般人は冷たい1点光） */}
-                <circle cx="122" cy="78" r={isKeyWoman ? 1.1 : 0.8} fill="#f8fafc" />
-                <circle cx="156" cy="78" r={isKeyWoman ? 1.1 : 0.8} fill="#f8fafc" />
-                {/* 下まぶたのクマ線 */}
-                <path d="M 115 84 Q 123 87 131 84" fill="none" stroke={skinDeep} strokeWidth="1.1" />
-                <path d="M 149 84 Q 157 87 165 84" fill="none" stroke={skinDeep} strokeWidth="1.1" />
+                {/* こちらをじっと見据える暗い虹彩と瞳孔 */}
+                <circle cx="123" cy="79" r={isKeyWoman ? 3.1 : 2.6} fill="#09090b" />
+                <circle cx="157" cy="79" r={isKeyWoman ? 3.1 : 2.6} fill="#09090b" />
+                {/* 暗闇で光る微小なアイキャッチ */}
+                <circle cx="122" cy="78" r={isKeyWoman ? 1.15 : 0.85} fill="#f8fafc" />
+                <circle cx="156" cy="78" r={isKeyWoman ? 1.15 : 0.85} fill="#f8fafc" />
               </g>
             )}
 
             {appearance.eyeStyle === 'DEAD_DARK' && (
-              <g>
+              <g opacity={appearance.isShadowedFace ? 0.5 : 1}>
+                {/* 焦点の合わない濁った灰色の白目と極小の黒点 */}
                 <path
-                  d="M 113 79 Q 123 73 133 79 Q 123 85 113 79 Z"
-                  fill="#9ca3af"
-                  stroke="#09090b"
-                  strokeWidth="1.4"
+                  d="M 113 79 Q 123 73.5 133 79 Q 123 84.5 113 79 Z"
+                  fill="#6b7280"
+                  stroke="#050507"
+                  strokeWidth="1.3"
                 />
                 <circle cx="123" cy="79" r="1.3" fill="#000000" />
                 <path
-                  d="M 147 79 Q 157 73 167 79 Q 157 85 147 79 Z"
-                  fill="#9ca3af"
-                  stroke="#09090b"
-                  strokeWidth="1.4"
+                  d="M 147 79 Q 157 73.5 167 79 Q 157 84.5 147 79 Z"
+                  fill="#4b5563"
+                  stroke="#050507"
+                  strokeWidth="1.3"
                 />
                 <circle cx="157" cy="79" r="1.3" fill="#000000" />
               </g>
@@ -1333,25 +1764,19 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
 
             {appearance.eyeStyle === 'HOLLOW' && (
               <g>
-                {/* 漆黒に陥没した眼窩と、奥底で白く光る極小のピンホール瞳孔 */}
-                <path
-                  d="M 111 76 C 114 69, 131 70, 134 77 C 134 86, 128 91, 122 91 C 114 90, 110 84, 111 76 Z"
-                  fill="#000000"
-                />
-                <path
-                  d="M 146 77 C 149 70, 166 69, 169 76 C 170 84, 166 90, 158 91 C 152 91, 146 86, 146 77 Z"
-                  fill="#000000"
-                />
+                {/* 異常個体：白目が完全に消失し、漆黒の眼窩の奥で白い点だけがぎょろりと光る */}
+                <ellipse cx="123" cy="79" rx="11" ry="6" fill="#000000" />
+                <ellipse cx="157" cy="79" rx="11" ry="6" fill="#000000" />
                 {!appearance.isShadowedFace && (
                   <>
-                    <circle cx="123" cy="80" r="1.3" fill="#e7e5e4" />
-                    <circle cx="157" cy="80" r="1.3" fill="#e7e5e4" />
+                    <circle cx="123" cy="79.5" r="1.5" fill="#f5f5f4" />
+                    <circle cx="157" cy="79.5" r="1.5" fill="#f5f5f4" />
                   </>
                 )}
                 {appearance.hasBloodStains && (
                   <>
-                    <path d="M 122 90 L 120 112 L 124 108 Z" fill="#991b1b" />
-                    <path d="M 158 90 L 156 114 L 160 109 Z" fill="#991b1b" />
+                    <path d="M 122 86 L 120 110 L 124 106 Z" fill="#991b1b" />
+                    <path d="M 158 86 L 156 112 L 160 107 Z" fill="#991b1b" />
                   </>
                 )}
               </g>
@@ -1359,97 +1784,125 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
 
             {appearance.eyeStyle === 'GLOWING_RED' && (
               <g>
-                {/* 漆黒の眼窩の中で燃える真紅の眼光と白い核 */}
-                <path
-                  d="M 111 76 C 115 70, 131 71, 134 78 C 133 85, 128 89, 122 89 C 114 89, 110 83, 111 76 Z"
-                  fill="#050505"
-                />
-                <path
-                  d="M 146 78 C 149 71, 165 70, 169 76 C 170 83, 166 89, 158 89 C 152 89, 147 85, 146 78 Z"
-                  fill="#050505"
-                />
-                <ellipse cx="123" cy="79" rx="6" ry="3.2" fill="#dc2626" />
+                {/* 異常個体：暗闇の顔の中で燃える真紅の眼光 */}
+                <ellipse cx="123" cy="79" rx="11" ry="5.5" fill="#000000" />
+                <ellipse cx="157" cy="79" rx="11" ry="5.5" fill="#000000" />
+                <ellipse cx="123" cy="79" rx="6.2" ry="3" fill="#dc2626" />
                 <circle cx="123" cy="79" r="1.6" fill="#fef2f2" />
-                <ellipse cx="157" cy="79" rx="6" ry="3.2" fill="#dc2626" />
+                <ellipse cx="157" cy="79" rx="6.2" ry="3" fill="#dc2626" />
                 <circle cx="157" cy="79" r="1.6" fill="#fef2f2" />
               </g>
             )}
 
             {appearance.eyeStyle === 'MULTIPLE' && (
               <g>
-                <circle cx="122" cy="76" r="4.5" fill="#050505" />
+                <circle cx="122" cy="76" r="4.5" fill="#000000" />
                 <circle cx="122" cy="76" r="2" fill="#ef4444" />
-                <circle cx="158" cy="76" r="4.5" fill="#050505" />
+                <circle cx="158" cy="76" r="4.5" fill="#000000" />
                 <circle cx="158" cy="76" r="2" fill="#ef4444" />
-                <circle cx="140" cy="64" r="5" fill="#050505" />
+                <circle cx="140" cy="64" r="5" fill="#000000" />
                 <circle cx="140" cy="64" r="2.2" fill="#ef4444" />
-                <circle cx="116" cy="87" r="3.5" fill="#050505" />
+                <circle cx="116" cy="87" r="3.5" fill="#000000" />
                 <circle cx="116" cy="87" r="1.5" fill="#f87171" />
-                <circle cx="164" cy="87" r="3.5" fill="#050505" />
+                <circle cx="164" cy="87" r="3.5" fill="#000000" />
                 <circle cx="164" cy="87" r="1.5" fill="#f87171" />
               </g>
             )}
 
-            {/* 4-G. 口元・唇・ほうれい線・顎先の彫刻的陰影 */}
-            <g>
-              {/* ほうれい線（鼻翼から口角へ落ちる鋭い影線） */}
-              <path
-                d="M 131 94 Q 125 101 123 109 M 149 94 Q 155 101 157 109"
-                fill="none"
-                stroke={skinDeep}
-                strokeWidth="1.3"
-                opacity="0.75"
-              />
+            {/* 4-D. 訪問者固有の眼鏡（細いメタルフレームと暗がりの中で鈍く光るレンズ反射） */}
+            {hasGlasses && (
+              <g>
+                {/* 左右のスクエア・ハーフリム風レンズ枠 */}
+                <rect
+                  x="110"
+                  y="72"
+                  width="25"
+                  height="14"
+                  rx="2"
+                  fill="rgba(226, 232, 240, 0.06)"
+                  stroke="#94a3b8"
+                  strokeWidth="1.3"
+                />
+                <rect
+                  x="145"
+                  y="72"
+                  width="25"
+                  height="14"
+                  rx="2"
+                  fill="rgba(226, 232, 240, 0.04)"
+                  stroke="#64748b"
+                  strokeWidth="1.3"
+                />
+                {/* ブリッジとテンプル（つる） */}
+                <line x1="135" y1="77" x2="145" y2="77" stroke="#94a3b8" strokeWidth="1.3" />
+                <line x1="102" y1="76" x2="110" y2="77" stroke="#94a3b8" strokeWidth="1.2" />
+                <line x1="170" y1="77" x2="178" y2="76" stroke="#64748b" strokeWidth="1.2" />
+                {/* レンズ表面の斜め反射ハイライト線 */}
+                <line
+                  x1="113"
+                  y1="83"
+                  x2="120"
+                  y2="74"
+                  stroke="#e2e8f0"
+                  strokeWidth="1.4"
+                  opacity="0.55"
+                />
+                <line
+                  x1="148"
+                  y1="83"
+                  x2="155"
+                  y2="74"
+                  stroke="#cbd5e1"
+                  strokeWidth="1.4"
+                  opacity="0.45"
+                />
+              </g>
+            )}
 
+            {/* 4-E. 口元（彫りの深い唇やほうれい線を廃止。通常時は暗がりに溶け込み、怪異時のみ不気味に裂ける） */}
+            <g>
               {appearance.mouthStyle === 'NEUTRAL' && (
-                <g>
-                  {/* 上唇の暗いM字影と一文字に結んだ口元 */}
-                  <path
-                    d="M 128 107 Q 135 104 140 106 Q 145 104 152 107 Q 140 109 128 107 Z"
-                    fill={skinDeep}
-                  />
-                  {/* 下唇の下のくぼみ影 */}
-                  <path
-                    d="M 133 111 Q 140 115 147 111"
-                    fill="none"
-                    stroke={skinDeep}
-                    strokeWidth="1.5"
-                  />
-                </g>
+                /* 逆光の中でかすかに結ばれた細い一文字の影線のみ */
+                <line
+                  x1="133"
+                  y1="108"
+                  x2="147"
+                  y2="108"
+                  stroke="#27272a"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  opacity="0.6"
+                />
               )}
 
               {appearance.mouthStyle === 'SMILE' && (
-                <g>
-                  <path
-                    d="M 126 105 Q 140 114 154 105 Q 140 110 126 105 Z"
-                    fill={skinDeep}
-                  />
-                  <path
-                    d="M 132 112 Q 140 116 148 112"
-                    fill="none"
-                    stroke={skinDeep}
-                    strokeWidth="1.3"
-                  />
-                </g>
+                <path
+                  d="M 130 106 Q 140 112 150 106"
+                  fill="none"
+                  stroke="#3f3f46"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                  opacity="0.7"
+                />
               )}
 
               {appearance.mouthStyle === 'SMIRK' && (
-                <g>
-                  {/* 片側の口角だけが不自然に吊り上がった歪な笑み */}
-                  <path
-                    d="M 127 108 Q 141 110 155 101 Q 142 107 127 108 Z"
-                    fill={skinDeep}
-                  />
-                  <line x1="155" y1="101" x2="157" y2="98" stroke={skinDeep} strokeWidth="1.5" />
-                </g>
+                /* 暗がりの中で片側の口角だけが不自然に吊り上がる線 */
+                <path
+                  d="M 129 109 Q 141 110 154 102"
+                  fill="none"
+                  stroke="#52525b"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
               )}
 
               {appearance.mouthStyle === 'JAGGED_GRIN' && (
                 <g>
-                  {/* 耳元まで裂けた怪異の口と不揃いな白い歯列 */}
+                  {/* 暗闇の顔の中で耳元まで大きく裂けた怪異の口と白い歯列 */}
                   <path
                     d="M 116 101 Q 140 126 164 101 Q 140 111 116 101 Z"
-                    fill="#050507"
+                    fill="#000000"
                     stroke="#7f1d1d"
                     strokeWidth="1.5"
                   />
@@ -1476,36 +1929,32 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
               )}
             </g>
 
-            {/* 4-H. 前髪・頭髪のシルエット＆額に落ちる前髪の濃い影（ツルツル頭部の完全廃止） */}
+            {/* 4-F. 訪問者ごとの多彩な髪型シルエット（逆光リムライト付き） */}
             {!appearance.hasCap && (
               <g>
                 {hairType === 'KEY_WOMAN_LONG' && (
                   <g>
-                    {/* 額に落ちる前髪の濃いキアロスクーロ影 */}
+                    {/* 頭頂部から顔の輪郭両脇へ垂れ下がる美しい黒髪の束 */}
                     <path
-                      d="M 103 68 C 112 52, 126 62, 136 50 C 146 62, 162 54, 177 68 C 166 44, 154 34, 140 34 C 126 34, 114 44, 103 68 Z"
-                      fill="#09090b"
-                    />
-                    {/* 頭頂部から顔の輪郭両脇へ垂れ下がる長い黒髪の束 */}
-                    <path
-                      d="M 140 26 C 108 26, 94 48, 95 82 C 96 114, 92 146, 86 178 L 102 166 C 104 134, 105 98, 108 72 C 115 62, 123 56, 134 48 C 138 58, 144 64, 150 54 C 159 60, 166 66, 172 74 C 175 98, 176 134, 178 166 L 194 178 C 188 146, 184 114, 185 82 C 186 48, 172 26, 140 26 Z"
+                      d="M 140 25 C 108 25, 94 48, 95 82 C 96 114, 92 146, 86 178 L 102 166 C 104 134, 105 98, 108 72 C 115 62, 123 56, 134 48 C 138 58, 144 64, 150 54 C 159 60, 166 66, 172 74 C 175 98, 176 134, 178 166 L 194 178 C 188 146, 184 114, 185 82 C 186 48, 172 25, 140 25 Z"
                       fill="#09090b"
                       stroke="#27272a"
-                      strokeWidth="1"
+                      strokeWidth="1.1"
                     />
-                    {/* 顔にかかる繊細なほつれ毛と天使の輪ハイライト */}
+                    {/* 逆光を受ける頭頂〜左髪縁の繊細なリムハイライト */}
                     <path
-                      d="M 114 42 C 124 34, 152 34, 164 42"
+                      d="M 110 42 C 122 32, 154 32, 168 42"
                       fill="none"
-                      stroke="#52525b"
+                      stroke="#64748b"
                       strokeWidth="1.6"
-                      opacity="0.7"
+                      opacity="0.75"
                     />
+                    {/* 顔の輪郭にかかるほつれ毛のシルエット */}
                     <path
-                      d="M 118 52 C 114 68, 112 82, 115 96 M 164 52 C 168 68, 169 82, 165 96"
+                      d="M 118 52 C 113 64, 111 76, 114 92 M 164 52 C 169 64, 170 76, 166 92"
                       fill="none"
-                      stroke="#09090b"
-                      strokeWidth="2.2"
+                      stroke="#050507"
+                      strokeWidth="2"
                       strokeLinecap="round"
                     />
                   </g>
@@ -1513,25 +1962,22 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
 
                 {hairType === 'ANOMALY_WET_LONG' && (
                   <g>
-                    {/* 顔面に張り付く濡れた黒髪の不気味な束 */}
+                    {/* 顔面に不気味に張り付く濡れた黒髪の束 */}
                     <path
                       d="M 140 25 C 106 25, 94 48, 96 86 L 104 148 L 111 92 L 118 76 L 125 98 L 131 62 L 140 84 L 148 58 L 156 96 L 162 72 L 169 94 L 176 148 L 184 86 C 186 48, 174 25, 140 25 Z"
                       fill="#050507"
+                      stroke="#18181b"
+                      strokeWidth="0.9"
                     />
                   </g>
                 )}
 
                 {hairType === 'FEMALE_COAT_BOB' && (
                   <g>
-                    {/* 額に落ちる斜め前髪の影 */}
+                    {/* 丸みのある内巻きボブヘアのシルエット */}
                     <path
-                      d="M 103 68 C 118 56, 146 58, 177 72 L 176 52 L 104 52 Z"
-                      fill="#09090b"
-                    />
-                    {/* エレガントかつ不気味なボブヘアの外枠 */}
-                    <path
-                      d="M 140 26 C 108 26, 95 48, 96 82 C 97 108, 102 128, 112 138 L 110 114 C 106 94, 106 74, 112 62 C 128 54, 152 56, 168 66 C 174 78, 174 96, 170 114 L 168 138 C 178 128, 183 108, 184 82 C 185 48, 172 26, 140 26 Z"
-                      fill="#141210"
+                      d="M 140 26 C 108 26, 95 48, 96 82 C 97 108, 102 128, 114 136 L 110 112 C 106 92, 106 72, 114 60 C 128 52, 152 54, 168 64 C 174 76, 174 96, 170 112 L 166 136 C 178 128, 183 108, 184 82 C 185 48, 172 26, 140 26 Z"
+                      fill="#12100e"
                       stroke="#292524"
                       strokeWidth="1.2"
                     />
@@ -1539,19 +1985,33 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
                       d="M 112 40 Q 140 31 168 42"
                       fill="none"
                       stroke="#57534e"
-                      strokeWidth="1.6"
+                      strokeWidth="1.5"
                       opacity="0.65"
+                    />
+                  </g>
+                )}
+
+                {hairType === 'SHOULDER_LONG' && (
+                  <g>
+                    {/* センターパートのセミロング・ミディアムヘア（肩へ流れるシルエット） */}
+                    <path
+                      d="M 140 26 C 108 26, 95 48, 96 82 C 97 112, 94 138, 88 158 L 104 152 C 106 124, 106 92, 110 68 C 122 58, 134 50, 140 44 C 146 50, 158 58, 170 68 C 174 92, 174 124, 176 152 L 192 158 C 186 138, 183 112, 184 82 C 185 48, 172 26, 140 26 Z"
+                      fill="#111115"
+                      stroke="#27272a"
+                      strokeWidth="1.2"
+                    />
+                    <path
+                      d="M 114 38 Q 140 30 166 38"
+                      fill="none"
+                      stroke="#52525b"
+                      strokeWidth="1.4"
+                      opacity="0.6"
                     />
                   </g>
                 )}
 
                 {hairType === 'PARTED_NEAT' && (
                   <g>
-                    {/* 額に落ちる七三分け前髪のシャープな影 */}
-                    <path
-                      d="M 103 68 C 116 54, 128 52, 134 62 C 148 52, 164 56, 177 68 L 175 48 L 105 48 Z"
-                      fill="#09090b"
-                    />
                     {/* 七三分け・スーツ男性の端正な黒髪シルエット */}
                     <path
                       d="M 124 30 C 106 34, 96 50, 99 76 L 105 78 L 107 58 C 116 48, 126 48, 132 56 C 144 46, 162 48, 173 60 L 175 78 L 181 76 C 184 50, 174 32, 152 28 C 142 26, 132 27, 124 30 Z"
@@ -1569,14 +2029,47 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
                   </g>
                 )}
 
+                {hairType === 'SLICKED_BACK' && (
+                  <g>
+                    {/* オールバック・角刈り調のシャープな短髪シルエット（額が広く出た威圧的な輪郭） */}
+                    <path
+                      d="M 140 25 C 112 25, 98 42, 99 74 L 105 76 L 106 52 C 116 42, 164 42, 174 52 L 175 76 L 181 74 C 182 42, 168 25, 140 25 Z"
+                      fill="#121216"
+                      stroke="#27272a"
+                      strokeWidth="1.2"
+                    />
+                    {/* オールバックの毛流れハイライト線 */}
+                    <path
+                      d="M 118 32 L 122 43 M 132 29 L 134 41 M 146 29 L 145 41 M 160 32 L 157 43"
+                      stroke="#3f3f46"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                    />
+                  </g>
+                )}
+
+                {hairType === 'HEAVY_BANGS' && (
+                  <g>
+                    {/* 目元ギリギリまで重く垂れ下がるマッシュ・重め前髪シルエット */}
+                    <path
+                      d="M 140 25 C 108 25, 95 46, 97 78 L 105 76 L 107 66 L 116 72 L 124 66 L 136 73 L 144 67 L 156 73 L 166 66 L 173 72 L 175 76 L 183 78 C 185 46, 172 25, 140 25 Z"
+                      fill="#111114"
+                      stroke="#27272a"
+                      strokeWidth="1.2"
+                    />
+                    <path
+                      d="M 112 38 Q 140 31 168 38"
+                      fill="none"
+                      stroke="#3f3f46"
+                      strokeWidth="1.4"
+                      opacity="0.65"
+                    />
+                  </g>
+                )}
+
                 {(hairType === 'MESSY_SHORT' || hairType === 'HOODED_HUNCH') && (
                   <g>
-                    {/* 額に垂れる無造作な前髪の濃い影 */}
-                    <path
-                      d="M 102 70 L 114 58 L 122 68 L 134 56 L 144 68 L 156 56 L 166 68 L 178 64 L 174 46 L 106 46 Z"
-                      fill="#09090b"
-                    />
-                    {/* ボサボサの短髪外枠シルエット */}
+                    {/* 無造作なボサボサ短髪外枠シルエット */}
                     <path
                       d="M 140 24 L 126 28 L 112 26 L 104 38 L 96 48 L 99 78 L 105 76 L 107 58 L 116 64 L 124 52 L 135 64 L 144 52 L 154 64 L 164 54 L 173 62 L 175 76 L 181 78 L 184 48 L 176 36 L 164 27 L 150 28 Z"
                       fill="#18181b"
