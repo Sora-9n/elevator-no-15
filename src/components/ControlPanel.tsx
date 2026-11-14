@@ -4,8 +4,8 @@ import { Fan, BellRing, Play } from 'lucide-react';
 import type { ActivePassenger, GameState, MovingCabinEvent } from '../types/game';
 
 interface ControlPanelProps {
-  floor: number;
   gameState: GameState;
+  unreadNoticeCount: number;
   doorOpenPercent: number;
   isHoldingOpen: boolean;
   isKeyWomanAlertActive: boolean;
@@ -24,8 +24,8 @@ interface ControlPanelProps {
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
-  floor,
   gameState,
+  unreadNoticeCount,
   doorOpenPercent,
   isHoldingOpen,
   isKeyWomanAlertActive,
@@ -43,6 +43,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
   variant = 'desktop',
 }) => {
   const isPrepare = gameState === 'PREPARE';
+  const hasUnreadNotices = isPrepare && unreadNoticeCount > 0;
+  const canStartInspection = isPrepare && unreadNoticeCount === 0;
   const isJudging = gameState === 'JUDGING';
   const isFinalDoor = gameState === 'FINAL_DOOR';
   const isMoving = gameState === 'MOVING';
@@ -50,6 +52,16 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
   const isUrgentClose =
     (isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0) ||
     isKeyWomanAlertActive;
+
+  const topActionLabel = isPrepare
+    ? hasUnreadNotices
+      ? '未読通達を確認しろ'
+      : '▼ 検問開始（応答）'
+    : isMoving || gameState === 'EVENT_RESULT'
+    ? '▼ 次階へ降下中'
+    : isFinalDoor
+    ? '― 最終階層到達 ―'
+    : '― 検問実施中 ―';
 
   // 12% → 100% までの長押し進捗率（FINAL_DOOR時は 0% → 100%）
   const openHoldProgress = isFinalDoor
@@ -81,21 +93,25 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
   if (variant === 'mobile') {
     return (
       <div className="w-full h-full flex flex-col justify-between gap-1 select-none min-w-0">
-        {/* 1段目：下降開始 / 再開 */}
+        {/* 1段目：通達確認中 / 検問開始（応答） / 降下中 */}
         <motion.button
           id="mobile-btn-start-descent"
           type="button"
-          disabled={!isPrepare}
+          disabled={!canStartInspection}
           onClick={onStartDescent}
-          whileTap={isPrepare ? { scale: 0.97 } : undefined}
+          whileTap={canStartInspection ? { scale: 0.97 } : undefined}
           className={`w-full py-1.5 px-2 rounded border-2 flex items-center justify-center gap-1 font-black text-xs tracking-wider transition-colors whitespace-nowrap ${
-            isPrepare
+            canStartInspection
               ? 'bg-amber-500 hover:bg-amber-400 border-amber-200 text-stone-950 shadow-[0_0_16px_rgba(245,158,11,0.65)] animate-pulse cursor-pointer'
+              : hasUnreadNotices
+              ? 'bg-stone-900/90 border-red-800/80 text-amber-300/90 cursor-not-allowed'
               : 'bg-stone-900/50 border-stone-800 text-stone-600 cursor-not-allowed'
           }`}
         >
-          <Play className="w-3.5 h-3.5 fill-current rotate-90 shrink-0" />
-          <span>{floor === 15 ? '▼ 下降開始' : '▼ 下降再開'}</span>
+          {canStartInspection && (
+            <Play className="w-3.5 h-3.5 fill-current rotate-90 shrink-0" />
+          )}
+          <span>{topActionLabel}</span>
         </motion.button>
 
         {/* 2段目：大きく押しやすい「開扉（長押し）」＆「閉扉」 */}
@@ -286,22 +302,26 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
      ============================================================ */
   return (
     <aside className="w-full h-full flex flex-col justify-between p-2.5 metal-panel-surface border-l border-stone-800/90 relative z-20 select-none overflow-hidden">
-      {/* 上部：PREPARE時のみ強調表示される「▼ 下降を開始/再開する」ボタン */}
+      {/* 上部：PREPARE（通達確認完了後）に強調表示される「▼ 検問開始（応答）」ボタン */}
       <div className="shrink-0">
         <motion.button
           id="btn-start-descent"
           type="button"
-          disabled={!isPrepare}
+          disabled={!canStartInspection}
           onClick={onStartDescent}
-          whileTap={isPrepare ? { scale: 0.97 } : undefined}
+          whileTap={canStartInspection ? { scale: 0.97 } : undefined}
           className={`w-full py-2.5 lg:py-3 px-2 rounded border-2 flex items-center justify-center gap-1.5 font-black text-xs lg:text-sm tracking-wider transition-colors whitespace-nowrap ${
-            isPrepare
+            canStartInspection
               ? 'bg-amber-500 hover:bg-amber-400 border-amber-200 text-stone-950 shadow-[0_0_20px_rgba(245,158,11,0.65)] animate-pulse cursor-pointer'
+              : hasUnreadNotices
+              ? 'bg-stone-900/90 border-red-800/80 text-amber-300/90 cursor-not-allowed'
               : 'bg-stone-900/50 border-stone-800 text-stone-600 cursor-not-allowed'
           }`}
         >
-          <Play className="w-4 h-4 fill-current rotate-90 shrink-0" />
-          <span>{floor === 15 ? '▼ 下降開始 (着務)' : '▼ 下降再開 (継続)'}</span>
+          {canStartInspection && (
+            <Play className="w-4 h-4 fill-current rotate-90 shrink-0" />
+          )}
+          <span>{topActionLabel}</span>
         </motion.button>
       </div>
 

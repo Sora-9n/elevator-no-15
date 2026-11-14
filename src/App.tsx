@@ -123,6 +123,11 @@ export function App() {
   const currentVisitorRef = useRef<VisitorData | null>(null);
   const closeClicksRemainingRef = useRef<number>(1);
   const isFanOnRef = useRef<boolean>(false);
+  const readRuleIdsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    readRuleIdsRef.current = readRuleIds;
+  }, [readRuleIds]);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -235,9 +240,28 @@ export function App() {
     }
   }, []);
 
-  // 張り紙・紙片を既読にする
+  // 張り紙・紙片を既読にする（PREPARE中に全通達を確認完了した場合は案内字幕も更新）
   const handleMarkRuleRead = useCallback((id: string) => {
-    setReadRuleIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setReadRuleIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      readRuleIdsRef.current = next;
+      if (gameStateRef.current === 'PREPARE') {
+        const currentFloor = floorRef.current;
+        const currentUnlocked = INITIAL_NOTICE_RULES.filter(
+          (r) => currentFloor <= r.unlockedAtFloor
+        );
+        const remainingUnread = currentUnlocked.filter(
+          (r) => !next.includes(r.id)
+        ).length;
+        if (remainingUnread === 0) {
+          setActiveSubtitle(
+            `『【${currentFloor}F 通達確認完了】すべての通達を確認した。操作盤の「▼ 検問開始（応答）」を押して${currentFloor}階の検問を開始しろ。』`
+          );
+        }
+      }
+      return next;
+    });
   }, []);
 
   // モーダル開放ハンドラ群（PC・スマホ共通）
@@ -315,6 +339,7 @@ export function App() {
     currentVisitorRef.current = null;
     closeClicksRemainingRef.current = 1;
     isFanOnRef.current = false;
+    readRuleIdsRef.current = [];
     setIsPaused(false);
 
     floorRef.current = 15;
@@ -343,23 +368,45 @@ export function App() {
     setToastAlert(null);
 
     setActiveSubtitle(
-      '『【15F 待機所】保安通達（3通）をすべて確認しろ。確認完了後、「▼ 下降開始」を押して業務を開始しろ。』'
+      '『【15F 待機所】保安通達（3通）をすべて確認しろ。確認完了後、「▼ 検問開始（応答）」を押して15階の検問を開始しろ。』'
     );
     gameStateRef.current = 'PREPARE';
     setGameState('PREPARE');
   }, []);
 
-  // PREPARE（15F・10F・5F）から下降を開始/再開する
+  // PREPARE（15F・10F・5F）での通達確認完了後、その階での検問フェーズ（ARRIVING → JUDGING）を開始する
   const handleStartDescent = useCallback(() => {
     if (gameStateRef.current !== 'PREPARE') return;
+    const currentFloor = floorRef.current;
+    const currentUnlocked = INITIAL_NOTICE_RULES.filter(
+      (r) => currentFloor <= r.unlockedAtFloor
+    );
+    const hasUnread = currentUnlocked.some(
+      (r) => !readRuleIdsRef.current.includes(r.id)
+    );
+    if (hasUnread) return;
+
     if (scrapToastTimerRef.current) {
       window.clearTimeout(scrapToastTimerRef.current);
       scrapToastTimerRef.current = null;
     }
     soundManager.playButtonClick('SWITCH');
-    soundManager.playDoorLatchShut();
-    gameStateRef.current = 'MOVING';
-    setGameState('MOVING');
+
+    const nextVisitor = selectVisitorForFloor(
+      currentFloor,
+      recentVisitorIdsRef.current
+    );
+    recentVisitorIdsRef.current = [...recentVisitorIdsRef.current, nextVisitor.id];
+    currentVisitorRef.current = nextVisitor;
+    setCurrentVisitor(nextVisitor);
+    closeClicksRemainingRef.current = nextVisitor.requiredCloseClicks;
+    setCloseClicksRemaining(nextVisitor.requiredCloseClicks);
+    setIsPeekTransformed(false);
+    isPeekTransformedRef.current = false;
+    peekFreezeTicksRef.current = 0;
+    setEventOutcome(null);
+    gameStateRef.current = 'ARRIVING';
+    setGameState('ARRIVING');
   }, []);
 
   // JUDGING中の決定処理（乗車許可 / 閉め出し拒否 / 時間切れ強制乗車）
@@ -706,7 +753,7 @@ export function App() {
         setActivePassengers(remainingPassengers);
       }
 
-      // 10F・5Fは中間チェックポイント（10F: 公式通達2通 / 5F: 公式通達1通 ＋ 独立して血の紙片が隙間から滑り込む）
+      // 10F・5Fは中間チェックポイント（通達確認の直後に、その場で即検問フェーズへ移行）
       if (nextFloor === 10 || nextFloor === 5) {
         soundManager.playCheckpointNotice();
         currentVisitorRef.current = null;
@@ -717,21 +764,21 @@ export function App() {
         if (nextFloor === 10) {
           showToast(
             'INFO',
-            '【管理室通達】10F 停止中',
-            '『規程改定の追加通達（2通）を下達した。内容を確認し、下降を再開しろ。』'
+            '【管理室通達】10F 到着・追加通達下達',
+            '『規程改定の追加通達（2通）を下達した。内容を確認し、10階の検問を開始しろ。』'
           );
           setActiveSubtitle(
-            '『【10F 待機所】追加通達（2通）を下達した。確認完了後、「▼ 下降再開」を押せ。』'
+            '『【10F 待機所】追加通達（2通）を下達した。確認完了後、「▼ 検問開始（応答）」を押して10階の検問を開始しろ。』'
           );
         } else {
           showToast(
             'INFO',
-            '【管理室通達】5F 停止中',
-            '『低層階の追加通達（1通）を下達した。確認完了後、下降を再開しろ。』',
+            '【管理室通達】5F 到着・追加通達下達',
+            '『低層階の追加通達（1通）を下達した。確認完了後、5階の検問を開始しろ。』',
             2600
           );
           setActiveSubtitle(
-            '『【5F 待機所】低層階の追加通達（1通）を確認しろ。確認後、「▼ 下降再開」を押して業務を続行しろ。』'
+            '『【5F 待機所】低層階の追加通達（1通）を確認しろ。確認後、「▼ 検問開始（応答）」を押して5階の検問を開始しろ。』'
           );
           // 管理室アナウンスとは独立して、扉の隙間から血に汚れた紙片が滑り込んでくる通知を出す
           if (scrapToastTimerRef.current) {
@@ -1729,6 +1776,10 @@ export function App() {
     () => INITIAL_NOTICE_RULES.filter((r) => floor <= r.unlockedAtFloor),
     [floor]
   );
+  const unreadNoticeCount = useMemo(
+    () => unlockedRules.filter((r) => !readRuleIds.includes(r.id)).length,
+    [unlockedRules, readRuleIds]
+  );
 
   return (
     <motion.div
@@ -1878,8 +1929,8 @@ export function App() {
         {/* デスクトップ右側パネル：スリム操作盤 */}
         <div className="hidden md:block md:col-span-3 h-full overflow-hidden">
           <ControlPanel
-            floor={floor}
             gameState={gameState}
+            unreadNoticeCount={unreadNoticeCount}
             doorOpenPercent={doorOpenPercent}
             isHoldingOpen={isHoldingOpen}
             isKeyWomanAlertActive={isKeyWomanAlertActive}
@@ -1927,8 +1978,8 @@ export function App() {
         </div>
         <div className="col-span-8 min-w-0">
           <ControlPanel
-            floor={floor}
             gameState={gameState}
+            unreadNoticeCount={unreadNoticeCount}
             doorOpenPercent={doorOpenPercent}
             isHoldingOpen={isHoldingOpen}
             isKeyWomanAlertActive={isKeyWomanAlertActive}

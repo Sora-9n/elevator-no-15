@@ -166,7 +166,8 @@ function resolveGarmentArchetype(
   if (visitorId.includes('delivery')) return 'DELIVERY_JACKET';
   if (
     visitorId === 'v-ch1-floor12-phantom' ||
-    visitorId === 'v-ch1-peek-innocent-shadow'
+    visitorId === 'v-ch1-peek-innocent-shadow' ||
+    visitorId.startsWith('v-ch3-floor5-')
   ) {
     return 'LOUNGE_HOODIE';
   }

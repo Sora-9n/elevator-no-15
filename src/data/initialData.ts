@@ -503,8 +503,54 @@ export const INITIAL_VISITORS: VisitorData[] = [
   },
 
   // ==========================================
-  // Chapter 3 (4F - 2F) 用データ（5F緊急通達・怪文書追加後）
+  // Chapter 3 (5F - 2F) 用データ（5F緊急通達・怪文書追加後）
   // ==========================================
+  {
+    id: 'v-ch3-floor5-room-ghost',
+    name: '部屋着姿の穏やかな住人',
+    category: 'RULE_VIOLATOR',
+    isThreat: true,
+    chapter: 3,
+    spawnFloors: [5],
+    dialogue: '「すみません、503号室の者ですが、下の郵便受けを見に行きたくて……1階まで開けてもらえますか？」',
+    enteredDialogue: '「……ふふっ、503号室って言ったのに、入れてくれるんだねェ……」',
+    rejectedDialogue: '「……あれ、部屋番号を言ったからバレちゃったかな……」',
+    appearance: {
+      silhouetteType: 'SLENDER',
+      clothingColor: '#52525b',
+      clothingLabel: '灰色の部屋着｜「503号室」と名乗る',
+      eyeStyle: 'NORMAL',
+      mouthStyle: 'SMILE',
+      glitchLevel: 'NONE',
+      hasNameTag: true,
+    },
+    requiredCloseClicks: 1,
+    sanityDamage: 1,
+    description: '一見穏やかな部屋着の住人で住人証も着けているが、5階以下で「503号室」と部屋番号を名乗った退去済みの亡霊（張り紙⑥違反）。',
+  },
+  {
+    id: 'v-ch3-floor5-valid-resident',
+    name: '夜食帰りの低層階住人',
+    category: 'NORMAL',
+    isThreat: false,
+    chapter: 3,
+    spawnFloors: [5],
+    dialogue: '「こんばんは。少し夜食を買いに出るところなんです、1階まで乗せてもらえますか？」',
+    enteredDialogue: '「助かります。低層階は夜になると急に冷え込みますね。」',
+    rejectedDialogue: '「えっ、ちょっと待ってください！ 部屋番号なんて名乗ってない正規の住人ですよ！？ 管理室に通報します！」',
+    appearance: {
+      silhouetteType: 'SLENDER',
+      clothingColor: '#52525b',
+      clothingLabel: '灰色の部屋着｜住人証あり',
+      eyeStyle: 'NORMAL',
+      mouthStyle: 'NEUTRAL',
+      glitchLevel: 'NONE',
+      hasNameTag: true,
+    },
+    requiredCloseClicks: 1,
+    sanityDamage: 0,
+    description: '5階で乗車を求める部屋着の正規住人。住人証を着用しており、会話中に部屋番号も名乗らないため乗車許可対象。',
+  },
   {
     id: 'v-ch3-room-number-ghost',
     name: '礼儀正しいスーツの男',
@@ -604,20 +650,27 @@ export const INITIAL_VISITORS: VisitorData[] = [
 ];
 
 /**
- * 各階層（14〜11F、9〜6F、4〜2F）の訪問者選出ロジック
- * - 強制的に入ってこようとする怪異（requiredCloseClicks > 1）は5階以下（4F・3F）のみで1ゲーム1〜2回出現
- * - 正体を現す怪異（REVEAL_THREAT）も5階以下（4F）のみで最大1回出現
+ * 全14階層（15F〜2F）の訪問者選出ロジック
+ * - 15F・10F・5Fでも通達確認の直後にその階で検問が発生し、直前に追加された通達ルールを試す訪問者が出現する
+ * - 強制的に入ってこようとする怪異（requiredCloseClicks > 1）は4F・3Fのみで1ゲーム1〜2回出現
+ * - 正体を現す怪異（REVEAL_THREAT）も4Fのみで最大1回出現
  * - 2Fは必ずトゥルーエンドの鍵となる特別な女性（v-ch3-key-woman）を固定出現させる
  */
 export function selectVisitorForFloor(floor: number, recentVisitorIds: string[]): VisitorData {
   const byId = (id: string) => INITIAL_VISITORS.find((v) => v.id === id)!;
 
-  // 固定の重要ギミック階層（12F, 9F, 2F）
+  // 固定の重要ギミック階層（12F, 10F, 5F, 2F）
   if (floor === 12) return byId('v-ch1-floor12-phantom');      // 12F: 工事中無人ルール（こじ開けなし・1回閉扉）
-  if (floor === 9) return byId('v-ch2-blue-security-guard');   // 9F: 10Fで上書きされた「青服＋制帽の正規警備員」
+  if (floor === 10) return byId('v-ch2-blue-security-guard');  // 10F: 通達確認直後、上書きルール④「青服＋制帽の正規警備員」を即座にテスト
+  if (floor === 5) {
+    // 5F: 通達⑥（部屋番号を名乗る亡霊ルール）確認直後、部屋着姿の亡霊（503号室）または正規の部屋着住人を選出
+    return Math.random() < 0.65
+      ? byId('v-ch3-floor5-room-ghost')
+      : byId('v-ch3-floor5-valid-resident');
+  }
   if (floor === 2) return byId('v-ch3-key-woman');             // 2F: トゥルーエンドの鍵となる「薄汚れた白い服の女性」固定出現
 
-  // 5階以下（4F・3F）：正体を現す怪異（最大1回）＆ こじ開け怪異（1〜2回）
+  // 4F・3F：正体を現す怪異（最大1回）＆ こじ開け怪異（1〜2回）
   if (floor === 4) {
     // 55%の確率で「正体を現す怪異（最大1回）」、45%の確率で「402号室を名乗る幽霊（こじ開け5回）」
     if (Math.random() < 0.55) {
@@ -635,8 +688,19 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
       : byId('v-any-neck-anomaly');
   }
 
-  // チャプター1（14F, 13F, 11F）：こじ開け怪異・本性露呈怪異は出現しない
+  // チャプター1（15F, 14F, 13F, 11F）：こじ開け怪異・本性露呈怪異は出現しない
   if (floor >= 11) {
+    // 15F（開始階）は初期通達①・③を直接試す基本訪問者から選出
+    if (floor === 15) {
+      const floor15Pool = [
+        byId('v-ch1-delivery-valid'),
+        byId('v-ch1-delivery-fake'),
+        byId('v-ch1-blue-coat-intruder'),
+        byId('v-ch1-rude-fan-resident'),
+      ];
+      return floor15Pool[Math.floor(Math.random() * floor15Pool.length)];
+    }
+
     // 13Fでは「紛らわしい善良な住人（REVEAL_INNOCENT）」を優先選出
     if (floor === 13 && !recentVisitorIds.includes('v-ch1-peek-innocent-shadow')) {
       return byId('v-ch1-peek-innocent-shadow');
@@ -655,7 +719,7 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  // チャプター2（8F, 7F, 6F）：こじ開け怪異・本性露呈怪異は出現しない
+  // チャプター2（9F, 8F, 7F, 6F）：10F追加ルール（赤いコート＋帽子偽物・制帽なし青服）を含む中層プール
   if (floor >= 6) {
     const ch2Pool = [
       byId('v-ch2-red-coat-valid'),
@@ -671,4 +735,5 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
 
   return byId('v-ch3-key-woman');
 }
+
 
