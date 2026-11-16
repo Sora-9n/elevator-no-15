@@ -60,6 +60,8 @@ export const BottomConsole: React.FC<BottomConsoleProps> = React.memo(({
               : isDangerMovingEvent
               ? movingEvent?.type === 'MIASMA'
                 ? '管理室 強制排気命令'
+                : movingEvent?.isKeyWomanTrial
+                ? '管理室 重大警報'
                 : '管理室 緊急照射命令'
               : activeRequester && gameState === 'MOVING'
               ? '車内からの要求'
@@ -136,7 +138,7 @@ export const BottomConsole: React.FC<BottomConsoleProps> = React.memo(({
                 >
                   <span>
                     {p.visitor.isKeyWoman
-                      ? '2F収容：白い服の女性（地下非常口へ案内中）'
+                      ? '2F収容：白い服の女性（未登録個体）'
                       : `${p.boardedFloor}F収容対象 (残${p.remainingFloors}階で退出)`}
                   </span>
                   {p.pendingRequest && (

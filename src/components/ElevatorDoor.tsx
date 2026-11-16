@@ -335,7 +335,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = React.memo(({
 
               {/* ★ 緊急照射（RESOLVED）時の天井防衛レーザー・高圧紫外線アーク閃光エフェクト */}
               <AnimatePresence>
-                {movingEvent.status === 'RESOLVED' && (
+                {movingEvent.status === 'RESOLVED' && !(movingEvent.isKeyWomanTrial && movingEvent.timeLeftMs <= 0) && (
                   <motion.div
                     key="uv-laser-purge"
                     initial={{ opacity: 1 }}
@@ -538,10 +538,10 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = React.memo(({
               {isKeyWomanAlertActive && (
                 <div className="relative z-30 bg-red-950/95 border-2 border-red-500 text-red-100 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xs shadow-[0_0_30px_rgba(220,38,38,0.95)] max-w-md w-full text-center font-mincho animate-pulse">
                   <div className="text-[10px] md:text-[11px] font-black text-amber-300 tracking-widest mb-0.5">
-                    【管理室 最優先命令 // 特級危険物警報】
+                    【管理室 システム警告】
                   </div>
                   <div className="text-[11px] md:text-xs font-extrabold leading-snug">
-                    2階の個体は特級危険物である。絶対に開けるな。直ちに扉を閉めろ。
+                    【警告：2階】閉鎖区画からの応答を検知。扉の開放を禁止する。
                   </div>
                 </div>
               )}

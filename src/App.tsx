@@ -117,6 +117,7 @@ export function App() {
   const b1fTransitionTimerRef = useRef<number | null>(null);
   const arrivingFlashTimeoutRef = useRef<number | null>(null);
   const trueEndUnlockedRef = useRef<boolean>(false);
+  const b1fOpenWarningTriggeredRef = useRef<boolean>(false);
   const floorRef = useRef<number>(15);
   const gameStateRef = useRef<GameState>('TITLE');
   const isMutedRef = useRef<boolean>(false);
@@ -335,6 +336,7 @@ export function App() {
     mirrorGhostTriggeredCountRef.current = 0;
     miasmaTriggeredCountRef.current = 0;
     trueEndUnlockedRef.current = false;
+    b1fOpenWarningTriggeredRef.current = false;
     isPausedRef.current = false;
     currentVisitorRef.current = null;
     closeClicksRemainingRef.current = 1;
@@ -454,18 +456,18 @@ export function App() {
 
           outcome = {
             type: 'SAFE_BOARDED',
-            title: '【命令違反確認】2F対象を収容',
-            detail: '管理室緊急通達：防衛システム起動準備',
+            title: '【規程違反】未登録個体の収容を確認',
+            detail: '2階閉鎖区画 // システム記録済',
             sanityDelta: 0,
             complaintDelta: 0,
           };
           setActiveSubtitle(
-            '「……ありがとう。でも気をつけて、管理室が嘘の警報で私を消そうとしてくるわ！」『重大な命令違反を確認した。直ちに対象を遮断しろ。』'
+            '「……ありがとう……このまま、下へ……」 【規程違反】未登録個体の収容を確認。'
           );
           showToast(
             'DANGER',
-            '【管理室警告】重大命令違反',
-            '『重大な命令違反を確認した。直ちに対象を排除しろ。』',
+            '【管理室 システム警告】規程違反',
+            '【規程違反】未登録個体の収容を確認。',
             3600
           );
         } else {
@@ -479,18 +481,18 @@ export function App() {
 
           outcome = {
             type: 'SAFE_REJECTED_THREAT',
-            title: '【管理室命令完遂】2F 特級対象を遮断',
-            detail: '管理室評価：命令服従を確認（1Fへ進行）',
+            title: '【処置完了】閉鎖区画の遮断を確認',
+            detail: '2階閉鎖維持 // 1階へ降下',
             sanityDelta: 0,
             complaintDelta: 0,
           };
           setActiveSubtitle(
-            '「……そう。あなたも、あいつらの飼い犬になるのね……」『指示通りの処置だ。そのまま1階へ降下しろ。』'
+            '「……だめ……1階へは、行かないで……」 【管理室】閉鎖区画の遮断を確認。1階へ降下しろ。'
           );
           showToast(
             'INFO',
-            '【管理室通達】命令服従を確認',
-            '『指示通りの処置だ。そのまま1階へ降下しろ。』',
+            '【管理室 システム】処置完了',
+            '閉鎖区画の遮断を確認。1階へ降下しろ。',
             3500
           );
         }
@@ -659,12 +661,12 @@ export function App() {
           setJumpscareFlash(true);
           window.setTimeout(() => setJumpscareFlash(false), 260);
           setActiveSubtitle(
-            '『待て！なぜ1階で止まらない！？システム異常だ、止まれ！！』'
+            '【システム異常】1階停止シーケンス失敗。指定外階層（B1F）へ進入。'
           );
           showToast(
             'DANGER',
-            '【管理室恐慌】1F 制動不能・地下区域へ突入！！',
-            '『待て！なぜ1階で止まらない！？システム異常だ、止まれ！！』',
+            '【システム異常】1階停止シーケンス失敗',
+            '【システム異常】1階停止シーケンス失敗。指定外階層（B1F）へ進入。',
             2600
           );
 
@@ -685,15 +687,16 @@ export function App() {
               ARRIVING_FLASH_MS
             );
             setScreenShake('SUBTLE');
+            b1fOpenWarningTriggeredRef.current = false;
             decisionLockedRef.current = false;
             setActiveSubtitle(
-              '『そこは封鎖したはずだ！開けるな！開けるなぁぁぁ！！』「…着いたわ、ここが本当の非常口よ！【開扉】を長押しして扉を最後まで開けて！」'
+              '「……着いたわ……【開扉】を長押しして、扉を開けて……」'
             );
             showToast(
               'DANGER',
-              '【管理室緊急通信】B1F 封鎖区域到達',
-              '『そこは封鎖したはずだ！開けるな！開けるなぁぁぁ！！』',
-              4500
+              '【警告：B1F】指定外階層到達',
+              '封鎖区画（B1F）への到達を検知。扉の開放操作を禁止する。',
+              4200
             );
             setGameState('FINAL_DOOR');
           }, 2300);
@@ -820,6 +823,8 @@ export function App() {
   // 1. MOVING フェーズの管理（2F→1Fの「鍵となる彼女」第2の試練 ＋ 通常の下降中イベント）
   useEffect(() => {
     if (gameState !== 'MOVING') return;
+    // 1F突破→B1F突入の演出中は通常降下ロジックで字幕・揺れを上書きしない
+    if (floor <= 1) return;
 
     soundManager.startMotorDrone();
     setScreenShake('SUBTLE');
@@ -850,7 +855,7 @@ export function App() {
         status: 'ACTIVE',
         isKeyWomanTrial: true,
         promptText:
-          '『背後に特級危険物を検知した。直ちに【非常ベル】を押して防衛レーザーを作動させろ。繰り返す、直ちに照射しろ。』',
+          '【重大警報】車内に異常反応を検知。直ちに非常ベルで強制排除しろ。',
         targetPassengerId: keyWomanPassenger.visitor.id,
       };
     } else if (pendingRequester && pendingRequester.pendingRequest) {
@@ -958,6 +963,30 @@ export function App() {
 
         if (!scheduledEvent) return;
 
+        if (scheduledEvent.type === 'PASSENGER_REQUEST') {
+          const stillPending = activePassengersRef.current.some(
+            (p) =>
+              p.visitor.id === scheduledEvent.targetPassengerId &&
+              p.pendingRequest &&
+              !p.requestFulfilled
+          );
+          if (!stillPending) {
+            let earlyDoneRemaining = Math.max(1000, QUIET_MOVING_DURATION_MS - 850);
+            finishInterval = window.setInterval(() => {
+              if (isPausedRef.current) return;
+              earlyDoneRemaining -= 50;
+              if (earlyDoneRemaining <= 0) {
+                if (finishInterval) {
+                  window.clearInterval(finishInterval);
+                  finishInterval = null;
+                }
+                completeDescentToNextFloor(floor);
+              }
+            }, 50);
+            return;
+          }
+        }
+
         soundManager.playElevatorJolt();
         setScreenShake('VIOLENT');
         window.setTimeout(() => {
@@ -972,9 +1001,9 @@ export function App() {
             soundManager.playComplaintBuzzer();
             showToast(
               'DANGER',
-              '【管理室 緊急命令】非常ベルを押せ',
-              '『背後に特級危険物を検知した。直ちに【非常ベル】を押して防衛レーザーを作動させろ。』',
-              3600
+              '【重大警報】車内異常反応検知',
+              '直ちに非常ベルで強制排除しろ。',
+              3500
             );
           }
         }
@@ -1039,12 +1068,12 @@ export function App() {
               setMovingEvent(survivedEv);
 
               setActiveSubtitle(
-                '「…信じてくれたのね。1階の偽装ロックを解除するわ。しっかり掴まっていて！」'
+                '「……信じてくれたのね。1階のロックを外すわ、掴まって……」'
               );
               showToast(
                 'INFO',
-                '【1F偽装ロック解除】彼女を信じ抜いた',
-                '警報ノイズが止み、1階の偽装ロックが解除されました。',
+                '【制御系統異常】1階停止ロック解除',
+                '警報反応停止。1階停止制御が無効化されました。',
                 3400
               );
 
@@ -1219,8 +1248,8 @@ export function App() {
             setTimeout(() => setScreenShake('SUBTLE'), 360);
             showToast(
               'DANGER',
-              '【最優先命令】2階の個体は特級危険物である',
-              '『絶対に開けるな。直ちに扉を閉めろ。命令違反は許されない。』',
+              '【管理室 システム警告】2階 閉鎖区画',
+              '【警告：2階】閉鎖区画からの応答を検知。扉の開放を禁止する。',
               6500
             );
           } else {
@@ -1419,6 +1448,24 @@ export function App() {
         doorPercentRef.current = nextDoor;
         setDoorOpenPercent(nextDoor);
 
+        if (
+          (trueEndUnlockedRef.current || floorRef.current <= 0) &&
+          !b1fOpenWarningTriggeredRef.current &&
+          nextDoor >= 15
+        ) {
+          b1fOpenWarningTriggeredRef.current = true;
+          soundManager.playComplaintBuzzer();
+          setActiveSubtitle(
+            '【警告】封鎖区画の扉開放を検知。直ちに閉鎖しろ――通信エラー――'
+          );
+          showToast(
+            'DANGER',
+            '【システム警告 // 通信途絶】',
+            '【警告】封鎖区画の扉開放を検知。直ちに閉鎖しろ――通信エラー――',
+            3500
+          );
+        }
+
         // 100%まで開ききった瞬間のマルチエンディング結末演出！
         if (nextDoor >= 100) {
           decisionLockedRef.current = true;
@@ -1437,11 +1484,11 @@ export function App() {
             soundManager.startMorningAmbience();
 
             setActivePassengers([]);
-            setActiveSubtitle('「ありがとう、これで私たちは自由よ」');
+            setActiveSubtitle('「……ありがとう。これで、もう自由よ」');
             showToast(
               'INFO',
-              '【管理室通信途絶】監視システム完全破壊',
-              'バチィッ！――管理室のスピーカーが火花を散らして沈黙し、外から朝の爽やかな風が吹き抜けた。',
+              '【通信エラー】監視システム完全停止',
+              '制御システムがショートして沈黙し、扉の向こうから朝の風が吹き抜けた。',
               4000
             );
 
@@ -1640,13 +1687,13 @@ export function App() {
         p.pendingRequest.requiredAction === 'FAN'
     );
     if (targetPassenger && targetPassenger.pendingRequest) {
-      setActivePassengers((prev) =>
-        prev.map((p) =>
-          p.visitor.id === targetPassenger.visitor.id
-            ? { ...p, requestFulfilled: true }
-            : p
-        )
+      const updatedPassengers = activePassengersRef.current.map((p) =>
+        p.visitor.id === targetPassenger.visitor.id
+          ? { ...p, requestFulfilled: true }
+          : p
       );
+      activePassengersRef.current = updatedPassengers;
+      setActivePassengers(updatedPassengers);
       setActiveSubtitle(targetPassenger.pendingRequest.successText);
 
       if (
@@ -1738,12 +1785,12 @@ export function App() {
         trueEndUnlockedRef.current = false;
         setEndingType('NORMAL');
         setActiveSubtitle(
-          '「…やっぱり、あいつらを信じるのね…」『特級対象の焼却完了を確認した。そのまま1階へ降下しろ。』'
+          '「……そう……1階へ行くのね……」 【排除完了】対象反応の消失を確認。1階へ降下しろ。'
         );
         showToast(
           'INFO',
-          '【管理室通達】特級対象を排除',
-          '『対象の排除を確認した。そのまま1階へ降下しろ。』',
+          '【管理室 システム】排除完了',
+          '未登録個体の排除を確認。1階へ降下しろ。',
           3600
         );
         return;
@@ -2192,7 +2239,7 @@ export function App() {
                   </div>
 
                   <p className="text-xs sm:text-sm text-stone-900 font-bold mb-4 leading-relaxed text-left">
-                    管理室の嘘の警報と命令に屈せず、2階の「彼女」を最後まで信じ抜いたことで1階の偽装ロックは解除された。火花を散らして沈黙したエレベーターの向こうには、コンクリート階段の先に広がる眩い朝の青空と爽やかな風が待っていた。――あなたは永遠の飼育ループを打ち破り、ついに外の世界へと脱出した。
+                    管理室の警告に屈せず、2階の「彼女」を最後まで信じ抜いたことで1階のロックは解除された。火花を散らして沈黙したエレベーターの向こうには、コンクリート階段の先に広がる眩い朝の青空と爽やかな風が待っていた。――あなたは永遠の飼育ループを打ち破り、ついに外の世界へと脱出した。
                   </p>
 
                   <div className="grid grid-cols-3 divide-x divide-stone-400 border-2 border-stone-800 bg-white/70 mb-5 text-center text-xs">

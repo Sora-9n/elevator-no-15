@@ -87,7 +87,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
     isJudging && requiredCloseClicks > 1
       ? `★連打抵抗 残${closeClicksRemaining}回`
       : isKeyWomanAlertActive
-      ? '★命令：直ちに遮断しろ'
+      ? '★警告：扉開放禁止・閉鎖'
       : '押下：強制閉扉 / 遮断';
 
   if (variant === 'mobile') {
@@ -441,7 +441,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
             {isJudging && requiredCloseClicks > 1
               ? `★抉開抵抗！残${closeClicksRemaining}回連打`
               : isKeyWomanAlertActive
-              ? '★管理室命令：直ちに遮断しろ'
+              ? '★警告：扉開放禁止・直ちに閉鎖しろ'
               : '押下：強制閉扉 / 遮断排除'}
           </span>
         </motion.button>

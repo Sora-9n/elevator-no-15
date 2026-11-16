@@ -71,7 +71,7 @@ export const INITIAL_NOTICE_RULES: NoticeRule[] = [
     title: '【緊急命令】低層階における退去済み亡霊の排除',
     subtitle: '5F 追加通達 — 管理室 特別対策班',
     content:
-      '5階以下の低層階において、すでに退去・死亡したはずの旧住人が昇降機を待つ異常事象が確認されている。5階以下で会話中に【自分の部屋番号（〇〇号室）】を名乗る者はすべて退去済みの亡霊である。外見に関わらず、絶対に乗車させるな。',
+      '5階以下の低層階において、すでに退去・死亡したはずの旧住人が昇降機を待つ異常事象が確認されている。5階以下で会話中に【自分の部屋番号（〇〇号室）】を名乗る者はすべて退去済みの亡霊である。外見に関わらず、絶対に乗車させるな。\n\n【補足】2階は現在閉鎖区画となっている。同階からの呼び出しは機器の誤作動であるため応答するな。',
     highlightWarning: '5階以下で「〇〇号室」と部屋番号を名乗る者はすべて遮断しろ。',
     unlockedAtFloor: 5,
     stampText: '絶対命令',
@@ -606,9 +606,9 @@ export const INITIAL_VISITORS: VisitorData[] = [
     isKeyWoman: true,
     chapter: 3,
     spawnFloors: [2],
-    dialogue: '「…お願い、私を乗せて。1階は罠よ、地下の非常口へ連れて行くわ…」',
-    enteredDialogue: '「…ありがとう。でも気をつけて、管理室が私を消そうとしてくるわ…！」',
-    rejectedDialogue: '「…そんな…あいつらの嘘を信じるのね……」',
+    dialogue: '「……お願い、開けて……後ろから来る……1階には、行かないで……」',
+    enteredDialogue: '「……ありがとう……このまま、下へ……」',
+    rejectedDialogue: '「……だめ……1階へは、行かないで……」',
     appearance: {
       silhouetteType: 'SLENDER',
       clothingColor: '#d6d3d1',
@@ -622,7 +622,7 @@ export const INITIAL_VISITORS: VisitorData[] = [
     },
     requiredCloseClicks: 1,
     sanityDamage: 0,
-    description: '2階で待っていた薄汚れた白い服を着た悲しげな女性。5階の血に塗れた走り書きに記された“鍵となる彼女”。',
+    description: '2階（閉鎖区画）で待っていた薄汚れた白い服を着た女性。5階の血に塗れた走り書きに記された“彼女”。',
   },
   {
     id: 'v-any-neck-anomaly',
