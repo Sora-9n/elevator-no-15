@@ -31,15 +31,16 @@ interface ColorPalette {
 
 function resolveClothingPalette(color: string, isKeyWoman: boolean): ColorPalette {
   const c = color.toLowerCase();
-  if (isKeyWoman || c === '#d6d3d1') {
+  if (isKeyWoman || c === '#36393d') {
     return {
-      base: '#9a948c',
-      mid: '#b8b2a8',
-      light: '#dcd7ce',
-      rim: '#f5f2eb',
-      shadow: '#272522',
-      deep: '#0c0b0a',
-      collar: '#d6d1c7',
+      base: '#2b2e31',
+      mid: '#393d42',
+      light: '#52575e',
+      rim: '#828891',
+      shadow: '#151719',
+      deep: '#070809',
+      collar: '#43484e',
+      tie: '#1e1919',
     };
   }
   if (c === '#1d4ed8' || c === '#1e40af' || c === '#1e3a8a') {
@@ -143,7 +144,7 @@ function resolveHairArchetype(
 }
 
 type GarmentArchetype =
-  | 'KEY_WOMAN_DRESS'
+  | 'FORMER_INSPECTOR_UNIFORM'
   | 'TAILORED_SUIT'
   | 'SECURITY_UNIFORM'
   | 'RED_TRENCH_COAT'
@@ -156,7 +157,7 @@ function resolveGarmentArchetype(
   appearance: VisitorAppearance,
   isKeyWoman: boolean
 ): GarmentArchetype {
-  if (isKeyWoman || visitorId === 'v-ch3-key-woman') return 'KEY_WOMAN_DRESS';
+  if (isKeyWoman || visitorId === 'v-ch3-key-woman') return 'FORMER_INSPECTOR_UNIFORM';
   const c = appearance.clothingColor.toLowerCase();
   if (c === '#991b1b') return 'RED_TRENCH_COAT';
   if (c === '#1e40af' || c === '#1e3a8a' || visitorId === 'v-ch2-blue-no-cap-imposter') {
@@ -322,33 +323,18 @@ const NormalEndingBackdrop = React.memo(() => {
 });
 
 const TrueEndingStaticScene = React.memo(() => {
-  const stairSteps = useMemo(
-    () =>
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((step) => {
-        const ratio = step / 10;
-        const nextRatio = (step + 1) / 10;
-        const yBottom = 490 - ratio * 250;
-        const yTop = 490 - nextRatio * 250;
-        const halfWBottom = 195 - ratio * 130;
-        const halfWTop = 195 - nextRatio * 130;
-        const brightness = Math.floor(70 + ratio * 145);
-        const treadColor = `rgb(${brightness}, ${brightness + 8}, ${brightness + 18})`;
-        const riserColor = `rgb(${Math.max(30, brightness - 35)}, ${Math.max(
-          35,
-          brightness - 28
-        )}, ${Math.max(45, brightness - 18)})`;
-        return {
-          step,
-          riserPoints: `${200 - halfWBottom},${yBottom} ${200 + halfWBottom},${yBottom} ${
-            200 + halfWBottom
-          },${yBottom - 11} ${200 - halfWBottom},${yBottom - 11}`,
-          treadPoints: `${200 - halfWBottom},${yBottom - 11} ${200 + halfWBottom},${
-            yBottom - 11
-          } ${200 + halfWTop},${yTop} ${200 - halfWTop},${yTop}`,
-          riserColor,
-          treadColor,
-        };
-      }),
+  const shutterSlats = useMemo(() => [0, 1, 2, 3, 4], []);
+  const stars = useMemo(
+    () => [
+      { cx: 122, cy: 132, r: 0.9, o: 0.55 },
+      { cx: 154, cy: 118, r: 1.1, o: 0.7 },
+      { cx: 184, cy: 142, r: 0.8, o: 0.5 },
+      { cx: 215, cy: 120, r: 1.0, o: 0.65 },
+      { cx: 248, cy: 135, r: 0.9, o: 0.55 },
+      { cx: 274, cy: 124, r: 0.8, o: 0.45 },
+      { cx: 138, cy: 158, r: 0.7, o: 0.4 },
+      { cx: 262, cy: 162, r: 0.8, o: 0.45 },
+    ],
     []
   );
 
@@ -359,102 +345,152 @@ const TrueEndingStaticScene = React.memo(() => {
       className="w-full h-full pointer-events-none"
     >
       <defs>
-        <linearGradient id="morningSkyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#0284c7" />
-          <stop offset="45%" stopColor="#38bdf8" />
-          <stop offset="80%" stopColor="#bae6fd" />
-          <stop offset="100%" stopColor="#fef08a" />
+        <linearGradient id="nightSkyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#020617" />
+          <stop offset="55%" stopColor="#0f172a" />
+          <stop offset="100%" stopColor="#1e293b" />
         </linearGradient>
 
-        <radialGradient id="morningSunGlow" cx="50%" cy="22%" r="65%">
-          <stop offset="0%" stopColor="rgba(255, 255, 255, 1)" />
-          <stop offset="30%" stopColor="rgba(254, 249, 195, 0.85)" />
-          <stop offset="65%" stopColor="rgba(186, 230, 253, 0.35)" />
-          <stop offset="100%" stopColor="rgba(15, 23, 42, 0)" />
+        <linearGradient id="loadingWallLeft" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#09090b" />
+          <stop offset="100%" stopColor="#1c1917" />
+        </linearGradient>
+
+        <linearGradient id="loadingWallRight" x1="100%" y1="0%" x2="0%" y2="0%">
+          <stop offset="0%" stopColor="#09090b" />
+          <stop offset="100%" stopColor="#1c1917" />
+        </linearGradient>
+
+        <linearGradient id="nightRoadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#0f172a" />
+          <stop offset="40%" stopColor="#1c1917" />
+          <stop offset="100%" stopColor="#09090b" />
+        </linearGradient>
+
+        <radialGradient id="streetLampLeftGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="rgba(253, 224, 71, 0.72)" />
+          <stop offset="35%" stopColor="rgba(245, 158, 11, 0.28)" />
+          <stop offset="100%" stopColor="rgba(245, 158, 11, 0)" />
         </radialGradient>
 
-        <linearGradient id="sunbeamRay" x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%" stopColor="rgba(255, 255, 255, 0.85)" />
-          <stop offset="50%" stopColor="rgba(254, 240, 138, 0.35)" />
-          <stop offset="100%" stopColor="rgba(254, 240, 138, 0)" />
-        </linearGradient>
+        <radialGradient id="streetLampRightGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="rgba(186, 230, 253, 0.58)" />
+          <stop offset="40%" stopColor="rgba(56, 189, 248, 0.18)" />
+          <stop offset="100%" stopColor="rgba(56, 189, 248, 0)" />
+        </radialGradient>
 
-        <linearGradient id="concreteWallLeft" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#1e293b" />
-          <stop offset="100%" stopColor="#475569" />
-        </linearGradient>
-
-        <linearGradient id="concreteWallRight" x1="100%" y1="0%" x2="0%" y2="0%">
-          <stop offset="0%" stopColor="#1e293b" />
-          <stop offset="100%" stopColor="#475569" />
+        <linearGradient id="moonWindRay" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stopColor="rgba(148, 163, 184, 0.22)" />
+          <stop offset="65%" stopColor="rgba(30, 41, 59, 0.12)" />
+          <stop offset="100%" stopColor="rgba(9, 9, 11, 0)" />
         </linearGradient>
       </defs>
 
-      <polygon points="0,0 135,55 135,340 0,500" fill="url(#concreteWallLeft)" />
-      <polygon points="400,0 265,55 265,340 400,500" fill="url(#concreteWallRight)" />
-      <polygon points="0,0 400,0 265,55 135,55" fill="#334155" />
+      {/* 地下搬入口のコンクリート壁面と低い天井 */}
+      <polygon points="0,0 85,48 85,360 0,500" fill="url(#loadingWallLeft)" />
+      <polygon points="400,0 315,48 315,360 400,500" fill="url(#loadingWallRight)" />
+      <polygon points="0,0 400,0 315,48 85,48" fill="#18181b" />
 
+      {/* 左右コンクリート柱の警告ストライプ・配管 */}
+      <rect x="64" y="48" width="21" height="312" fill="#27272a" stroke="#09090b" strokeWidth="1.5" />
+      <rect x="315" y="48" width="21" height="312" fill="#27272a" stroke="#09090b" strokeWidth="1.5" />
+      <line x1="28" y1="0" x2="28" y2="490" stroke="#292524" strokeWidth="6" />
+      <line x1="372" y1="0" x2="372" y2="490" stroke="#292524" strokeWidth="6" />
+
+      {/* 開口部（シャッターの先に広がる夜の街と空） */}
       <rect
-        x="135"
-        y="55"
-        width="130"
-        height="185"
-        fill="url(#morningSkyGrad)"
-        stroke="#64748b"
-        strokeWidth="4"
+        x="85"
+        y="48"
+        width="230"
+        height="312"
+        fill="url(#nightSkyGrad)"
+        stroke="#3f3f46"
+        strokeWidth="3"
       />
 
-      <ellipse cx="175" cy="110" rx="28" ry="9" fill="#ffffff" opacity="0.88" />
-      <ellipse cx="225" cy="92" rx="34" ry="11" fill="#ffffff" opacity="0.82" />
-      <ellipse cx="200" cy="145" rx="45" ry="12" fill="#fef9c3" opacity="0.65" />
+      {/* 夜空の星と淡い雲影 */}
+      {stars.map((s, i) => (
+        <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="#e2e8f0" opacity={s.o} />
+      ))}
+      <ellipse cx="155" cy="148" rx="48" ry="10" fill="#1e293b" opacity="0.55" />
+      <ellipse cx="245" cy="134" rx="52" ry="11" fill="#0f172a" opacity="0.65" />
 
-      <polygon
-        points="135,55 162,68 162,228 135,240"
-        fill="#334155"
-        stroke="#94a3b8"
-        strokeWidth="1.5"
+      {/* 遠景のビル群・電柱・電線シルエット */}
+      <path
+        d="M 85 268 L 85 186 L 116 186 L 116 205 L 146 205 L 146 175 L 178 175 L 178 216 L 216 216 L 216 190 L 254 190 L 254 210 L 288 210 L 288 182 L 315 182 L 315 268 Z"
+        fill="#090d16"
+        stroke="#1e293b"
+        strokeWidth="0.8"
       />
+      {/* 遠景マンションのぽつりとした窓明かり */}
+      <rect x="156" y="190" width="4" height="5" fill="#fde68a" opacity="0.55" />
+      <rect x="226" y="204" width="4" height="5" fill="#bae6fd" opacity="0.45" />
+      <rect x="262" y="222" width="4" height="4" fill="#fde68a" opacity="0.4" />
+      {/* 電線 */}
+      <path d="M 85 170 Q 200 198 315 166" fill="none" stroke="#1e293b" strokeWidth="1" />
+      <path d="M 85 182 Q 200 212 315 178" fill="none" stroke="#0f172a" strokeWidth="0.9" />
 
+      {/* 搬入口先の夜間アスファルト道路 */}
+      <polygon points="85,268 315,268 395,500 5,500" fill="url(#nightRoadGrad)" />
+      {/* 道路の薄い白線・路肩線 */}
+      <polygon points="196,272 204,272 214,495 186,495" fill="#334155" opacity="0.42" />
+      <line x1="92" y1="268" x2="35" y2="500" stroke="#475569" strokeWidth="1.5" opacity="0.45" />
+      <line x1="308" y1="268" x2="365" y2="500" stroke="#475569" strokeWidth="1.5" opacity="0.45" />
+
+      {/* 左手前街灯（暖色ナトリウム灯）＋路面反射 */}
+      <line x1="128" y1="292" x2="128" y2="196" stroke="#334155" strokeWidth="3" />
+      <line x1="128" y1="196" x2="146" y2="196" stroke="#475569" strokeWidth="2.5" />
+      <ellipse cx="145" cy="198" rx="5.5" ry="2.8" fill="#fef08a" />
+      <circle cx="145" cy="202" r="56" fill="url(#streetLampLeftGlow)" />
+      <ellipse cx="142" cy="312" rx="46" ry="14" fill="rgba(245, 158, 11, 0.16)" />
+
+      {/* 右奥街灯（寒色水銀灯）＋路面反射 */}
+      <line x1="274" y1="278" x2="274" y2="212" stroke="#334155" strokeWidth="2.4" />
+      <line x1="274" y1="212" x2="260" y2="212" stroke="#475569" strokeWidth="2" />
+      <ellipse cx="261" cy="214" rx="4.5" ry="2.2" fill="#e0f2fe" />
+      <circle cx="261" cy="218" r="46" fill="url(#streetLampRightGlow)" />
+      <ellipse cx="256" cy="292" rx="34" ry="10" fill="rgba(56, 189, 248, 0.14)" />
+
+      {/* 半開きで上方に巻き上げられた鋼鉄製スラット・シャッター（地下搬入口らしさ） */}
+      <rect x="85" y="48" width="230" height="58" fill="#27272a" stroke="#09090b" strokeWidth="2" />
+      {shutterSlats.map((s) => (
+        <line
+          key={s}
+          x1="86"
+          y1={56 + s * 11}
+          x2="314"
+          y2={56 + s * 11}
+          stroke="#18181b"
+          strokeWidth="2"
+        />
+      ))}
+      <rect x="85" y="102" width="230" height="6" fill="#3f3f46" stroke="#09090b" strokeWidth="1.5" />
+
+      {/* 頭上の「搬入口 / EXIT」消えかけの誘導体サイン */}
       <rect
-        x="176"
-        y="34"
-        width="48"
-        height="14"
+        x="156"
+        y="24"
+        width="88"
+        height="16"
         rx="2"
-        fill="#059669"
-        stroke="#a7f3d0"
-        strokeWidth="1.2"
+        fill="#064e3b"
+        stroke="#6ee7b7"
+        strokeWidth="1.1"
       />
-      <text x="200" y="44" textAnchor="middle" fill="#ffffff" fontSize="8" fontWeight="bold">
-        非常口 EXIT
+      <text x="200" y="35" textAnchor="middle" fill="#d1fae5" fontSize="8" fontWeight="bold">
+        B1F 搬入口 EXIT
       </text>
 
-      {stairSteps.map(({ step, riserPoints, treadPoints, riserColor, treadColor }) => (
-        <g key={step}>
-          <polygon
-            points={riserPoints}
-            fill={riserColor}
-            stroke="rgba(255,255,255,0.18)"
-            strokeWidth="0.7"
-          />
-          <polygon points={treadPoints} fill={treadColor} />
-        </g>
-      ))}
+      {/* 手前の地下搬入口スロープと敷居の段差影 */}
+      <polygon points="0,500 85,360 315,360 400,500" fill="rgba(12, 10, 9, 0.55)" />
+      <line x1="85" y1="360" x2="315" y2="360" stroke="#44403c" strokeWidth="2" />
 
-      <line x1="25" y1="430" x2="142" y2="215" stroke="#cbd5e1" strokeWidth="4" />
-      <line x1="25" y1="430" x2="25" y2="485" stroke="#94a3b8" strokeWidth="3.5" />
-      <line x1="90" y1="312" x2="90" y2="365" stroke="#94a3b8" strokeWidth="3" />
-
-      <line x1="375" y1="430" x2="258" y2="215" stroke="#cbd5e1" strokeWidth="4" />
-      <line x1="375" y1="430" x2="375" y2="485" stroke="#94a3b8" strokeWidth="3.5" />
-      <line x1="310" y1="312" x2="310" y2="365" stroke="#94a3b8" strokeWidth="3" />
-
+      {/* 夜気と月光の淡い流入ビーム */}
       <polygon
-        points="140,60 260,60 390,500 10,500"
-        fill="url(#sunbeamRay)"
+        points="92,108 308,108 380,500 20,500"
+        fill="url(#moonWindRay)"
         style={{ mixBlendMode: 'screen' }}
       />
-      <circle cx="200" cy="135" r="185" fill="url(#morningSunGlow)" opacity="0.85" />
     </svg>
   );
 });
@@ -813,91 +849,175 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
             />
 
             {/* 3-D. 服装タイプ別の高密度仕立て・ラペル・ポケット・ドレープ描き込み（情報量2倍強化） */}
-            {garmentType === 'KEY_WOMAN_DRESS' ? (
-              /* ★ 2F「鍵となる彼女」専用：薄汚れた白い服の幾重もの繊細なドレープ影と鎖骨が開いた襟元 */
+            {garmentType === 'FORMER_INSPECTOR_UNIFORM' ? (
+              /* ★ 2F「元検閲官の女性」専用：ボロボロに擦り切れ汚れた検閲官制服（引きちぎられた名札跡・空の留め具・曲がったネクタイ） */
               <g>
-                {/* 鎖骨が見える広く緩いネックラインと二重の布縁 */}
+                {/* くたびれ煤けた制服インナーシャツ */}
+                <polygon
+                  points="114,148 166,148 140,236"
+                  fill="#9ca3af"
+                  stroke="#09090b"
+                  strokeWidth="1.2"
+                />
+                <polygon points="140,148 166,148 140,236" fill="#4b5563" />
+                {/* 擦り切れたシャツ襟（片側がやや垂れ下がり汚損している） */}
+                <polygon
+                  points="112,144 137,166 123,181 107,155"
+                  fill="#cbd5e1"
+                  stroke="#18181b"
+                  strokeWidth="1.2"
+                />
+                <polygon
+                  points="167,145 142,167 157,183 172,157"
+                  fill="#64748b"
+                  stroke="#09090b"
+                  strokeWidth="1.2"
+                />
+                {/* 緩み歪んだ細身の暗色ネクタイ */}
+                <polygon
+                  points="135,165 146,165 142,178 136,178"
+                  fill={palette.tie ?? '#1e1919'}
+                  stroke="#09090b"
+                  strokeWidth="1.1"
+                />
+                <polygon
+                  points="136,178 142,178 141,238 134,249 129,235"
+                  fill={palette.tie ?? '#1e1919'}
+                  stroke="#09090b"
+                  strokeWidth="1.1"
+                />
+                {/* 検閲官制服のラペル（左側は煤け、右ラペル角は破れほつれている） */}
                 <path
-                  d="M 102 144 C 115 174, 165 174, 178 144 C 170 184, 110 184, 102 144 Z"
-                  fill="#0b0a09"
-                  stroke={palette.light}
-                  strokeWidth="1.5"
+                  d="M 101 144 L 116 148 L 139 240 L 111 236 L 94 185 L 103 173 L 96 160 Z"
+                  fill={palette.light}
+                  stroke={palette.deep}
+                  strokeWidth="1.8"
                 />
                 <path
-                  d="M 100 148 C 114 180, 166 180, 180 148"
+                  d="M 103 148 L 114 150 L 134 231 L 113 228 L 99 185 L 107 173"
                   fill="none"
                   stroke={palette.rim}
+                  strokeWidth="0.9"
+                  strokeDasharray="3 1.5"
+                  opacity="0.72"
+                />
+                <path
+                  d="M 179 144 L 164 148 L 141 240 L 168 235 L 176 218 L 182 210 L 177 192 L 185 184 L 177 173 L 184 160 Z"
+                  fill={palette.collar}
+                  stroke={palette.deep}
+                  strokeWidth="1.8"
+                />
+                {/* 制服前合わせ・残存ボタンと千切れた糸跡 */}
+                <line x1="140" y1="238" x2="140" y2="390" stroke="#09090b" strokeWidth="2.5" />
+                <circle cx="133" cy="256" r="3.4" fill="#18181b" stroke={palette.rim} strokeWidth="0.9" />
+                {/* 2番目ボタン欠損のほつれ糸（×印） */}
+                <path
+                  d="M 131 291 L 136 296 M 136 291 L 131 296"
+                  stroke="#94a3b8"
                   strokeWidth="1.1"
-                  opacity="0.7"
-                />
-                {/* 左肩〜胸元〜裾へ流れる白い布のハイライト・ドレープ群 */}
-                <path
-                  d="M 88 152 C 102 194, 110 265, 102 388 L 126 388 C 128 268, 122 200, 110 162 Z"
-                  fill={palette.light}
-                  opacity="0.78"
-                />
-                <path
-                  d="M 66 164 C 72 222, 74 295, 70 388 L 88 388 C 92 298, 90 224, 80 164 Z"
-                  fill={palette.rim}
-                  opacity="0.52"
-                />
-                <path
-                  d="M 46 184 C 44 236, 44 308, 44 388 L 56 388 C 56 308, 56 236, 58 182 Z"
-                  fill={palette.light}
-                  opacity="0.42"
-                />
-                {/* 鎖骨下から胸元へ集まる放射状のギャザー・カテナリー曲線シワ */}
-                <path
-                  d="M 106 168 Q 140 198 172 168 M 112 184 Q 140 214 168 184 M 116 204 Q 140 232 164 204"
-                  fill="none"
-                  stroke={palette.shadow}
-                  strokeWidth="1.6"
-                  opacity="0.75"
-                />
-                {/* 幾重にも刻まれた深い布の縦シワ・落ち影 */}
-                <path
-                  d="M 96 172 C 102 228, 100 302, 94 388 L 101 388 C 107 302, 108 228, 101 172 Z"
-                  fill={palette.shadow}
                   opacity="0.85"
                 />
+                <circle cx="133" cy="332" r="3.4" fill="#18181b" stroke={palette.rim} strokeWidth="0.9" />
+                {/* 左胸フラップポケット（縫い目が一部剥がれて傾いている） */}
                 <path
-                  d="M 114 170 C 120 228, 118 302, 112 388 L 121 388 C 127 302, 127 228, 120 170 Z"
-                  fill={palette.shadow}
+                  d="M 86 206 L 114 202 L 116 214 L 102 220 L 87 215 Z"
+                  fill={palette.mid}
+                  stroke={palette.deep}
+                  strokeWidth="1.4"
                 />
+                <rect x="87" y="213" width="29" height="24" fill={palette.shadow} stroke={palette.deep} strokeWidth="1.3" opacity="0.85" />
+                {/* 右袖・左腕の深い破れ目（インナー生地が覗くほつれ傷） */}
                 <path
-                  d="M 136 174 C 138 235, 134 310, 130 388 L 146 388 C 148 308, 148 232, 142 174 Z"
-                  fill={palette.deep}
-                  opacity="0.9"
-                />
-                <path
-                  d="M 160 166 C 168 228, 174 302, 180 388 L 194 388 C 186 298, 180 224, 170 162 Z"
-                  fill={palette.deep}
-                />
-                <path
-                  d="M 184 172 C 194 234, 198 308, 200 388 L 210 388 C 208 304, 204 232, 192 168 Z"
+                  d="M 38 242 L 54 249 L 44 257 L 52 263 L 36 258 Z"
                   fill="#09090b"
+                  stroke="#9ca3af"
+                  strokeWidth="0.9"
+                />
+                <path
+                  d="M 222 288 L 242 296 L 231 304 L 244 312 L 226 308 Z"
+                  fill="#050507"
+                  stroke={palette.rim}
+                  strokeWidth="0.85"
+                />
+                {/* 前裾・腹部〜肩口にこびり付いた黒ずんだ油染み・煤汚れ */}
+                <path
+                  d="M 74 268 C 88 263, 98 278, 86 294 C 73 291, 67 277, 74 268 Z"
+                  fill="#1c1917"
+                  opacity="0.72"
+                />
+                <path
+                  d="M 118 308 C 136 300, 149 322, 130 342 C 115 337, 108 318, 118 308 Z"
+                  fill="#0c0a09"
+                  opacity="0.75"
+                />
+                <path
+                  d="M 96 156 Q 108 164 114 176 M 156 266 Q 178 278 192 272"
+                  fill="none"
+                  stroke={palette.deep}
+                  strokeWidth="1.5"
                   opacity="0.78"
                 />
-                {/* 袖ぐり・肘周辺の柔らかな生地のたわみシワ */}
-                <path
-                  d="M 68 214 Q 82 226 92 234 M 69 240 Q 82 250 92 256 M 212 214 Q 198 226 188 234 M 211 240 Q 198 250 188 256"
-                  fill="none"
-                  stroke={palette.shadow}
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  opacity="0.68"
-                />
-                {/* 薄汚れた裾・胸元の煤汚れ（ソリッドベクター斑） */}
-                <path
-                  d="M 74 252 C 88 248, 96 262, 84 274 C 72 270, 68 258, 74 252 Z"
-                  fill="#44403c"
-                  opacity="0.45"
-                />
-                <path
-                  d="M 118 295 C 134 288, 144 308, 128 322 C 114 318, 110 304, 118 295 Z"
-                  fill="#292524"
-                  opacity="0.5"
-                />
+
+                {/* ★ 右胸（画面右側 x=180〜210, y=195〜228）の「引きちぎられた名札の跡と開いた空の留め具」 */}
+                <g transform="rotate(-3 195 212)">
+                  {/* 名札が貼り付いていた四角い日焼け・褪色痕（周囲よりわずかに明るい矩形跡） */}
+                  <rect
+                    x="180"
+                    y="204"
+                    width="30"
+                    height="21"
+                    rx="1.5"
+                    fill="#4b5159"
+                    stroke="#18181b"
+                    strokeWidth="0.9"
+                    strokeDasharray="2 1.5"
+                    opacity="0.82"
+                  />
+                  {/* 名札を引き剥がした際の生地の引きつれ・破れ傷 */}
+                  <path
+                    d="M 183 199 L 188 205 L 181 207 M 204 198 L 207 204 L 201 203"
+                    fill="none"
+                    stroke="#09090b"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                  <line x1="185" y1="201" x2="205" y2="201" stroke="#050507" strokeWidth="2.1" />
+                  {/* 残された空の安全ピン留め具（歪んで針先が外れ垂れ下がっている） */}
+                  <circle cx="187" cy="201" r="1.4" fill="#050507" />
+                  <circle
+                    cx="205.5"
+                    cy="201"
+                    r="2"
+                    fill="none"
+                    stroke="#d4d4d8"
+                    strokeWidth="1.3"
+                  />
+                  <line
+                    x1="186"
+                    y1="200.5"
+                    x2="205"
+                    y2="200.5"
+                    stroke="#e4e4e7"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                  />
+                  {/* ピン先が外れて斜め下にぶら下がる針・欠損プラスチック片 */}
+                  <line
+                    x1="205"
+                    y1="201"
+                    x2="195"
+                    y2="213"
+                    stroke="#a1a1aa"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                  <polygon
+                    points="190,202 197,202 196,207 191,206"
+                    fill="#d4d4d8"
+                    stroke="#09090b"
+                    strokeWidth="0.8"
+                  />
+                </g>
               </g>
             ) : garmentType === 'SECURITY_UNIFORM' ? (
               /* ★ 警備制服（通達④対象）：エポーレット（肩章）・金ボタン・両胸フラップポケット・ネクタイピン・制服用切替線 */
@@ -2337,16 +2457,16 @@ export const VisitorView: React.FC<VisitorViewProps> = React.memo(({
       {isNormalEndingView ? (
         <NormalEndingBackdrop />
       ) : isTrueEndingView ? (
-        /* ★ 最終フロア演出②：B1F トゥルーエンディング */
-        <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#090d16]">
+        /* ★ 最終フロア演出②：B1F 地下搬入口・深夜の外（冷たい夜気と遠方の街灯） */
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#040711]">
           <TrueEndingStaticScene />
-          {/* 扉が開くにつれて強まる朝の光ブルーム */}
+          {/* 搬入口シャッターが開くにつれて差し込む、夜の冷気と遠方街灯のほのかな残照 */}
           <div
             className="absolute inset-0 pointer-events-none transition-opacity duration-150 will-change-[opacity]"
             style={{
               background:
-                'radial-gradient(circle at 50% 30%, rgba(255,255,255,0.85) 0%, rgba(254,249,195,0.45) 42%, rgba(56,189,248,0.15) 80%, transparent 100%)',
-              opacity: Math.max(0.15, (doorOpenPercent / 100) * 0.85),
+                'radial-gradient(circle at 50% 42%, rgba(148,163,184,0.16) 0%, rgba(245,158,11,0.09) 46%, rgba(15,23,42,0.18) 80%, transparent 100%)',
+              opacity: Math.max(0.15, (doorOpenPercent / 100) * 0.72),
             }}
           />
         </div>

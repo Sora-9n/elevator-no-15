@@ -2,9 +2,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowDown, Volume2, VolumeX, Pause, Play } from 'lucide-react';
 import type { GameState } from '../types/game';
+import { formatShiftCode } from '../data/storyTexts';
 
 interface FloorIndicatorProps {
   floor: number;
+  shiftCount: number;
   gameState: GameState;
   sanity: number;
   maxSanity: number;
@@ -17,10 +19,12 @@ interface FloorIndicatorProps {
   onToggleMute: () => void;
   isPaused: boolean;
   onTogglePause: () => void;
+  isAwaiting1FOverride?: boolean;
 }
 
 export const FloorIndicator: React.FC<FloorIndicatorProps> = React.memo(({
   floor,
+  shiftCount,
   gameState,
   sanity,
   maxSanity,
@@ -33,13 +37,15 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = React.memo(({
   onToggleMute,
   isPaused,
   onTogglePause,
+  isAwaiting1FOverride = false,
 }) => {
   const isMoving = gameState === 'MOVING';
   const isJudging = gameState === 'JUDGING';
   const isDanger = complaints >= 2 || sanity <= 1;
 
   const formattedFloor =
-    floor <= 0 ? 'B1F' : floor === 1 ? '1F' : `${String(floor).padStart(2, '0')}F`;
+    floor <= 0 ? 'B1F' : `${String(floor).padStart(2, '0')}F`;
+  const shiftBadge = formatShiftCode(shiftCount);
   const timeProgress = Math.max(0, Math.min(100, (judgingTimeLeftMs / judgingMaxTimeMs) * 100));
   const secondsLeft = (judgingTimeLeftMs / 1000).toFixed(1);
 
@@ -56,15 +62,17 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = React.memo(({
         : `【検閲】身元照合 (${secondsLeft}s)`
       : gameState === 'FINAL_DOOR'
       ? floor <= 0
-        ? '【B1F非常口】手動開扉'
-        : '【1F到着】手動開扉待機'
+        ? '【B1F搬入口】手動開扉'
+        : isAwaiting1FOverride
+        ? '【01F停止】回路強制遮断待機'
+        : '【01F到着】手動開扉待機'
       : gameState === 'EVENT_RESULT'
       ? '【判定】処理実行中'
       : '【停止】待機状態';
 
   return (
     <header className="relative z-30 w-full md:h-14 mobile-landscape-header px-2 sm:px-2.5 md:px-3 pt-[max(env(safe-area-inset-top,0px),0.5rem)] pb-1.5 md:py-0 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-2 border-b border-stone-800 bg-stone-950/95 shrink-0 whitespace-nowrap">
-      {/* モバイル縦画面用：1段目（精神・階数・通報・ポーズ・ミュート）＋2段目（ステータス＆タイマーバー） */}
+      {/* モバイル縦画面用：1段目（精神・階数・通報・ポーズ・ミュート）＋2段目（SHIFT・ステータス＆タイマーバー） */}
       <div className="flex md:hidden items-center justify-between gap-1 w-full min-w-0">
         {/* 精神安定度 */}
         <div
@@ -167,12 +175,20 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = React.memo(({
         </div>
       </div>
 
-      {/* モバイル縦画面用：2段目（状態テキスト＋タイマーバー） */}
-      <div className="flex md:hidden items-center gap-2 w-full">
+      {/* モバイル縦画面用：2段目（SHIFT番号＋状態テキスト＋タイマーバー） */}
+      <div className="flex md:hidden items-center gap-1.5 w-full">
+        <span
+          id="shift-badge-mobile"
+          className="px-1.5 py-0.5 rounded-xs bg-black/90 border border-amber-700/70 font-seven-seg text-[10px] font-bold tracking-wider text-amber-300 shrink-0"
+        >
+          {shiftBadge}
+        </span>
         <span
           className={`text-[10px] font-bold shrink-0 ${
             gameState === 'PREPARE'
               ? 'text-emerald-400'
+              : isAwaiting1FOverride
+              ? 'text-red-400 animate-pulse'
               : isJudging
               ? isSlowMotion
                 ? 'text-red-400 animate-pulse'
@@ -207,35 +223,44 @@ export const FloorIndicator: React.FC<FloorIndicatorProps> = React.memo(({
       {/* ============================================================
           デスクトップ・PC横画面用（md以上）：従来の1行コンパクトヘッダー
           ============================================================ */}
-      {/* 左：精神安定度 ＋ 緑ゲージ (3/3) */}
-      <div
-        id="sanity-indicator"
-        className="hidden md:flex items-center gap-2 bg-black/80 border border-stone-800 px-3 py-1.5 rounded whitespace-nowrap shrink-0"
-      >
-        <span className="text-xs font-bold text-stone-300 whitespace-nowrap">精神安定度</span>
-        <div className="flex items-center gap-1">
-          {Array.from({ length: maxSanity }).map((_, idx) => {
-            const active = idx < sanity;
-            return (
-              <div
-                key={idx}
-                className={`w-5 h-3 rounded-xs border transition-colors ${
-                  active
-                    ? sanity === 1
-                      ? 'bg-red-500 border-red-300 shadow-[0_0_6px_rgba(239,68,68,0.8)]'
-                      : 'bg-emerald-500 border-emerald-300 shadow-[0_0_6px_rgba(16,185,129,0.5)]'
-                    : 'bg-stone-900 border-stone-800 opacity-35'
-                }`}
-              />
-            );
-          })}
+      {/* 左：精神安定度 ＋ 緑ゲージ (3/3) ＋ SHIFT XX */}
+      <div className="hidden md:flex items-center gap-2 shrink-0 whitespace-nowrap">
+        <div
+          id="sanity-indicator"
+          className="flex items-center gap-2 bg-black/80 border border-stone-800 px-3 py-1.5 rounded whitespace-nowrap shrink-0"
+        >
+          <span className="text-xs font-bold text-stone-300 whitespace-nowrap">精神安定度</span>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: maxSanity }).map((_, idx) => {
+              const active = idx < sanity;
+              return (
+                <div
+                  key={idx}
+                  className={`w-5 h-3 rounded-xs border transition-colors ${
+                    active
+                      ? sanity === 1
+                        ? 'bg-red-500 border-red-300 shadow-[0_0_6px_rgba(239,68,68,0.8)]'
+                        : 'bg-emerald-500 border-emerald-300 shadow-[0_0_6px_rgba(16,185,129,0.5)]'
+                      : 'bg-stone-900 border-stone-800 opacity-35'
+                  }`}
+                />
+              );
+            })}
+          </div>
+          <span className="font-seven-seg text-xs text-stone-300 whitespace-nowrap">
+            {sanity}/{maxSanity}
+          </span>
         </div>
-        <span className="font-seven-seg text-xs text-stone-300 whitespace-nowrap">
-          {sanity}/{maxSanity}
+
+        <span
+          id="shift-badge"
+          className="px-2 py-1 rounded bg-black/85 border border-amber-700/60 font-seven-seg text-xs font-bold tracking-wider text-amber-300 shrink-0"
+        >
+          {shiftBadge}
         </span>
       </div>
 
-      {/* 中央：14F ＋ ステータス＆8秒タイマーバー */}
+      {/* 中央：15F ＋ ステータス＆8秒タイマーバー */}
       <div className="hidden md:flex items-center gap-3 bg-black/90 border border-stone-700/90 px-3.5 py-1 rounded shadow-inner whitespace-nowrap shrink-0">
         {/* 下降矢印＋7セグ階層表示 */}
         <div className="flex items-center gap-1.5">

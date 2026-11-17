@@ -104,14 +104,37 @@ export interface NoticeRule {
   stampText?: string;
 }
 
-export interface CorruptedMemo {
+export interface ScrapMemo {
   id: string;
   buttonLabel: string;
+  shortBadgeLabel: string;
+  sourceLabel: string;
   title: string;
   content: string;
-  highlightText: string;
-  unlockedAtFloor: 5;
+  unlockedAtFloor: 15 | 10 | 5;
 }
+
+export type CorruptedMemo = ScrapMemo;
+
+export type TapDialogueSpeakerType =
+  | 'SYSTEM'
+  | 'WOMAN'
+  | 'PROTAGONIST'
+  | 'NARRATION';
+
+export interface TapDialogueLine {
+  id: string;
+  speakerLabel: string;
+  speakerType: TapDialogueSpeakerType;
+  text: string;
+}
+
+export type TapSequenceKind =
+  | 'TRUE_1F_STOP'
+  | 'TRUE_B1F_ESCAPE'
+  | 'NORMAL_1F_LOOP';
+
+export type EvaluationRank = 'S' | 'A' | 'B' | 'C';
 
 export interface ActivePassenger {
   visitor: VisitorData;
@@ -149,3 +172,4 @@ export interface EventOutcome {
   sanityDelta: number;
   complaintDelta: number;
 }
+

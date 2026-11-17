@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Fan, BellRing, Play } from 'lucide-react';
 import type { ActivePassenger, GameState, MovingCabinEvent } from '../types/game';
+import { STORY_TEXTS } from '../data/storyTexts';
 
 interface ControlPanelProps {
   gameState: GameState;
@@ -21,6 +22,8 @@ interface ControlPanelProps {
   activePassengers: ActivePassenger[];
   movingEvent: MovingCabinEvent | null;
   variant?: 'desktop' | 'mobile';
+  isAwaiting1FOverride?: boolean;
+  isTapDialogueActive?: boolean;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
@@ -41,17 +44,23 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
   activePassengers,
   movingEvent,
   variant = 'desktop',
+  isAwaiting1FOverride = false,
+  isTapDialogueActive = false,
 }) => {
   const isPrepare = gameState === 'PREPARE';
   const hasUnreadNotices = isPrepare && unreadNoticeCount > 0;
-  const canStartInspection = isPrepare && unreadNoticeCount === 0;
+  const canStartInspection = isPrepare && unreadNoticeCount === 0 && !isTapDialogueActive;
   const isJudging = gameState === 'JUDGING';
   const isFinalDoor = gameState === 'FINAL_DOOR';
   const isMoving = gameState === 'MOVING';
-  const canHoldOpen = isJudging || isFinalDoor;
+  const canHoldOpen =
+    (isJudging || isFinalDoor) && !isAwaiting1FOverride && !isTapDialogueActive;
+  const canPressClose =
+    (isJudging || (isFinalDoor && isAwaiting1FOverride)) && !isTapDialogueActive;
   const isUrgentClose =
     (isJudging && requiredCloseClicks > 1 && closeClicksRemaining > 0) ||
-    isKeyWomanAlertActive;
+    isKeyWomanAlertActive ||
+    isAwaiting1FOverride;
 
   const topActionLabel = isPrepare
     ? hasUnreadNotices
@@ -60,7 +69,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
     : isMoving || gameState === 'EVENT_RESULT'
     ? '▼ 次階へ降下中'
     : isFinalDoor
-    ? '― 最終階層到達 ―'
+    ? isAwaiting1FOverride
+      ? STORY_TEXTS.controlPanel.floor1OverrideTopBanner
+      : '― 最終階層到達 ―'
     : '― 検問実施中 ―';
 
   // 12% → 100% までの長押し進捗率（FINAL_DOOR時は 0% → 100%）
@@ -84,7 +95,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
   const needBellAction = isActiveEvent && movingEvent?.requiredAction === 'BELL';
 
   const closeSubLabel =
-    isJudging && requiredCloseClicks > 1
+    isAwaiting1FOverride
+      ? STORY_TEXTS.controlPanel.floor1OverrideCloseSubLabel
+      : isJudging && requiredCloseClicks > 1
       ? `★連打抵抗 残${closeClicksRemaining}回`
       : isKeyWomanAlertActive
       ? '★警告：扉開放禁止・閉鎖'
@@ -131,12 +144,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
               onContextMenu={(e) => e.preventDefault()}
               style={{ willChange: 'transform' }}
               animate={
-                isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
+                canHoldOpen && isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
                   ? { scale: [1, 1.03, 1] }
                   : { scale: 1 }
               }
               transition={
-                isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
+                canHoldOpen && isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
                   ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
                   : { duration: 0.15 }
               }
@@ -158,7 +171,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
                 ＜＞ 開扉
               </span>
               <span className="relative z-10 text-[9px] text-stone-300 leading-tight text-center">
-                {isFinalDoor
+                {isAwaiting1FOverride
+                  ? '使用禁止（閉扉を押せ）'
+                  : isFinalDoor
                   ? `長押し (${Math.floor(openHoldProgress)}%)`
                   : '長押しで開く'}
               </span>
@@ -181,30 +196,36 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
           <motion.button
             id="mobile-btn-door-close"
             type="button"
-            disabled={!isJudging}
+            disabled={!canPressClose}
             onClick={onPressClose}
             style={{ willChange: 'transform' }}
             animate={
-              isUrgentClose
+              canPressClose && isUrgentClose
                 ? { scale: [1, 1.03, 1] }
                 : { scale: 1 }
             }
             transition={
-              isUrgentClose
+              canPressClose && isUrgentClose
                 ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
                 : { duration: 0.15 }
             }
-            whileTap={isJudging ? { scale: 0.94 } : undefined}
+            whileTap={canPressClose ? { scale: 0.94 } : undefined}
             className={`relative h-full py-1.5 px-1.5 rounded border-2 flex flex-col items-center justify-center gap-0.5 transition-colors overflow-hidden ${
-              !isJudging
+              !canPressClose
                 ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
+                : isAwaiting1FOverride
+                ? 'bg-amber-950 border-amber-400 text-amber-100 cursor-pointer ring-2 ring-amber-400/90 shadow-[0_0_24px_rgba(245,158,11,0.9)]'
                 : isUrgentClose
                 ? 'bg-red-900 border-red-400 text-white cursor-pointer ring-2 ring-red-400/90 shadow-[0_0_22px_rgba(239,68,68,0.9)]'
                 : 'bg-stone-900 border-stone-700 text-stone-200 cursor-pointer'
             }`}
           >
-            {isUrgentClose && (
-              <span className="absolute inset-0 bg-red-500/25 animate-ping pointer-events-none" />
+            {canPressClose && isUrgentClose && (
+              <span
+                className={`absolute inset-0 animate-ping pointer-events-none ${
+                  isAwaiting1FOverride ? 'bg-amber-400/25' : 'bg-red-500/25'
+                }`}
+              />
             )}
             <span className="relative z-10 text-xs sm:text-sm font-mincho font-black tracking-wider">
               ＞＜ 閉扉
@@ -224,6 +245,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
           <motion.button
             id="mobile-btn-cabin-fan"
             type="button"
+            disabled={isTapDialogueActive}
             onClick={onToggleFan}
             style={{ willChange: 'transform' }}
             animate={
@@ -236,12 +258,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
                 ? { duration: 0.5, repeat: Infinity, ease: 'easeInOut' }
                 : { duration: 0.15 }
             }
-            className={`relative py-1.5 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors cursor-pointer overflow-hidden ${
-              needFanAction && !isFanOn
-                ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90 shadow-[0_0_22px_rgba(168,85,247,0.9)]'
+            className={`relative py-1.5 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors overflow-hidden ${
+              isTapDialogueActive
+                ? 'opacity-50 cursor-not-allowed bg-stone-900 border-stone-800 text-stone-500'
+                : needFanAction && !isFanOn
+                ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90 shadow-[0_0_22px_rgba(168,85,247,0.9)] cursor-pointer'
                 : isFanOn
-                ? 'bg-stone-800 border-emerald-500 text-emerald-200'
-                : 'bg-stone-900 border-stone-700 text-stone-300'
+                ? 'bg-stone-800 border-emerald-500 text-emerald-200 cursor-pointer'
+                : 'bg-stone-900 border-stone-700 text-stone-300 cursor-pointer'
             }`}
           >
             {needFanAction && !isFanOn && (
@@ -264,6 +288,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
           <motion.button
             id="mobile-btn-emergency-bell"
             type="button"
+            disabled={isTapDialogueActive}
             onClick={onPressBell}
             style={{ willChange: 'transform' }}
             animate={
@@ -276,10 +301,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
                 ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
                 : { duration: 0.15 }
             }
-            className={`relative py-1.5 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors cursor-pointer overflow-hidden ${
-              needBellAction
-                ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90 shadow-[0_0_24px_rgba(239,68,68,0.95)]'
-                : 'bg-stone-900 border-stone-700 active:scale-95 text-stone-300'
+            className={`relative py-1.5 px-1.5 rounded border flex items-center justify-center gap-1 transition-colors overflow-hidden ${
+              isTapDialogueActive
+                ? 'opacity-50 cursor-not-allowed bg-stone-900 border-stone-800 text-stone-500'
+                : needBellAction
+                ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90 shadow-[0_0_24px_rgba(239,68,68,0.95)] cursor-pointer'
+                : 'bg-stone-900 border-stone-700 active:scale-95 text-stone-300 cursor-pointer'
             }`}
           >
             {needBellAction && (
@@ -343,12 +370,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
             onContextMenu={(e) => e.preventDefault()}
             style={{ willChange: 'transform' }}
             animate={
-              isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
+              canHoldOpen && isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
                 ? { scale: [1, 1.03, 1] }
                 : { scale: 1 }
             }
             transition={
-              isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
+              canHoldOpen && isFinalDoor && !isHoldingOpen && doorOpenPercent < 100
                 ? { duration: 0.75, repeat: Infinity, ease: 'easeInOut' }
                 : { duration: 0.15 }
             }
@@ -373,7 +400,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
               ＜＞ 開扉
             </span>
             <span className="relative z-10 text-[10px] xl:text-[11px] leading-tight text-center text-stone-300">
-              {isFinalDoor
+              {isAwaiting1FOverride
+                ? '使用禁止（閉扉を押せ）'
+                : isFinalDoor
                 ? `★長押し：最終扉を手動開放 (${Math.floor(openHoldProgress)}%)`
                 : '長押し：隙間拡大 / 乗車認可'}
             </span>
@@ -403,30 +432,36 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
         <motion.button
           id="btn-door-close"
           type="button"
-          disabled={!isJudging}
+          disabled={!canPressClose}
           onClick={onPressClose}
           style={{ willChange: 'transform' }}
           animate={
-            isUrgentClose
+            canPressClose && isUrgentClose
               ? { scale: [1, 1.03, 1] }
               : { scale: 1 }
           }
           transition={
-            isUrgentClose
+            canPressClose && isUrgentClose
               ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
               : { duration: 0.15 }
           }
-          whileTap={isJudging ? { scale: 0.94 } : undefined}
+          whileTap={canPressClose ? { scale: 0.94 } : undefined}
           className={`relative w-full py-2.5 lg:py-3.5 px-2 rounded border flex flex-col items-center justify-center gap-0.5 transition-colors overflow-hidden ${
-            !isJudging
+            !canPressClose
               ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed'
+              : isAwaiting1FOverride
+              ? 'bg-amber-950 hover:bg-amber-900 border-amber-400 text-amber-100 cursor-pointer ring-2 ring-amber-400/90 shadow-[0_0_26px_rgba(245,158,11,0.95)]'
               : isUrgentClose
               ? 'bg-red-900 hover:bg-red-800 border-red-400 text-white cursor-pointer ring-2 ring-red-400/90 shadow-[0_0_26px_rgba(239,68,68,0.95)]'
               : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-200 cursor-pointer'
           }`}
         >
-          {isUrgentClose && (
-            <span className="absolute inset-0 bg-red-500/25 animate-ping pointer-events-none" />
+          {canPressClose && isUrgentClose && (
+            <span
+              className={`absolute inset-0 animate-ping pointer-events-none ${
+                isAwaiting1FOverride ? 'bg-amber-400/25' : 'bg-red-500/25'
+              }`}
+            />
           )}
           <span className="relative z-10 text-sm lg:text-base font-mincho font-black tracking-widest whitespace-nowrap">
             ＞＜ 閉扉
@@ -438,7 +473,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
                 : 'text-stone-300 font-normal'
             }`}
           >
-            {isJudging && requiredCloseClicks > 1
+            {isAwaiting1FOverride
+              ? STORY_TEXTS.controlPanel.floor1OverrideCloseSubLabel
+              : isJudging && requiredCloseClicks > 1
               ? `★抉開抵抗！残${closeClicksRemaining}回連打`
               : isKeyWomanAlertActive
               ? '★警告：扉開放禁止・直ちに閉鎖しろ'
@@ -452,6 +489,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
         <motion.button
           id="btn-cabin-fan"
           type="button"
+          disabled={isTapDialogueActive}
           onClick={onToggleFan}
           style={{ willChange: 'transform' }}
           animate={
@@ -464,12 +502,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
               ? { duration: 0.5, repeat: Infinity, ease: 'easeInOut' }
               : { duration: 0.15 }
           }
-          className={`relative py-2 px-1 rounded border flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer overflow-hidden ${
-            needFanAction && !isFanOn
-              ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90 shadow-[0_0_24px_rgba(168,85,247,0.9)]'
+          className={`relative py-2 px-1 rounded border flex flex-col items-center justify-center gap-0.5 transition-colors overflow-hidden ${
+            isTapDialogueActive
+              ? 'opacity-50 cursor-not-allowed bg-stone-900 border-stone-800 text-stone-500'
+              : needFanAction && !isFanOn
+              ? 'bg-purple-900 border-purple-300 text-white ring-2 ring-purple-300/90 shadow-[0_0_24px_rgba(168,85,247,0.9)] cursor-pointer'
               : isFanOn
-              ? 'bg-stone-800 border-emerald-500 text-emerald-200'
-              : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-300'
+              ? 'bg-stone-800 border-emerald-500 text-emerald-200 cursor-pointer'
+              : 'bg-stone-900 hover:bg-stone-800 border-stone-700 text-stone-300 cursor-pointer'
           }`}
         >
           {needFanAction && !isFanOn && (
@@ -508,6 +548,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
         <motion.button
           id="btn-emergency-bell"
           type="button"
+          disabled={isTapDialogueActive}
           onClick={onPressBell}
           style={{ willChange: 'transform' }}
           animate={
@@ -520,10 +561,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
               ? { duration: 0.42, repeat: Infinity, ease: 'easeInOut' }
               : { duration: 0.15 }
           }
-          className={`relative py-2 px-1 rounded border flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer overflow-hidden ${
-            needBellAction
-              ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90 shadow-[0_0_26px_rgba(239,68,68,0.95)]'
-              : 'bg-stone-900 hover:bg-stone-800 border-stone-700 active:scale-95 text-stone-300'
+          className={`relative py-2 px-1 rounded border flex flex-col items-center justify-center gap-0.5 transition-colors overflow-hidden ${
+            isTapDialogueActive
+              ? 'opacity-50 cursor-not-allowed bg-stone-900 border-stone-800 text-stone-500'
+              : needBellAction
+              ? 'bg-red-800 border-red-300 text-white ring-2 ring-red-300/90 shadow-[0_0_26px_rgba(239,68,68,0.95)] cursor-pointer'
+              : 'bg-stone-900 hover:bg-stone-800 border-stone-700 active:scale-95 text-stone-300 cursor-pointer'
           }`}
         >
           {needBellAction && (

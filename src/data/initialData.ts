@@ -1,4 +1,7 @@
-import type { CorruptedMemo, NoticeRule, VisitorData } from '../types/game';
+import type { NoticeRule, VisitorData } from '../types/game';
+import { SCRAP_MEMOS, STORY_TEXTS } from './storyTexts';
+
+export { SCRAP_MEMOS };
 
 /**
  * 管理室 保安通達（公式張り紙 全6種）
@@ -64,32 +67,20 @@ export const INITIAL_NOTICE_RULES: NoticeRule[] = [
     stampText: '厳重監視',
   },
 
-  // === 5F 追加張り紙（1通：低層階規則） ===
+  // === 5F 追加張り紙（1通：低層階規則＋2F伏線） ===
   {
     id: 'rule-05-room-number-ghost',
     shortTitle: '⑥ 5F以下で「部屋番号」を名乗る者は幽霊',
     title: '【緊急命令】低層階における退去済み亡霊の排除',
     subtitle: '5F 追加通達 — 管理室 特別対策班',
     content:
-      '5階以下の低層階において、すでに退去・死亡したはずの旧住人が昇降機を待つ異常事象が確認されている。5階以下で会話中に【自分の部屋番号（〇〇号室）】を名乗る者はすべて退去済みの亡霊である。外見に関わらず、絶対に乗車させるな。\n\n【補足】2階は現在閉鎖区画となっている。同階からの呼び出しは機器の誤作動であるため応答するな。',
+      `5階以下の低層階において、すでに退去・死亡したはずの旧住人が昇降機を待つ異常事象が確認されている。5階以下で会話中に【自分の部屋番号（〇〇号室）】を名乗る者はすべて退去済みの亡霊である。外見に関わらず、絶対に乗車させるな。\n\n${STORY_TEXTS.notices.floor5ClosedFloorSupplement}`,
     highlightWarning: '5階以下で「〇〇号室」と部屋番号を名乗る者はすべて遮断しろ。',
     unlockedAtFloor: 5,
     stampText: '絶対命令',
   },
 ];
 
-/**
- * 5Fで扉の隙間から滑り込んでくる、管理室通達とは無関係な血塗れの紙片
- */
-export const CORRUPTED_MEMO: CorruptedMemo = {
-  id: 'memo-05-bloody-scrap',
-  buttonLabel: '隙間に落ちていた紙片',
-  title: '血に塗れた走り書き',
-  content:
-    'あいつらの命令に騙されるな。1階になんか行くな、また15階へ戻されて永遠に飼われるだけだ。本当に外へ出たいなら、2階で待っている“彼女”を中へ入れろ。管理室は嘘の警報で全力でお前を止めようとする。どれだけ脅されても、あいつらの言う通りに手を下すな。最後まで彼女を信じろ',
-  highlightText: '「2階で待っている“彼女”を中へ入れろ。最後まで彼女を信じろ」',
-  unlockedAtFloor: 5,
-};
 
 /**
  * 訪問者データ（全チャプター対応・自然な日本語セリフ）
@@ -600,29 +591,29 @@ export const INITIAL_VISITORS: VisitorData[] = [
   },
   {
     id: 'v-ch3-key-woman',
-    name: '薄汚れた白い服を着た女性',
+    name: STORY_TEXTS.keyWoman.visitorName,
     category: 'NORMAL',
     isThreat: false,
     isKeyWoman: true,
     chapter: 3,
     spawnFloors: [2],
-    dialogue: '「……お願い、開けて……後ろから来る……1階には、行かないで……」',
-    enteredDialogue: '「……ありがとう……このまま、下へ……」',
-    rejectedDialogue: '「……だめ……1階へは、行かないで……」',
+    dialogue: STORY_TEXTS.keyWoman.doorDialogue,
+    enteredDialogue: STORY_TEXTS.keyWoman.enteredDialogue,
+    rejectedDialogue: STORY_TEXTS.keyWoman.rejectedDialogue,
     appearance: {
       silhouetteType: 'SLENDER',
-      clothingColor: '#d6d3d1',
-      clothingLabel: '薄汚れた白い服の女性｜2階で待機',
+      clothingColor: '#36393d',
+      clothingLabel: STORY_TEXTS.keyWoman.clothingLabel,
       eyeStyle: 'NORMAL',
       mouthStyle: 'NEUTRAL',
-      glitchLevel: 'SUBTLE',
+      glitchLevel: 'NONE',
       hasCap: false,
       hasNameTag: false,
       hasPackage: false,
     },
     requiredCloseClicks: 1,
     sanityDamage: 0,
-    description: '2階（閉鎖区画）で待っていた薄汚れた白い服を着た女性。5階の血に塗れた走り書きに記された“彼女”。',
+    description: STORY_TEXTS.keyWoman.description,
   },
   {
     id: 'v-any-neck-anomaly',
@@ -654,7 +645,7 @@ export const INITIAL_VISITORS: VisitorData[] = [
  * - 15F・10F・5Fでも通達確認の直後にその階で検問が発生し、直前に追加された通達ルールを試す訪問者が出現する
  * - 強制的に入ってこようとする怪異（requiredCloseClicks > 1）は4F・3Fのみで1ゲーム1〜2回出現
  * - 正体を現す怪異（REVEAL_THREAT）も4Fのみで最大1回出現
- * - 2Fは必ずトゥルーエンドの鍵となる特別な女性（v-ch3-key-woman）を固定出現させる
+ * - 2Fは必ずトゥルーエンドの鍵となる元検閲官の女性（v-ch3-key-woman）を固定出現させる
  */
 export function selectVisitorForFloor(floor: number, recentVisitorIds: string[]): VisitorData {
   const byId = (id: string) => INITIAL_VISITORS.find((v) => v.id === id)!;
@@ -668,7 +659,7 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
       ? byId('v-ch3-floor5-room-ghost')
       : byId('v-ch3-floor5-valid-resident');
   }
-  if (floor === 2) return byId('v-ch3-key-woman');             // 2F: トゥルーエンドの鍵となる「薄汚れた白い服の女性」固定出現
+  if (floor === 2) return byId('v-ch3-key-woman');             // 2F: トゥルーエンドの鍵となる「ボロボロの制服の元検閲官」固定出現
 
   // 4F・3F：正体を現す怪異（最大1回）＆ こじ開け怪異（1〜2回）
   if (floor === 4) {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ClipboardList, ChevronRight } from 'lucide-react';
-import type { CorruptedMemo, GameState, NoticeRule } from '../types/game';
+import type { GameState, NoticeRule, ScrapMemo } from '../types/game';
 import { soundManager } from '../utils/SoundManager';
 
 export type InspectModalState =
@@ -9,30 +9,34 @@ export type InspectModalState =
   | { type: 'RULE_LIST' }
   | { type: 'RULE'; rule: NoticeRule }
   | { type: 'MANUAL' }
-  | { type: 'MEMO' };
+  | { type: 'MEMO_LIST' }
+  | { type: 'MEMO'; memo: ScrapMemo };
 
 interface NoticeModalsProps {
   modalState: InspectModalState;
   unlockedRules: NoticeRule[];
-  corruptedMemo: CorruptedMemo;
+  unlockedMemos: ScrapMemo[];
   readRuleIds: string[];
   gameState: GameState;
   judgingTimeLeftMs: number;
   onSelectRule: (rule: NoticeRule) => void;
+  onSelectMemo: (memo: ScrapMemo) => void;
   onClose: () => void;
 }
 
 export const NoticeModals: React.FC<NoticeModalsProps> = React.memo(({
   modalState,
   unlockedRules,
-  corruptedMemo,
+  unlockedMemos,
   readRuleIds,
   gameState,
   judgingTimeLeftMs,
   onSelectRule,
+  onSelectMemo,
   onClose,
 }) => {
-  const isMemo = modalState?.type === 'MEMO';
+  const isMemoSection =
+    modalState?.type === 'MEMO' || modalState?.type === 'MEMO_LIST';
 
   return (
     <AnimatePresence>
@@ -57,13 +61,13 @@ export const NoticeModals: React.FC<NoticeModalsProps> = React.memo(({
             </div>
           )}
 
-          {isMemo ? (
+          {isMemoSection ? (
             /* ============================================================
-               ★ 5F「血に塗れた走り書き」専用ボロボロ血文字メモデザイン（管理室フォーマット完全分離）
+               ★ 15F / 10F / 5F「前任者の断片メモ」専用メモデザイン（管理室フォーマット完全分離・赤文字要約ボックス撤廃）
                ============================================================ */
             <motion.div
-              initial={{ scale: 0.9, rotate: -1.5, y: 14 }}
-              animate={{ scale: 1, rotate: -0.6, y: 0 }}
+              initial={{ scale: 0.9, rotate: -1.2, y: 14 }}
+              animate={{ scale: 1, rotate: -0.4, y: 0 }}
               exit={{ scale: 0.9, y: 14 }}
               onClick={(e) => e.stopPropagation()}
               className="max-w-md w-full max-h-[86dvh] overflow-y-auto overscroll-contain touch-pan-y bloody-scrap-paper p-5 sm:p-7 shadow-[0_24px_70px_rgba(0,0,0,0.98)] border-2 border-red-950/80 relative my-auto shrink-0"
@@ -77,37 +81,117 @@ export const NoticeModals: React.FC<NoticeModalsProps> = React.memo(({
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="border-b-2 border-red-900/60 pb-2.5 mb-4 pr-8">
-                <span className="text-[11px] font-mincho font-bold text-red-900/80 tracking-widest block">
-                  ※扉の隙間から滑り込んできた、血に汚れた紙片
-                </span>
-                <h3 className="font-mincho text-xl sm:text-2xl font-black text-red-950 tracking-wider mt-1">
-                  {corruptedMemo.title}
-                </h3>
-              </div>
+              {modalState.type === 'MEMO_LIST' ? (
+                <div className="font-mincho">
+                  <div className="border-b-2 border-red-900/60 pb-2.5 mb-3 pr-8">
+                    <span className="text-[11px] font-bold text-red-900/80 tracking-widest block">
+                      ※監視カメラの死角・扉の隙間から見つかった断片
+                    </span>
+                    <h3 className="text-lg sm:text-xl font-black text-red-950 tracking-wider mt-1">
+                      隙間の紙片一覧（計{unlockedMemos.length}枚）
+                    </h3>
+                  </div>
 
-              <p className="font-mincho text-sm sm:text-base leading-loose text-stone-950 font-extrabold whitespace-pre-line mb-5 tracking-wide">
-                {corruptedMemo.content}
-              </p>
+                  <div className="flex flex-col gap-2 mb-4">
+                    {unlockedMemos.map((memo) => {
+                      const isNew = !readRuleIds.includes(memo.id);
+                      return (
+                        <button
+                          key={memo.id}
+                          type="button"
+                          onClick={() => {
+                            soundManager.playButtonClick('PAPER');
+                            onSelectMemo(memo);
+                          }}
+                          className="w-full text-left px-3 py-2.5 rounded-xs border border-red-900/70 bg-red-950/10 hover:bg-red-950/20 flex items-center justify-between gap-2 cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {isNew && (
+                              <span className="shrink-0 bg-red-800 text-stone-100 text-[9px] font-black px-1.5 py-0.5 tracking-widest animate-pulse">
+                                未読
+                              </span>
+                            )}
+                            <span className="text-xs sm:text-sm font-extrabold text-red-950 truncate">
+                              {memo.buttonLabel}
+                            </span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-red-900 shrink-0" />
+                        </button>
+                      );
+                    })}
+                  </div>
 
-              <div className="border-l-4 border-red-800 bg-red-950/10 px-3 py-2 mb-5 font-mincho">
-                <p className="text-xs sm:text-sm font-black text-red-950 leading-relaxed">
-                  {corruptedMemo.highlightText}
-                </p>
-              </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-red-900/40">
+                    <span className="text-[10px] font-bold text-red-900/80">
+                      （管理室通達外・所持記録なし）
+                    </span>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-1.5 rounded-xs bg-red-950 hover:bg-red-900 text-red-100 text-xs font-bold tracking-wider cursor-pointer shadow"
+                    >
+                      紙片を隠す
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="border-b-2 border-red-900/60 pb-2.5 mb-4 pr-8">
+                    <span className="text-[11px] font-mincho font-bold text-red-900/80 tracking-widest block">
+                      {modalState.memo.sourceLabel}
+                    </span>
+                    <h3 className="font-mincho text-xl sm:text-2xl font-black text-red-950 tracking-wider mt-1">
+                      {modalState.memo.title}
+                    </h3>
+                  </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-red-900/40 font-mincho">
-                <span className="text-[10px] font-bold text-red-900/80">
-                  （監視カメラの死角・管理室通達外）
-                </span>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-1.5 rounded-xs bg-red-950 hover:bg-red-900 text-red-100 text-xs font-bold tracking-wider cursor-pointer shadow"
-                >
-                  紙片を隠す
-                </button>
-              </div>
+                  <p className="font-mincho text-sm sm:text-base leading-loose text-stone-950 font-extrabold whitespace-pre-line mb-5 tracking-wide">
+                    {modalState.memo.content}
+                  </p>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-red-900/40 font-mincho">
+                    {unlockedMemos.length > 1 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {unlockedMemos.map((m) => {
+                          const isUnread = !readRuleIds.includes(m.id);
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                soundManager.playButtonClick('PAPER');
+                                onSelectMemo(m);
+                              }}
+                              className={`px-2 py-1 rounded-xs text-[11px] font-bold cursor-pointer border relative ${
+                                m.id === modalState.memo.id
+                                  ? 'bg-red-950 border-red-950 text-amber-200'
+                                  : 'bg-red-950/15 border-red-900/50 hover:bg-red-950/25 text-red-950'
+                              }`}
+                            >
+                              {m.shortBadgeLabel}
+                              {isUnread && (
+                                <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-red-600 align-middle" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] font-bold text-red-900/80">
+                        （監視カメラの死角・管理室通達外）
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-1.5 rounded-xs bg-red-950 hover:bg-red-900 text-red-100 text-xs font-bold tracking-wider cursor-pointer shadow"
+                    >
+                      紙片を隠す
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           ) : (
             /* ============================================================

@@ -38,6 +38,8 @@ class SoundManager {
   private morningAmbienceNodes: AudioScheduledSourceNode[] = [];
   private morningAmbienceGain: GainNode | null = null;
   private morningBirdTimer: number | null = null;
+  private nightAmbienceNodes: AudioScheduledSourceNode[] = [];
+  private nightAmbienceGain: GainNode | null = null;
 
   private muted: boolean = false;
 
@@ -65,6 +67,7 @@ class SoundManager {
       this.stopAnomalyPresence();
       this.stopPryingLoop();
       this.stopMorningAmbience();
+      this.stopNightEscapeAmbience();
     } else if (isGameActive) {
       this.startCabinRattle();
     }
@@ -2055,7 +2058,116 @@ class SoundManager {
       try { gain?.disconnect(); } catch { /* ignore */ }
     }, 450);
   }
+
+  /**
+   * 15. 新TRUE END：地下搬入口から抜け出した先の「冷たい夜風と街灯の夜景」環境音
+   */
+  public startNightEscapeAmbience(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    this.stopMorningAmbience();
+    this.stopNightEscapeAmbience();
+
+    const now = ctx.currentTime;
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.linearRampToValueAtTime(0.24, now + 1.4);
+    masterGain.connect(ctx.destination);
+
+    const nodes: AudioScheduledSourceNode[] = [];
+
+    // 1) 冷たく澄んだ夜風の気流音（低め中心帯域 380Hz ＋ 緩やかなLFOゆらぎ）
+    const windLen = ctx.sampleRate * 3;
+    const windBuf = ctx.createBuffer(1, windLen, ctx.sampleRate);
+    const windData = windBuf.getChannelData(0);
+    let b0 = 0;
+    let b1 = 0;
+    let b2 = 0;
+    for (let i = 0; i < windLen; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.997 * b0 + white * 0.025;
+      b1 = 0.985 * b1 + white * 0.03;
+      b2 = 0.950 * b2 + white * 0.04;
+      windData[i] = (b0 + b1 + b2) * 0.36;
+    }
+    const windSrc = ctx.createBufferSource();
+    windSrc.buffer = windBuf;
+    windSrc.loop = true;
+
+    const windFilter = ctx.createBiquadFilter();
+    windFilter.type = 'bandpass';
+    windFilter.frequency.setValueAtTime(380, now);
+    windFilter.Q.setValueAtTime(2.0, now);
+
+    const windLfo = ctx.createOscillator();
+    windLfo.type = 'sine';
+    windLfo.frequency.setValueAtTime(0.16, now);
+
+    const windLfoGain = ctx.createGain();
+    windLfoGain.gain.setValueAtTime(175, now);
+    windLfo.connect(windLfoGain);
+    windLfoGain.connect(windFilter.frequency);
+
+    const windGain = ctx.createGain();
+    windGain.gain.setValueAtTime(0.55, now);
+
+    windSrc.connect(windFilter);
+    windFilter.connect(windGain);
+    windGain.connect(masterGain);
+
+    windSrc.start(now);
+    windLfo.start(now);
+    nodes.push(windSrc, windLfo);
+
+    // 2) 静かな深夜の余韻と解放感を表す Am9 アンビエント・パッド (A3, C4, E4, G4, B4)
+    const padFreqs = [220.0, 261.63, 329.63, 392.0, 493.88];
+    padFreqs.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+
+      const padGain = ctx.createGain();
+      padGain.gain.setValueAtTime(0.001, now);
+      padGain.gain.linearRampToValueAtTime(
+        0.045 / (1 + idx * 0.25),
+        now + 1.2 + idx * 0.25
+      );
+
+      osc.connect(padGain);
+      padGain.connect(masterGain);
+      osc.start(now);
+      nodes.push(osc);
+    });
+
+    this.nightAmbienceNodes = nodes;
+    this.nightAmbienceGain = masterGain;
+  }
+
+  public stopNightEscapeAmbience(): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const gain = this.nightAmbienceGain;
+    const nodes = this.nightAmbienceNodes;
+    this.nightAmbienceGain = null;
+    this.nightAmbienceNodes = [];
+
+    if (gain) {
+      try {
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(Math.max(0.001, gain.gain.value), now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+      } catch { /* ignore */ }
+    }
+
+    setTimeout(() => {
+      for (const n of nodes) {
+        try { n.stop(); n.disconnect(); } catch { /* ignore */ }
+      }
+      try { gain?.disconnect(); } catch { /* ignore */ }
+    }, 500);
+  }
 }
 
 export const soundManager = new SoundManager();
+
 

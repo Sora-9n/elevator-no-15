@@ -5,8 +5,10 @@ import type {
   EventOutcome,
   GameState,
   MovingCabinEvent,
+  TapDialogueLine,
   VisitorData,
 } from '../types/game';
+import { STORY_TEXTS } from '../data/storyTexts';
 import { Users, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 interface BottomConsoleProps {
@@ -16,6 +18,7 @@ interface BottomConsoleProps {
   eventOutcome: EventOutcome | null;
   activePassengers: ActivePassenger[];
   movingEvent: MovingCabinEvent | null;
+  activeTapLine?: TapDialogueLine | null;
 }
 
 export const BottomConsole: React.FC<BottomConsoleProps> = React.memo(({
@@ -24,6 +27,7 @@ export const BottomConsole: React.FC<BottomConsoleProps> = React.memo(({
   eventOutcome,
   activePassengers,
   movingEvent,
+  activeTapLine,
 }) => {
   const activeRequester = activePassengers.find(
     (p) => p.pendingRequest && !p.requestFulfilled
@@ -34,15 +38,24 @@ export const BottomConsole: React.FC<BottomConsoleProps> = React.memo(({
     movingEvent.status === 'ACTIVE' &&
     (movingEvent.type === 'MIASMA' || movingEvent.type === 'MIRROR_GHOST');
 
+  const isTapActive = Boolean(activeTapLine);
+  const displayedSubtitle = activeTapLine ? activeTapLine.text : activeSubtitle;
+
   return (
-    <footer className="relative z-30 w-full px-2.5 md:px-4 py-1 md:py-2.5 mobile-landscape-bottom bg-stone-950/95 border-t border-stone-800 flex flex-col justify-between gap-1 md:gap-2 shrink-0 md:min-h-[112px] md:max-h-[126px]">
+    <footer className="relative z-30 w-full px-2.5 md:px-4 py-1 md:py-2.5 mobile-landscape-bottom bg-stone-950/95 border-t border-stone-800 flex flex-col justify-between gap-1 md:gap-2 shrink-0 md:min-h-[112px] md:max-h-[132px]">
       {/* 上段：訪問者のセリフ字幕（名前や属性のネタバレ表記を完全撤廃） */}
-      <div className="flex-1 flex flex-col justify-center bg-black/75 border border-stone-800/90 rounded px-2.5 md:px-3.5 py-1 md:py-2 overflow-hidden">
+      <div className="flex-1 flex flex-col justify-center bg-black/75 border border-stone-800/90 rounded px-2.5 md:px-3.5 py-1 md:py-2 overflow-hidden relative">
         <div className="flex items-center justify-between gap-2 mb-0.5 md:mb-1 whitespace-nowrap">
           <span className="text-[10px] md:text-[11px] font-bold text-stone-400 flex items-center gap-1.5 whitespace-nowrap">
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
-                isDangerMovingEvent
+                isTapActive
+                  ? activeTapLine?.speakerType === 'SYSTEM'
+                    ? 'bg-red-500 animate-ping'
+                    : activeTapLine?.speakerType === 'WOMAN'
+                    ? 'bg-amber-400 animate-pulse'
+                    : 'bg-sky-400 animate-pulse'
+                  : isDangerMovingEvent
                   ? 'bg-red-500 animate-ping'
                   : gameState === 'JUDGING'
                   ? 'bg-amber-400 animate-ping'
@@ -51,7 +64,9 @@ export const BottomConsole: React.FC<BottomConsoleProps> = React.memo(({
                   : 'bg-stone-600'
               }`}
             />
-            {gameState === 'JUDGING'
+            {isTapActive && activeTapLine
+              ? activeTapLine.speakerLabel
+              : gameState === 'JUDGING'
               ? '廊下からの声'
               : gameState === 'FINAL_DOOR'
               ? '最終階層 監視通信'
@@ -89,25 +104,40 @@ export const BottomConsole: React.FC<BottomConsoleProps> = React.memo(({
 
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeSubtitle}
+            key={displayedSubtitle}
             initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -3 }}
-            transition={{ duration: 0.18 }}
+            transition={{ duration: 0.16 }}
             id="subtitle-box"
-            className={`font-mincho text-xs sm:text-sm md:text-base lg:text-lg font-bold leading-snug line-clamp-2 ${
-              isDangerMovingEvent ||
-              (gameState === 'EVENT_RESULT' &&
-                eventOutcome?.type === 'MISTAKE_BOARDED_THREAT')
+            className={`font-mincho text-xs sm:text-sm md:text-base font-bold leading-snug ${
+              isTapActive ? 'line-clamp-2 pr-12' : 'line-clamp-2'
+            } ${
+              (isTapActive && activeTapLine?.speakerType === 'SYSTEM') ||
+              (!isTapActive &&
+                (isDangerMovingEvent ||
+                  (gameState === 'EVENT_RESULT' &&
+                    eventOutcome?.type === 'MISTAKE_BOARDED_THREAT')))
                 ? 'text-red-400'
+                : isTapActive && activeTapLine?.speakerType === 'WOMAN'
+                ? 'text-amber-200'
                 : activeRequester && gameState === 'MOVING'
                 ? 'text-amber-300'
                 : 'text-stone-100'
             }`}
           >
-            {activeSubtitle}
+            {displayedSubtitle}
           </motion.div>
         </AnimatePresence>
+
+        {isTapActive && (
+          <span
+            id="console-tap-indicator"
+            className="absolute bottom-1 right-2 text-[10px] font-bold tracking-widest text-amber-400 animate-pulse pointer-events-none"
+          >
+            ▼ TAP
+          </span>
+        )}
       </div>
 
       {/* 下段：車内収容者ステータス一覧（最大1〜2名・自動降車までの残り階層表示） */}
@@ -138,7 +168,7 @@ export const BottomConsole: React.FC<BottomConsoleProps> = React.memo(({
                 >
                   <span>
                     {p.visitor.isKeyWoman
-                      ? '2F収容：白い服の女性（未登録個体）'
+                      ? STORY_TEXTS.bottomConsole.keyWomanBadge
                       : `${p.boardedFloor}F収容対象 (残${p.remainingFloors}階で退出)`}
                   </span>
                   {p.pendingRequest && (

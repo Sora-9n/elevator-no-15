@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ClipboardCheck, Wind } from 'lucide-react';
-import type { GameState, MovingCabinEvent, VisitorData } from '../types/game';
+import type { GameState, MovingCabinEvent, ScrapMemo, VisitorData } from '../types/game';
+import { STORY_TEXTS } from '../data/storyTexts';
 import { VisitorView } from './VisitorView';
 import { PryingHand } from './PryingHand';
 
@@ -17,7 +18,8 @@ interface ElevatorDoorProps {
   isFanOn: boolean;
   isArrivingFlash: boolean;
   isKeyWomanAlertActive: boolean;
-  onOpenMemo?: () => void;
+  currentFloorMemo?: ScrapMemo;
+  onOpenMemo?: (memo: ScrapMemo) => void;
 }
 
 export const ElevatorDoor: React.FC<ElevatorDoorProps> = React.memo(({
@@ -32,6 +34,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = React.memo(({
   isFanOn,
   isArrivingFlash,
   isKeyWomanAlertActive,
+  currentFloorMemo,
   onOpenMemo,
 }) => {
   const slideOffsetPercent = Math.max(0, Math.min(100, doorOpenPercent)) * 0.92;
@@ -145,7 +148,7 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = React.memo(({
         </div>
 
         {/* ============================================================
-            ★ 演出A：ステンレス扉への「背後（肩越し）の怪異の鏡面映り込み」演出
+            ★ 演出A：ステンレス扉への「鏡面映り込み」＆ 2F→1F「非常ベル誘導トラップ（怪物表現なし）」
             ============================================================ */}
         <AnimatePresence>
           {isMirrorGhostEvent && movingEvent && (
@@ -157,254 +160,358 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = React.memo(({
               transition={{ duration: 0.25 }}
               className="absolute inset-0 z-24 pointer-events-none overflow-hidden flex items-center justify-center"
             >
-              {/* 車内の照明が赤黒く点滅するオーバーレイ（2F試練達成時は消灯） */}
-              {!(movingEvent.isKeyWomanTrial && movingEvent.status === 'FAILED') && (
-                <div className="absolute inset-0 cabin-red-black-flicker mix-blend-multiply" />
-              )}
+              {movingEvent.isKeyWomanTrial ? (
+                /* ------------------------------------------------------------
+                   ★ 2F→1F 非常ベル誘導トラップ：怪物ビジュアル（目・口・触手・血）を一切描画せず、
+                      薄い鏡面の人影・静電気ノイズ・管理室システム警報＆カウントダウンのみで誤認を誘う
+                   ------------------------------------------------------------ */
+                <>
+                  {movingEvent.status === 'ACTIVE' && (
+                    <div className="absolute inset-0 cabin-red-black-flicker mix-blend-multiply" />
+                  )}
 
-              {/* ステンレス扉表面の鏡面反射レイヤー */}
-              <motion.div
-                animate={
-                  movingEvent.status === 'FAILED'
-                    ? movingEvent.isKeyWomanTrial
-                      ? { scale: 0.96, y: 0, opacity: 0.55 }
-                      : { scale: 2.35, y: 30, opacity: 1 }
-                    : movingEvent.status === 'RESOLVED'
-                    ? { scale: 0.7, opacity: 0 }
-                    : {
-                        scale: 1.0 + eventUrgency * 0.38,
-                        y: [0, -3, 2, 0],
-                        opacity: 0.78 + eventUrgency * 0.2,
-                      }
-                }
-                transition={
-                  movingEvent.status === 'FAILED'
-                    ? { duration: 0.22, ease: 'easeIn' }
-                    : { duration: 0.35 }
-                }
-                className="relative w-full h-full flex items-end justify-center"
-                style={{
-                  mixBlendMode: 'screen',
-                  willChange: 'transform, opacity',
-                }}
-              >
-                <svg viewBox="0 0 360 440" className="w-full h-full">
-                  <defs>
-                    <radialGradient id="mirrorGhostAura" cx="50%" cy="42%" r="52%">
-                      <stop offset="0%" stopColor="rgba(185, 28, 28, 0.55)" />
-                      <stop offset="60%" stopColor="rgba(30, 10, 15, 0.35)" />
-                      <stop offset="100%" stopColor="rgba(0, 0, 0, 0)" />
-                    </radialGradient>
-                    <linearGradient id="mirrorMetalStreak" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="rgba(255,255,255,0.02)" />
-                      <stop offset="48%" stopColor="rgba(255,255,255,0.12)" />
-                      <stop offset="50%" stopColor="rgba(0,0,0,0.85)" />
-                      <stop offset="52%" stopColor="rgba(255,255,255,0.12)" />
-                      <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* 背後の怪異の赤黒いオーラ */}
-                  <ellipse cx="195" cy="185" rx="145" ry="165" fill="url(#mirrorGhostAura)" />
-
-                  {/* プレイヤー自身の背面シルエット（首・肩・襟元のキアロスクーロ表現） */}
-                  <g opacity="0.72">
-                    <path
-                      d="M 88 440 L 102 336 C 110 314, 128 308, 144 302 L 146 286 L 174 286 L 176 302 C 192 308, 210 314, 218 336 L 232 440 Z"
-                      fill="#09090b"
-                      stroke="rgba(168,162,158,0.22)"
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M 160 228 C 136 228, 125 248, 128 274 C 130 288, 138 298, 160 300 C 182 298, 190 288, 192 274 C 195 248, 184 228, 160 228 Z"
-                      fill="#0c0a09"
-                      stroke="rgba(168,162,158,0.24)"
-                      strokeWidth="1.5"
-                    />
-                  </g>
-
-                  {/* ★ プレイヤーの右肩越し（背後）に不気味に覗き込む怪異のキアロスクーロ彫刻影と顔 */}
-                  <g transform="translate(212, 168) rotate(-16)">
-                    {/* 怪異の歪んだ胴体・鎖骨・不自然に伸びた首柱 */}
-                    <path
-                      d="M -88 260 L -62 68 C -48 42, -26 34, -15 24 L -13 -4 L 13 -4 L 15 24 C 26 34, 48 42, 62 68 L 88 260 Z"
-                      fill="#09090b"
-                      stroke="rgba(220, 38, 38, 0.42)"
-                      strokeWidth="1.6"
-                    />
-                    {/* 首筋の筋と鎖骨の深い影 */}
-                    <path
-                      d="M -11 0 L -4 34 M 11 0 L 4 34 M -32 36 Q 0 46 32 36"
-                      fill="none"
-                      stroke="#7f1d1d"
-                      strokeWidth="1.8"
-                    />
-                    {/* 顔の両脇に垂れ下がる濡れた黒髪のシルエット */}
-                    <path
-                      d="M 0 -78 C -36 -78, -52 -52, -50 -10 L -56 64 L -40 42 L -36 -12 L 36 -12 L 40 42 L 56 64 L 50 -10 C 52 -52, 36 -78, 0 -78 Z"
-                      fill="#050507"
-                    />
-                    {/* 強い逆光に沈む頭蓋シルエット（顔内部の鼻筋等を廃し、輪郭のリムライトと目・口のみを強調） */}
-                    <path
-                      d="M 0 -70 C -30 -70, -44 -48, -42 -20 C -40 -4, -34 12, -24 24 C -14 34, -6 38, 0 39 C 6 38, 14 34, 24 24 C 34 12, 40 -4, 42 -20 C 44 -48, 30 -70, 0 -70 Z"
-                      fill="#100d10"
-                      stroke="rgba(248, 113, 113, 0.55)"
-                      strokeWidth="1.6"
-                    />
-                    {/* 右半面のさらに深い漆黒の影 */}
-                    <path
-                      d="M 0 -70 C 4 -42, 2 -14, 0 39 C 8 38, 16 34, 24 24 C 34 12, 40 -4, 42 -20 C 44 -48, 30 -70, 0 -70 Z"
-                      fill="#070507"
-                    />
-                    {/* 額に張り付く前髪のシルエット */}
-                    <path
-                      d="M -42 -32 L -28 -46 L -18 -30 L -6 -48 L 6 -28 L 18 -46 L 30 -30 L 42 -34 C 38 -56, 24 -70, 0 -70 C -24 -70, -38 -56, -42 -32 Z"
-                      fill="#050507"
-                    />
-
-                    {/* 虚ろに陥没した漆黒の眼窩と、中心で白く燃える真紅の瞳孔 */}
-                    <path
-                      d="M -32 -25 C -27 -33, -10 -32, -7 -23 C -8 -14, -14 -10, -22 -10 C -30 -11, -33 -17, -32 -25 Z"
-                      fill="#000000"
-                    />
-                    <circle cx="-19" cy="-21" r="4" fill="#dc2626" />
-                    <circle cx="-19.5" cy="-21.5" r="1.5" fill="#ffffff" />
-
-                    <path
-                      d="M 7 -23 C 10 -32, 27 -33, 32 -25 C 33 -17, 30 -11, 22 -10 C 14 -10, 8 -14, 7 -23 Z"
-                      fill="#000000"
-                    />
-                    <circle cx="19" cy="-21" r="4" fill="#dc2626" />
-                    <circle cx="18.5" cy="-21.5" r="1.5" fill="#ffffff" />
-
-                    {/* 耳元まで裂けた不気味な黒い笑みと歯列 */}
-                    <path
-                      d="M -26 8 Q 0 34 26 8 Q 0 18 -26 8 Z"
-                      fill="#050507"
-                      stroke="#dc2626"
-                      strokeWidth="1.6"
-                    />
-                    <path
-                      d="M -18 12 L -15 21 L -10 13 L -5 23 L 0 14 L 5 23 L 10 13 L 15 21 L 18 12"
-                      fill="none"
-                      stroke="#fca5a5"
-                      strokeWidth="1.4"
-                    />
-                  </g>
-
-                  {/* 画面端（左右）からプレイヤーの肩と視界へ侵食してくる黒い手とノイズ */}
-                  <g opacity={0.65 + eventUrgency * 0.35}>
-                    {/* 左端から伸びる黒い異形の手 */}
-                    <path
-                      d={`M 0 180 L ${55 + eventUrgency * 45} 210 L ${45 + eventUrgency * 45} 222 L 0 205 Z`}
-                      fill="#050505"
-                      stroke="#991b1b"
-                      strokeWidth="1.2"
-                    />
-                    <path
-                      d={`M 0 215 L ${68 + eventUrgency * 50} 238 L ${58 + eventUrgency * 50} 250 L 0 238 Z`}
-                      fill="#050505"
-                      stroke="#991b1b"
-                      strokeWidth="1.2"
-                    />
-                    <path
-                      d={`M 0 250 L ${50 + eventUrgency * 45} 268 L ${42 + eventUrgency * 45} 278 L 0 268 Z`}
-                      fill="#050505"
-                      stroke="#991b1b"
-                      strokeWidth="1.2"
-                    />
-                    {/* 右端から伸びる黒い異形の手 */}
-                    <path
-                      d={`M 360 175 L ${300 - eventUrgency * 45} 205 L ${308 - eventUrgency * 45} 218 L 360 198 Z`}
-                      fill="#050505"
-                      stroke="#991b1b"
-                      strokeWidth="1.2"
-                    />
-                    <path
-                      d={`M 360 210 L ${288 - eventUrgency * 50} 235 L ${296 - eventUrgency * 50} 248 L 360 232 Z`}
-                      fill="#050505"
-                      stroke="#991b1b"
-                      strokeWidth="1.2"
-                    />
-                  </g>
-
-                  {/* 扉の中央合わせ目による反射の分断ライン */}
-                  <rect x="0" y="0" width="360" height="440" fill="url(#mirrorMetalStreak)" />
-                </svg>
-              </motion.div>
-
-              {/* ★ 緊急照射（RESOLVED）時の天井防衛レーザー・高圧紫外線アーク閃光エフェクト */}
-              <AnimatePresence>
-                {movingEvent.status === 'RESOLVED' && !(movingEvent.isKeyWomanTrial && movingEvent.timeLeftMs <= 0) && (
+                  {/* 薄暗いステンレス扉に映る二人の人間シルエット（主人公と震える元検閲官） */}
                   <motion.div
-                    key="uv-laser-purge"
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: [1, 0.9, 1, 0] }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.75, ease: 'easeOut' }}
-                    className="absolute inset-0 z-30 pointer-events-none overflow-hidden"
+                    animate={
+                      movingEvent.status === 'RESOLVED' && movingEvent.timeLeftMs <= 0
+                        ? { opacity: 0.35 }
+                        : movingEvent.status === 'RESOLVED'
+                        ? { scale: 0.75, opacity: 0 }
+                        : { opacity: [0.68, 0.85, 0.72] }
+                    }
+                    transition={{ duration: 0.9, repeat: movingEvent.status === 'ACTIVE' ? Infinity : 0 }}
+                    className="relative w-full h-full flex items-end justify-center"
+                    style={{ mixBlendMode: 'screen', willChange: 'transform, opacity' }}
                   >
-                    {/* 強烈な青白いアーク閃光フラッシュ */}
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          'radial-gradient(circle at 50% 25%, rgba(224, 242, 254, 0.85) 0%, rgba(56, 189, 248, 0.45) 45%, rgba(2, 6, 23, 0) 90%)',
-                        mixBlendMode: 'screen',
-                      }}
-                    />
-
-                    {/* 天井から車内を縦断して怪異を焼き払うレーザー光線群 */}
                     <svg viewBox="0 0 360 440" className="w-full h-full">
                       <defs>
-                        <linearGradient id="purgeLaserBeam" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-                          <stop offset="35%" stopColor="#38bdf8" stopOpacity="0.95" />
-                          <stop offset="85%" stopColor="#0284c7" stopOpacity="0.7" />
-                          <stop offset="100%" stopColor="#0369a1" stopOpacity="0" />
+                        <linearGradient id="mirrorMetalStreakTrial" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="rgba(255,255,255,0.02)" />
+                          <stop offset="48%" stopColor="rgba(255,255,255,0.1)" />
+                          <stop offset="50%" stopColor="rgba(0,0,0,0.85)" />
+                          <stop offset="52%" stopColor="rgba(255,255,255,0.1)" />
+                          <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
                         </linearGradient>
                       </defs>
 
-                      {/* 交差・掃射する高出力防衛レーザー */}
-                      <line x1="60" y1="0" x2="230" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="6" />
-                      <line x1="60" y1="0" x2="230" y2="440" stroke="#ffffff" strokeWidth="2" />
+                      {/* プレイヤー自身の背面シルエット */}
+                      <g opacity="0.65">
+                        <path
+                          d="M 78 440 L 92 336 C 100 314, 118 308, 134 302 L 136 286 L 164 286 L 166 302 C 182 308, 200 314, 208 336 L 222 440 Z"
+                          fill="#09090b"
+                          stroke="rgba(168,162,158,0.22)"
+                          strokeWidth="1.5"
+                        />
+                        <path
+                          d="M 150 228 C 126 228, 115 248, 118 274 C 120 288, 128 298, 150 300 C 172 298, 180 288, 182 274 C 185 248, 174 228, 150 228 Z"
+                          fill="#0c0a09"
+                          stroke="rgba(168,162,158,0.24)"
+                          strokeWidth="1.5"
+                        />
+                      </g>
 
-                      <line x1="180" y1="0" x2="210" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="10" />
-                      <line x1="180" y1="0" x2="210" y2="440" stroke="#ffffff" strokeWidth="3.5" />
+                      {/* 後方に立ち尽くす2F女性（普通の制服姿の影・ホラー要素なし） */}
+                      <g opacity="0.58" transform="translate(226, 260)">
+                        <path
+                          d="M -48 180 L -36 74 C -28 54, -15 48, -9 42 L -8 24 L 8 24 L 9 42 C 15 48, 28 54, 36 74 L 48 180 Z"
+                          fill="#0c0e12"
+                          stroke="rgba(203,213,225,0.24)"
+                          strokeWidth="1.2"
+                        />
+                        <path
+                          d="M 0 -30 C -20 -30, -30 -14, -29 12 L -31 44 L -20 34 L -18 12 C -12 18, 12 18, 18 12 L 20 34 L 31 44 L 29 12 C 30 -14, 20 -30, 0 -30 Z"
+                          fill="#090a0d"
+                        />
+                        <ellipse
+                          cx="0"
+                          cy="-2"
+                          rx="19"
+                          ry="25"
+                          fill="#12141a"
+                          stroke="rgba(203,213,225,0.26)"
+                          strokeWidth="1.2"
+                        />
+                      </g>
 
-                      <line x1="300" y1="0" x2="170" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="7" />
-                      <line x1="300" y1="0" x2="170" y2="440" stroke="#ffffff" strokeWidth="2.5" />
+                      {/* 監視映像・鏡面の静電気走査ノイズ線 */}
+                      {movingEvent.status === 'ACTIVE' && (
+                        <g opacity={0.18 + eventUrgency * 0.28}>
+                          <line x1="0" y1="88" x2="360" y2="88" stroke="rgba(248,113,113,0.45)" strokeWidth="1.5" />
+                          <line x1="0" y1="164" x2="360" y2="164" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+                          <line x1="0" y1="242" x2="360" y2="242" stroke="rgba(248,113,113,0.35)" strokeWidth="2" />
+                          <line x1="0" y1="336" x2="360" y2="336" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                        </g>
+                      )}
 
-                      <line x1="240" y1="0" x2="250" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="5" />
-
-                      {/* 水平走査レーザーライン */}
-                      <motion.line
-                        x1="0"
-                        y1="0"
-                        x2="360"
-                        y2="0"
-                        stroke="#7dd3fc"
-                        strokeWidth="4"
-                        style={{ willChange: 'transform' }}
-                        initial={{ y: 10 }}
-                        animate={{ y: 420 }}
-                        transition={{ duration: 0.45, ease: 'linear' }}
-                      />
+                      <rect x="0" y="0" width="360" height="440" fill="url(#mirrorMetalStreakTrial)" />
                     </svg>
                   </motion.div>
-                )}
-              </AnimatePresence>
 
-              {/* 画面外周から侵食する赤黒いノイズビネット */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: `radial-gradient(circle at 50% 45%, transparent ${Math.max(
-                    18,
-                    48 - eventUrgency * 28
-                  )}%, rgba(127, 29, 29, 0.65) 75%, rgba(0, 0, 0, 0.96) 100%)`,
-                }}
-              />
+                  {/* 管理室の冷徹なシステムカウントダウン警報（非常ベル処分誘導バナー） */}
+                  {movingEvent.status === 'ACTIVE' && (
+                    <div
+                      id="keywoman-trial-warning-banner"
+                      className="absolute top-3 inset-x-3 z-30 flex justify-center pointer-events-none"
+                    >
+                      <div className="bg-red-950/95 border-2 border-red-500 text-red-100 px-3 py-2 rounded-xs shadow-[0_0_28px_rgba(220,38,38,0.85)] max-w-sm w-full font-mincho text-center">
+                        <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-amber-300 border-b border-red-800/80 pb-1 mb-1">
+                          <span>SYSTEM OVERRIDE // 緊急処分命令</span>
+                          <span className="font-seven-seg text-xs text-red-300">
+                            {(movingEvent.timeLeftMs / 1000).toFixed(1)}s
+                          </span>
+                        </div>
+                        <p className="text-[11px] sm:text-xs font-extrabold leading-snug">
+                          対象が擬態を解きつつある。直ちに【非常ベル】で処分を実行しろ
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 外周の赤黒い警告ビネット */}
+                  {movingEvent.status === 'ACTIVE' && (
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background: `radial-gradient(circle at 50% 45%, transparent ${Math.max(
+                          24,
+                          52 - eventUrgency * 22
+                        )}%, rgba(127, 29, 29, 0.52) 82%, rgba(0, 0, 0, 0.92) 100%)`,
+                      }}
+                    />
+                  )}
+                </>
+              ) : (
+                /* ------------------------------------------------------------
+                   通常の「鏡面の怪異（5F〜3F）」：背後の赤目怪異・裂けた笑み・黒手を描画
+                   ------------------------------------------------------------ */
+                <>
+                  <div className="absolute inset-0 cabin-red-black-flicker mix-blend-multiply" />
+
+                  <motion.div
+                    animate={
+                      movingEvent.status === 'FAILED'
+                        ? { scale: 2.35, y: 30, opacity: 1 }
+                        : movingEvent.status === 'RESOLVED'
+                        ? { scale: 0.7, opacity: 0 }
+                        : {
+                            scale: 1.0 + eventUrgency * 0.38,
+                            y: [0, -3, 2, 0],
+                            opacity: 0.78 + eventUrgency * 0.2,
+                          }
+                    }
+                    transition={
+                      movingEvent.status === 'FAILED'
+                        ? { duration: 0.22, ease: 'easeIn' }
+                        : { duration: 0.35 }
+                    }
+                    className="relative w-full h-full flex items-end justify-center"
+                    style={{
+                      mixBlendMode: 'screen',
+                      willChange: 'transform, opacity',
+                    }}
+                  >
+                    <svg viewBox="0 0 360 440" className="w-full h-full">
+                      <defs>
+                        <radialGradient id="mirrorGhostAura" cx="50%" cy="42%" r="52%">
+                          <stop offset="0%" stopColor="rgba(185, 28, 28, 0.55)" />
+                          <stop offset="60%" stopColor="rgba(30, 10, 15, 0.35)" />
+                          <stop offset="100%" stopColor="rgba(0, 0, 0, 0)" />
+                        </radialGradient>
+                        <linearGradient id="mirrorMetalStreak" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="rgba(255,255,255,0.02)" />
+                          <stop offset="48%" stopColor="rgba(255,255,255,0.12)" />
+                          <stop offset="50%" stopColor="rgba(0,0,0,0.85)" />
+                          <stop offset="52%" stopColor="rgba(255,255,255,0.12)" />
+                          <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
+                        </linearGradient>
+                      </defs>
+
+                      <ellipse cx="195" cy="185" rx="145" ry="165" fill="url(#mirrorGhostAura)" />
+
+                      {/* プレイヤー自身の背面シルエット */}
+                      <g opacity="0.72">
+                        <path
+                          d="M 88 440 L 102 336 C 110 314, 128 308, 144 302 L 146 286 L 174 286 L 176 302 C 192 308, 210 314, 218 336 L 232 440 Z"
+                          fill="#09090b"
+                          stroke="rgba(168,162,158,0.22)"
+                          strokeWidth="1.5"
+                        />
+                        <path
+                          d="M 160 228 C 136 228, 125 248, 128 274 C 130 288, 138 298, 160 300 C 182 298, 190 288, 192 274 C 195 248, 184 228, 160 228 Z"
+                          fill="#0c0a09"
+                          stroke="rgba(168,162,158,0.24)"
+                          strokeWidth="1.5"
+                        />
+                      </g>
+
+                      {/* プレイヤーの右肩越し（背後）に不気味に覗き込む怪異 */}
+                      <g transform="translate(212, 168) rotate(-16)">
+                        <path
+                          d="M -88 260 L -62 68 C -48 42, -26 34, -15 24 L -13 -4 L 13 -4 L 15 24 C 26 34, 48 42, 62 68 L 88 260 Z"
+                          fill="#09090b"
+                          stroke="rgba(220, 38, 38, 0.42)"
+                          strokeWidth="1.6"
+                        />
+                        <path
+                          d="M -11 0 L -4 34 M 11 0 L 4 34 M -32 36 Q 0 46 32 36"
+                          fill="none"
+                          stroke="#7f1d1d"
+                          strokeWidth="1.8"
+                        />
+                        <path
+                          d="M 0 -78 C -36 -78, -52 -52, -50 -10 L -56 64 L -40 42 L -36 -12 L 36 -12 L 40 42 L 56 64 L 50 -10 C 52 -52, 36 -78, 0 -78 Z"
+                          fill="#050507"
+                        />
+                        <path
+                          d="M 0 -70 C -30 -70, -44 -48, -42 -20 C -40 -4, -34 12, -24 24 C -14 34, -6 38, 0 39 C 6 38, 14 34, 24 24 C 34 12, 40 -4, 42 -20 C 44 -48, 30 -70, 0 -70 Z"
+                          fill="#100d10"
+                          stroke="rgba(248, 113, 113, 0.55)"
+                          strokeWidth="1.6"
+                        />
+                        <path
+                          d="M 0 -70 C 4 -42, 2 -14, 0 39 C 8 38, 16 34, 24 24 C 34 12, 40 -4, 42 -20 C 44 -48, 30 -70, 0 -70 Z"
+                          fill="#070507"
+                        />
+                        <path
+                          d="M -42 -32 L -28 -46 L -18 -30 L -6 -48 L 6 -28 L 18 -46 L 30 -30 L 42 -34 C 38 -56, 24 -70, 0 -70 C -24 -70, -38 -56, -42 -32 Z"
+                          fill="#050507"
+                        />
+
+                        <path
+                          d="M -32 -25 C -27 -33, -10 -32, -7 -23 C -8 -14, -14 -10, -22 -10 C -30 -11, -33 -17, -32 -25 Z"
+                          fill="#000000"
+                        />
+                        <circle cx="-19" cy="-21" r="4" fill="#dc2626" />
+                        <circle cx="-19.5" cy="-21.5" r="1.5" fill="#ffffff" />
+
+                        <path
+                          d="M 7 -23 C 10 -32, 27 -33, 32 -25 C 33 -17, 30 -11, 22 -10 C 14 -10, 8 -14, 7 -23 Z"
+                          fill="#000000"
+                        />
+                        <circle cx="19" cy="-21" r="4" fill="#dc2626" />
+                        <circle cx="18.5" cy="-21.5" r="1.5" fill="#ffffff" />
+
+                        <path
+                          d="M -26 8 Q 0 34 26 8 Q 0 18 -26 8 Z"
+                          fill="#050507"
+                          stroke="#dc2626"
+                          strokeWidth="1.6"
+                        />
+                        <path
+                          d="M -18 12 L -15 21 L -10 13 L -5 23 L 0 14 L 5 23 L 10 13 L 15 21 L 18 12"
+                          fill="none"
+                          stroke="#fca5a5"
+                          strokeWidth="1.4"
+                        />
+                      </g>
+
+                      <g opacity={0.65 + eventUrgency * 0.35}>
+                        <path
+                          d={`M 0 180 L ${55 + eventUrgency * 45} 210 L ${45 + eventUrgency * 45} 222 L 0 205 Z`}
+                          fill="#050505"
+                          stroke="#991b1b"
+                          strokeWidth="1.2"
+                        />
+                        <path
+                          d={`M 0 215 L ${68 + eventUrgency * 50} 238 L ${58 + eventUrgency * 50} 250 L 0 238 Z`}
+                          fill="#050505"
+                          stroke="#991b1b"
+                          strokeWidth="1.2"
+                        />
+                        <path
+                          d={`M 0 250 L ${50 + eventUrgency * 45} 268 L ${42 + eventUrgency * 45} 278 L 0 268 Z`}
+                          fill="#050505"
+                          stroke="#991b1b"
+                          strokeWidth="1.2"
+                        />
+                        <path
+                          d={`M 360 175 L ${300 - eventUrgency * 45} 205 L ${308 - eventUrgency * 45} 218 L 360 198 Z`}
+                          fill="#050505"
+                          stroke="#991b1b"
+                          strokeWidth="1.2"
+                        />
+                        <path
+                          d={`M 360 210 L ${288 - eventUrgency * 50} 235 L ${296 - eventUrgency * 50} 248 L 360 232 Z`}
+                          fill="#050505"
+                          stroke="#991b1b"
+                          strokeWidth="1.2"
+                        />
+                      </g>
+
+                      <rect x="0" y="0" width="360" height="440" fill="url(#mirrorMetalStreak)" />
+                    </svg>
+                  </motion.div>
+
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      background: `radial-gradient(circle at 50% 45%, transparent ${Math.max(
+                        18,
+                        48 - eventUrgency * 28
+                      )}%, rgba(127, 29, 29, 0.65) 75%, rgba(0, 0, 0, 0.96) 100%)`,
+                    }}
+                  />
+                </>
+              )}
+
+              {/* ★ 緊急照射（RESOLVEDかつ時間残存＝非常ベル押下時のみ）の天井防衛レーザー閃光エフェクト */}
+              <AnimatePresence>
+                {movingEvent.status === 'RESOLVED' &&
+                  (!movingEvent.isKeyWomanTrial || movingEvent.timeLeftMs > 0) && (
+                    <motion.div
+                      key="uv-laser-purge"
+                      initial={{ opacity: 1 }}
+                      animate={{ opacity: [1, 0.9, 1, 0] }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.75, ease: 'easeOut' }}
+                      className="absolute inset-0 z-30 pointer-events-none overflow-hidden"
+                    >
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background:
+                            'radial-gradient(circle at 50% 25%, rgba(224, 242, 254, 0.85) 0%, rgba(56, 189, 248, 0.45) 45%, rgba(2, 6, 23, 0) 90%)',
+                          mixBlendMode: 'screen',
+                        }}
+                      />
+
+                      <svg viewBox="0 0 360 440" className="w-full h-full">
+                        <defs>
+                          <linearGradient id="purgeLaserBeam" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+                            <stop offset="35%" stopColor="#38bdf8" stopOpacity="0.95" />
+                            <stop offset="85%" stopColor="#0284c7" stopOpacity="0.7" />
+                            <stop offset="100%" stopColor="#0369a1" stopOpacity="0" />
+                          </linearGradient>
+                        </defs>
+
+                        <line x1="60" y1="0" x2="230" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="6" />
+                        <line x1="60" y1="0" x2="230" y2="440" stroke="#ffffff" strokeWidth="2" />
+
+                        <line x1="180" y1="0" x2="210" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="10" />
+                        <line x1="180" y1="0" x2="210" y2="440" stroke="#ffffff" strokeWidth="3.5" />
+
+                        <line x1="300" y1="0" x2="170" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="7" />
+                        <line x1="300" y1="0" x2="170" y2="440" stroke="#ffffff" strokeWidth="2.5" />
+
+                        <line x1="240" y1="0" x2="250" y2="440" stroke="url(#purgeLaserBeam)" strokeWidth="5" />
+
+                        <motion.line
+                          x1="0"
+                          y1="0"
+                          x2="360"
+                          y2="0"
+                          stroke="#7dd3fc"
+                          strokeWidth="4"
+                          style={{ willChange: 'transform' }}
+                          initial={{ y: 10 }}
+                          animate={{ y: 420 }}
+                          transition={{ duration: 0.45, ease: 'linear' }}
+                        />
+                      </svg>
+                    </motion.div>
+                  )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
@@ -538,10 +645,10 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = React.memo(({
               {isKeyWomanAlertActive && (
                 <div className="relative z-30 bg-red-950/95 border-2 border-red-500 text-red-100 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xs shadow-[0_0_30px_rgba(220,38,38,0.95)] max-w-md w-full text-center font-mincho animate-pulse">
                   <div className="text-[10px] md:text-[11px] font-black text-amber-300 tracking-widest mb-0.5">
-                    【管理室 システム警告】
+                    {STORY_TEXTS.controlRoom.floor2DoorAlertTitle}
                   </div>
                   <div className="text-[11px] md:text-xs font-extrabold leading-snug">
-                    【警告：2階】閉鎖区画からの応答を検知。扉の開放を禁止する。
+                    {STORY_TEXTS.controlRoom.floor2DoorAlert}
                   </div>
                 </div>
               )}
@@ -571,19 +678,21 @@ export const ElevatorDoor: React.FC<ElevatorDoorProps> = React.memo(({
               </p>
             </div>
 
-            {/* 5Fのみ：管理室通達とは無関係に、扉の隙間から血に汚れた紙片が滑り込んでくる独立演出 */}
-            {floor === 5 && (
+            {/* 15F / 10F / 5F：管理室通達とは無関係に発見・滑り込んでくる前任者の断片メモ */}
+            {currentFloorMemo && onOpenMemo && (
               <motion.button
+                id="prepare-scrap-memo-btn"
+                key={currentFloorMemo.id}
                 type="button"
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35, duration: 0.4 }}
-                onClick={onOpenMemo}
+                transition={{ delay: 0.3, duration: 0.38 }}
+                onClick={() => onOpenMemo(currentFloorMemo)}
                 className="bloody-scrap-paper border-2 border-red-900/90 px-3.5 py-2 max-w-sm w-full text-left shadow-[0_8px_25px_rgba(127,29,29,0.75)] pointer-events-auto cursor-pointer hover:brightness-105 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] sm:text-xs font-mincho font-black text-red-950">
-                    🩸 エレベーターの扉の隙間から、血に汚れた紙片が滑り込んできた……
+                    🩸 {STORY_TEXTS.notices.prepareDoorScrapLabel(floor)}
                   </span>
                   <span className="shrink-0 bg-red-900 text-red-100 text-[9px] font-bold px-1.5 py-0.5 rounded-xs animate-pulse">
                     確認
