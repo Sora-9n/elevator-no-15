@@ -247,67 +247,49 @@ export const INITIAL_VISITORS: VisitorData[] = [
     description: '隙間からは穏やかな住人に見えるが、扉を大きく開けると首が折れ、隠していた血塗れの包丁と空洞の目を現す怪異。',
   },
   {
-    id: 'v-ch1-peek-innocent-shadow',
-    name: '暗がりでよろける大荷物の住人',
+    id: 'v-ch1-commuter-resident',
+    name: '買い物帰りの住人',
     category: 'NORMAL',
     isThreat: false,
     chapter: 1,
-    dialogue: '「……うぅ……お、重い……早く……ここを開けてくれ……」',
-    enteredDialogue: '「ふぅ、助かりました！ 暗がりで大荷物を抱えてたから不気味に見えましたよね、すみません。」',
-    rejectedDialogue: '「えっ、ちょっと待ってください！ 引っ越しの荷物を抱えてただけの正規住人ですよ！ 管理室に苦情を言いますからね！」',
+    dialogue: '「こんばんは、日用品の買い出しから戻ったところです。1階までお願いできますか？」',
+    enteredDialogue: '「ありがとうございます。荷物が多かったので助かりました。」',
+    rejectedDialogue: '「えっ、ちょっと待ってください！ 住人証も着けている正規の住人ですよ！ 管理室に苦情を言いますからね！」',
     appearance: {
-      silhouetteType: 'HUNCHED',
-      clothingColor: '#27272a',
-      clothingLabel: '暗い影のシルエット｜開放で正規住人と判明',
-      eyeStyle: 'HOLLOW',
-      mouthStyle: 'NEUTRAL',
+      silhouetteType: 'BROAD',
+      clothingColor: '#57534e',
+      clothingLabel: '茶色のコート｜住人証あり・荷物あり',
+      eyeStyle: 'NORMAL',
+      mouthStyle: 'SMILE',
       glitchLevel: 'NONE',
-      headTiltDeg: 18,
-      isShadowedFace: true,
-      hasNameTag: false,
-      hasPackage: false,
-    },
-    peekTransformation: {
-      type: 'REVEAL_INNOCENT',
-      thresholdPercent: 65,
-      revealedDialogue: '「あっ、驚かせてすみません！ 大きな段ボール箱が重くて体勢が崩れていただけで、普通の住人です！」',
-      revealedAppearance: {
-        silhouetteType: 'BROAD',
-        clothingColor: '#57534e',
-        eyeStyle: 'NORMAL',
-        mouthStyle: 'SMILE',
-        headTiltDeg: 0,
-        isShadowedFace: false,
-        hasNameTag: true,
-        hasPackage: true,
-      },
+      hasNameTag: true,
+      hasPackage: true,
     },
     requiredCloseClicks: 1,
     sanityDamage: 0,
-    description: '隙間からは影が落ちて怪異のように見えるが、扉を広げて確認すると大きな荷物を抱えて怯えているだけの善良な住人だと判明する。',
+    description: '買い物袋を抱え、胸元に住人証を着けた穏やかな正規住人。',
   },
   {
     id: 'v-ch1-sleeper-resident',
-    name: '無口な夜勤帰りの住人',
+    name: '夜勤帰りの住人',
     category: 'NORMAL',
     isThreat: false,
-    isCabinSleeper: true,
     chapter: 1,
-    dialogue: '「……こんばんは。夜勤から戻ったところで……下までお願いします。」',
-    enteredDialogue: '「……どうも。あなたの後ろに、立たせてもらいますね……」',
+    dialogue: '「こんばんは。仕事から戻ったところでして、1階までお願いできますか。」',
+    enteredDialogue: '「助かります。今夜は外も冷え込みますね。」',
     rejectedDialogue: '「ちょっと！ 住人証も着けてるのにどうして閉めるんですか！？」',
     appearance: {
       silhouetteType: 'SLENDER',
       clothingColor: '#52525b',
       clothingLabel: '灰色のコート｜住人証あり',
       eyeStyle: 'NORMAL',
-      mouthStyle: 'NEUTRAL',
+      mouthStyle: 'SMILE',
       glitchLevel: 'NONE',
       hasNameTag: true,
     },
     requiredCloseClicks: 1,
     sanityDamage: 0,
-    description: '検問時は規則をすべて満たしているが、低層階で乗車していると下降中に背後で本性を現すことがある住人。',
+    description: '灰色のコートを着て住人証を携行している礼儀正しい正規住人。',
   },
 
   // ==========================================
@@ -643,12 +625,18 @@ export const INITIAL_VISITORS: VisitorData[] = [
 /**
  * 全14階層（15F〜2F）の訪問者選出ロジック
  * - 15F・10F・5Fでも通達確認の直後にその階で検問が発生し、直前に追加された通達ルールを試す訪問者が出現する
- * - 強制的に入ってこようとする怪異（requiredCloseClicks > 1）は4F・3Fのみで1ゲーム1〜2回出現
- * - 正体を現す怪異（REVEAL_THREAT）も4Fのみで最大1回出現
+ * - 扉をこじ開けてくる怪異（requiredCloseClicks > 1）は1ゲーム全体（15F〜2F）で【最大1回まで】に制限
+ * - 扉を開けた際に本性を現す怪異（REVEAL_THREAT）も最大1回出現
  * - 2Fは必ずトゥルーエンドの鍵となる元検閲官の女性（v-ch3-key-woman）を固定出現させる
  */
 export function selectVisitorForFloor(floor: number, recentVisitorIds: string[]): VisitorData {
   const byId = (id: string) => INITIAL_VISITORS.find((v) => v.id === id)!;
+
+  // すでにこの周回で「扉をこじ開ける怪異（requiredCloseClicks > 1）」が出現済みか判定
+  const hasSpawnedPrying = recentVisitorIds.some((id) => {
+    const found = INITIAL_VISITORS.find((v) => v.id === id);
+    return Boolean(found && found.requiredCloseClicks > 1);
+  });
 
   // 固定の重要ギミック階層（12F, 10F, 5F, 2F）
   if (floor === 12) return byId('v-ch1-floor12-phantom');      // 12F: 工事中無人ルール（こじ開けなし・1回閉扉）
@@ -661,19 +649,36 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
   }
   if (floor === 2) return byId('v-ch3-key-woman');             // 2F: トゥルーエンドの鍵となる「ボロボロの制服の元検閲官」固定出現
 
-  // 4F・3F：正体を現す怪異（最大1回）＆ こじ開け怪異（1〜2回）
+  // 4F・3F：こじ開け怪異は1周回につき最大1回のみ（4Fでこじ開けが出た場合は3Fは非こじ開け、4Fが非こじ開けなら3Fでこじ開け1回）
   if (floor === 4) {
-    // 55%の確率で「正体を現す怪異（最大1回）」、45%の確率で「402号室を名乗る幽霊（こじ開け5回）」
-    if (Math.random() < 0.55) {
-      return Math.random() < 0.5
-        ? byId('v-ch1-peek-trap-woman')
-        : byId('v-ch2-peek-trap-gentleman');
+    if (!hasSpawnedPrying && Math.random() < 0.45) {
+      return byId('v-ch3-room-number-ghost');
     }
-    return byId('v-ch3-room-number-ghost');
+    return Math.random() < 0.5
+      ? byId('v-ch1-peek-trap-woman')
+      : byId('v-ch2-peek-trap-gentleman');
   }
 
   if (floor === 3) {
-    // 3Fは必ず「強制的に入ってこようとする怪異（7回連打）」が出現（4Fと合わせて1ゲーム1〜2回）
+    // 4Fで既にこじ開け怪異が出現していた場合は、3Fでは絶対にこじ開け怪異を出さない（1ゲーム最大1回制限）
+    if (hasSpawnedPrying) {
+      const peekPool = [
+        byId('v-ch1-peek-trap-woman'),
+        byId('v-ch2-peek-trap-gentleman'),
+      ].filter((v) => !recentVisitorIds.includes(v.id));
+      if (peekPool.length > 0) {
+        return peekPool[Math.floor(Math.random() * peekPool.length)];
+      }
+      const fallbackNonPrying = [
+        byId('v-ch2-red-coat-doppel'),
+        byId('v-ch2-blue-no-cap-imposter'),
+        byId('v-ch2-polite-resident'),
+      ].filter((v) => !recentVisitorIds.includes(v.id));
+      const pool = fallbackNonPrying.length > 0 ? fallbackNonPrying : [byId('v-ch2-red-coat-doppel')];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    // まだこじ開け怪異が1度も出現していない場合のみ、3Fで1回だけ出現させる
     return Math.random() < 0.75
       ? byId('v-ch3-corrupted-blue-guard')
       : byId('v-any-neck-anomaly');
@@ -692,18 +697,13 @@ export function selectVisitorForFloor(floor: number, recentVisitorIds: string[])
       return floor15Pool[Math.floor(Math.random() * floor15Pool.length)];
     }
 
-    // 13Fでは「紛らわしい善良な住人（REVEAL_INNOCENT）」を優先選出
-    if (floor === 13 && !recentVisitorIds.includes('v-ch1-peek-innocent-shadow')) {
-      return byId('v-ch1-peek-innocent-shadow');
-    }
-
     const ch1Pool = [
       byId('v-ch1-delivery-valid'),
       byId('v-ch1-rude-fan-resident'),
+      byId('v-ch1-commuter-resident'),
       byId('v-ch1-sleeper-resident'),
       byId('v-ch1-delivery-fake'),
       byId('v-ch1-blue-coat-intruder'),
-      byId('v-ch1-peek-innocent-shadow'),
     ];
     const available = ch1Pool.filter((v) => !recentVisitorIds.includes(v.id));
     const pool = available.length > 0 ? available : ch1Pool;

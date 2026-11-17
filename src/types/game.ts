@@ -42,11 +42,10 @@ export interface VisitorAppearance {
   hasUmbrella?: boolean;
   hasWeapon?: boolean;       // 65%以上開けた時に見える凶器（血の包丁など）
   hasBloodStains?: boolean;  // 65%以上開けた時に見える衣服の血痕
-  isShadowedFace?: boolean;  // 65%未満では濃い影が落ちて不気味に見える演出
 }
 
 export interface PeekTransformation {
-  type: 'REVEAL_THREAT' | 'REVEAL_INNOCENT';
+  type: 'REVEAL_THREAT';
   thresholdPercent: number;  // 変化が発生する扉の開放率（例: 65）
   revealedDialogue: string;  // 65%を超えた瞬間に変化するセリフ
   revealedAppearance: Partial<VisitorAppearance>;
@@ -65,10 +64,6 @@ export interface VisitorData {
    * 扉を60%〜70%（65%）まで開けて覗き込んだ際に発生する段階的変化
    */
   peekTransformation?: PeekTransformation;
-  /**
-   * 一見普通の住人として乗車し、下降中に車内で本性を現しやすい潜伏フラグ
-   */
-  isCabinSleeper?: boolean;
   /**
    * 2階で固定出現するトゥルーエンドの鍵となる女性フラグ
    */

@@ -148,7 +148,8 @@ export function App() {
   const activePassengersRef = useRef<ActivePassenger[]>([]);
   const movingEventRef = useRef<MovingCabinEvent | null>(null);
   const floorsSinceLastMovingEventRef = useRef<number>(1);
-  const mirrorGhostTriggeredCountRef = useRef<number>(0);
+  const mirrorGhostMidZoneTriggeredRef = useRef<boolean>(false);
+  const mirrorGhostLowZoneTriggeredRef = useRef<boolean>(false);
   const miasmaTriggeredCountRef = useRef<number>(0);
   const fanTimerRef = useRef<number | null>(null);
   const sanityRef = useRef<number>(MAX_SANITY);
@@ -243,12 +244,28 @@ export function App() {
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
-  // TITLE / GAMEOVER / CLEAR 画面では機械環境音・ループ音を完全に停止し、2F警報を確実に消去する
+  // TITLE / GAMEOVER / CLEAR 画面では機械環境音・ループ音・黄色点滅枠等の演出オーバーレイを完全に停止・消去する
   useEffect(() => {
     if (gameState === 'TITLE' || gameState === 'GAMEOVER' || gameState === 'CLEAR') {
+      if (b1fTransitionTimerRef.current) {
+        window.clearTimeout(b1fTransitionTimerRef.current);
+        b1fTransitionTimerRef.current = null;
+      }
+      if (arrivingFlashTimeoutRef.current) {
+        window.clearTimeout(arrivingFlashTimeoutRef.current);
+        arrivingFlashTimeoutRef.current = null;
+      }
       setIsKeyWomanAlertActive(false);
       setInspectModalState(null);
       setIsPlungingToB1F(false);
+      isAwaiting1FOverrideRef.current = false;
+      setIsAwaiting1FOverride(false);
+      setIsArrivingFlash(false);
+      setJumpscareFlash(false);
+      setEndingOverlayFade('NONE');
+      setScreenShake('NONE');
+      tapSequenceRef.current = null;
+      setTapSequence(null);
       soundManager.stopCabinRattle();
       soundManager.stopMotorDrone();
       soundManager.stopDoorMotor();
@@ -259,10 +276,6 @@ export function App() {
       if (gameState === 'TITLE' || gameState === 'GAMEOVER') {
         soundManager.stopMorningAmbience();
         soundManager.stopNightEscapeAmbience();
-        tapSequenceRef.current = null;
-        setTapSequence(null);
-        isAwaiting1FOverrideRef.current = false;
-        setIsAwaiting1FOverride(false);
       }
     }
   }, [gameState]);
@@ -443,7 +456,8 @@ export function App() {
     peekFreezeTicksRef.current = 0;
     movingEventRef.current = null;
     floorsSinceLastMovingEventRef.current = 1;
-    mirrorGhostTriggeredCountRef.current = 0;
+    mirrorGhostMidZoneTriggeredRef.current = false;
+    mirrorGhostLowZoneTriggeredRef.current = false;
     miasmaTriggeredCountRef.current = 0;
     trueEndUnlockedRef.current = false;
     b1fOpenWarningTriggeredRef.current = false;
@@ -505,6 +519,18 @@ export function App() {
   // タイトル画面用：勤務履歴（SHIFT COUNT）の初期化
   const handleResetShiftData = useCallback(() => {
     soundManager.playButtonClick('SWITCH');
+    if (b1fTransitionTimerRef.current) {
+      window.clearTimeout(b1fTransitionTimerRef.current);
+      b1fTransitionTimerRef.current = null;
+    }
+    isAwaiting1FOverrideRef.current = false;
+    setIsAwaiting1FOverride(false);
+    setIsPlungingToB1F(false);
+    setIsArrivingFlash(false);
+    setJumpscareFlash(false);
+    setIsKeyWomanAlertActive(false);
+    setEndingOverlayFade('NONE');
+    setScreenShake('NONE');
     saveShiftCount(1);
     shiftCountRef.current = 1;
     setShiftCount(1);
@@ -772,12 +798,11 @@ export function App() {
         } else {
           // 正規の住人・職員を乗せた（1〜2階で自動降車、車内は最大2名まで）
           setBoardedSafeCount((prev) => prev + 1);
-          const stayFloors =
-            visitor.cabinRequest || visitor.isCabinSleeper
-              ? 2
-              : Math.random() < 0.55
-              ? 1
-              : 2;
+          const stayFloors = visitor.cabinRequest
+            ? 2
+            : Math.random() < 0.55
+            ? 1
+            : 2;
 
           const newPassenger: ActivePassenger = {
             visitor,
@@ -1041,7 +1066,7 @@ export function App() {
     [showToast]
   );
 
-  // 1. MOVING フェーズの管理（2F→1Fの「鍵となる彼女」第2の試練 ＋ 通常の下降中イベント）
+  // 1. MOVING フェーズの管理（2F→1Fの「鍵となる彼女」第2の試練 ＋ 階層帯別の非常ベル・換気イベント）
   useEffect(() => {
     if (gameState !== 'MOVING') return;
     // 1F突破→B1F突入の演出中は通常降下ロジックで字幕・揺れを上書きしない
@@ -1059,9 +1084,27 @@ export function App() {
     const pendingRequester = passengers.find(
       (p) => p.pendingRequest && !p.requestFulfilled
     );
-    const sleeperPassenger = passengers.find((p) => p.visitor.isCabinSleeper);
 
     // 1回の移動につき最大1つまでのイベント選出
+    // 【非常ベルイベント（MIRROR_GHOST）発生ルール】
+    // - 15F〜10Fの移動中 (floor > 10): 発生確率 0%
+    // - 10F〜5Fの移動中 (floor <= 10 && floor > 5): この区間内で必ず1回（確定で1回のみ）発生
+    // - 5F〜2Fの移動中 (floor <= 5 && floor > 2): 低確率（22%・20%〜25%帯）で最大1回のみ発生
+    const isMidZoneBellGuaranteedNow =
+      floor === 6 && !mirrorGhostMidZoneTriggeredRef.current;
+    const shouldTriggerMidZoneBell =
+      floor <= 10 &&
+      floor > 5 &&
+      !mirrorGhostMidZoneTriggeredRef.current &&
+      (isMidZoneBellGuaranteedNow ||
+        (!pendingRequester && (Math.random() < 0.35 || floor === 7)));
+    const shouldTriggerLowZoneBell =
+      floor <= 5 &&
+      floor > 2 &&
+      !pendingRequester &&
+      !mirrorGhostLowZoneTriggeredRef.current &&
+      Math.random() < 0.22;
+
     let scheduledEvent: MovingCabinEvent | null = null;
     const quietStreak = floorsSinceLastMovingEventRef.current;
 
@@ -1078,6 +1121,26 @@ export function App() {
         promptText: STORY_TEXTS.controlRoom.mirrorTrapPromptText,
         targetPassengerId: keyWomanPassenger.visitor.id,
       };
+    } else if (shouldTriggerMidZoneBell || shouldTriggerLowZoneBell) {
+      // 非常ベル対応イベント（10F〜5Fで確定1回 ／ 5F〜2Fで低確率22%・最大1回）
+      if (floor <= 10 && floor > 5) {
+        mirrorGhostMidZoneTriggeredRef.current = true;
+      } else {
+        mirrorGhostLowZoneTriggeredRef.current = true;
+      }
+      const ghostPrompts = [
+        '「『……ふふ、ひとりぼっちだと思った？ あなたの後ろ、立ってるよ』」『扉の鏡面に異常な影を確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
+        '「『……クスクス、後ろ……振り向かないでね』」『金属扉の鏡面に接近する影を確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
+      ];
+      scheduledEvent = {
+        id: `mirror-${Date.now()}`,
+        type: 'MIRROR_GHOST',
+        requiredAction: 'BELL',
+        timeLeftMs: EVENT_MOVING_WINDOW_MS,
+        maxTimeMs: EVENT_MOVING_WINDOW_MS,
+        status: 'ACTIVE',
+        promptText: ghostPrompts[Math.floor(Math.random() * ghostPrompts.length)],
+      };
     } else if (pendingRequester && pendingRequester.pendingRequest) {
       // 同乗者の車内要求（換気要求）
       scheduledEvent = {
@@ -1089,36 +1152,6 @@ export function App() {
         status: 'ACTIVE',
         promptText: pendingRequester.pendingRequest.promptText,
         targetPassengerId: pendingRequester.visitor.id,
-      };
-    } else if (
-      floor <= 5 &&
-      floor > 2 &&
-      mirrorGhostTriggeredCountRef.current < 1 &&
-      (sleeperPassenger ||
-        (passengers.length > 0 && ((quietStreak >= 1 && Math.random() < 0.65) || floor <= 3)) ||
-        (passengers.length === 0 && floor <= 4 && ((quietStreak >= 1 && Math.random() < 0.60) || floor === 3)))
-    ) {
-      // 非常ベル対応イベント（5階〜3階・鏡面怪異）
-      mirrorGhostTriggeredCountRef.current += 1;
-      const targetPassenger = sleeperPassenger || (passengers.length > 0 ? passengers[0] : null);
-      const ghostPrompts = targetPassenger
-        ? [
-            '「『……ねえ、もう死んでるのに何階へ行くの？ ……後ろ、振り向かないでね』」『扉の鏡面に異常個体の映り込みを確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
-            '「『……クスクス、あなたのすぐ後ろ、すごく冷たいでしょう？』」『金属扉の鏡面に異常個体の映り込みを確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
-          ]
-        : [
-            '「『……ふふ、ひとりぼっちだと思った？ あなたの後ろ、立ってるよ』」『扉の鏡面に異常な影を確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
-            '「『……クスクス、後ろ……振り向かないでね』」『金属扉の鏡面に接近する影を確認した。直ちに【非常ベル】を押し、防衛レーザーを照射しろ。』',
-          ];
-      scheduledEvent = {
-        id: `mirror-${Date.now()}`,
-        type: 'MIRROR_GHOST',
-        requiredAction: 'BELL',
-        timeLeftMs: EVENT_MOVING_WINDOW_MS,
-        maxTimeMs: EVENT_MOVING_WINDOW_MS,
-        status: 'ACTIVE',
-        promptText: ghostPrompts[Math.floor(Math.random() * ghostPrompts.length)],
-        targetPassengerId: targetPassenger?.visitor.id,
       };
     } else if (
       floor < 15 &&
@@ -1545,7 +1578,7 @@ export function App() {
         doorPercentRef.current = nextDoor;
         setDoorOpenPercent(nextDoor);
 
-        // ★ 扉が閾値（65%）を超えた瞬間の段階的変化（覗き込みの罠 / 善良な住人判明）
+        // ★ 扉が閾値（65%）を超えた瞬間の段階的変化（覗き込みの本性露呈）
         const peekConfig = currentVisitor?.peekTransformation;
         if (
           peekConfig &&
@@ -1556,18 +1589,14 @@ export function App() {
           setIsPeekTransformed(true);
           setActiveSubtitle(peekConfig.revealedDialogue);
 
-          if (peekConfig.type === 'REVEAL_THREAT') {
-            soundManager.stopDoorMotor();
-            soundManager.playPeekRevealGlitch();
-            setScreenShake('VIOLENT');
-            setJumpscareFlash(true);
-            setTimeout(() => setJumpscareFlash(false), 120);
-            setTimeout(() => setScreenShake('NONE'), 280);
-            // 100%に達する前にプレイヤーが指を離して閉め出せるよう約350ms開扉を一時停止
-            peekFreezeTicksRef.current = 7;
-          } else {
-            soundManager.playPeekInnocentReveal();
-          }
+          soundManager.stopDoorMotor();
+          soundManager.playPeekRevealGlitch();
+          setScreenShake('VIOLENT');
+          setJumpscareFlash(true);
+          setTimeout(() => setJumpscareFlash(false), 120);
+          setTimeout(() => setScreenShake('NONE'), 280);
+          // 100%に達する前にプレイヤーが指を離して閉め出せるよう約350ms開扉を一時停止
+          peekFreezeTicksRef.current = 7;
         }
 
         if (nextDoor >= 100) {
@@ -2135,18 +2164,15 @@ export function App() {
       <div className="absolute inset-0 scanlines z-40 pointer-events-none opacity-55" />
 
       {/* 検問中（JUDGING）に張り紙を拡大している間の「画面のフチが赤暗く脈打つ焦燥感演出」 */}
-      <AnimatePresence>
-        {isSlowMotionActive && (
-          <motion.div
-            id="slow-motion-vignette"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0.35, 0.85, 0.35] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
-            className="fixed inset-0 z-55 pointer-events-none border-[14px] border-red-900/90 shadow-[inset_0_0_90px_rgba(185,28,28,0.85)]"
-          />
-        )}
-      </AnimatePresence>
+      {isSlowMotionActive && (
+        <motion.div
+          id="slow-motion-vignette"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0.35, 0.85, 0.35] }}
+          transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+          className="fixed inset-0 z-55 pointer-events-none border-[14px] border-red-900/90 shadow-[inset_0_0_90px_rgba(185,28,28,0.85)]"
+        />
+      )}
 
       {/* 画面上部のトースト通知（クレーム・チェックポイント・危険通知） */}
       <AnimatePresence>
@@ -2184,31 +2210,25 @@ export function App() {
       </AnimatePresence>
 
       {/* 怪異侵入時の赤いジャンプスケアフラッシュ演出 */}
-      <AnimatePresence>
-        {jumpscareFlash && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0.85, 0.2, 0.75, 0.35] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
-            className="fixed inset-0 z-40 bg-red-900/70 pointer-events-none border-[16px] border-red-600/80"
-          />
-        )}
-      </AnimatePresence>
+      {jumpscareFlash && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0.85, 0.2, 0.75, 0.35] }}
+          transition={{ duration: 0.8 }}
+          className="fixed inset-0 z-40 bg-red-900/70 pointer-events-none border-[16px] border-red-600/80"
+        />
+      )}
 
-      {/* B1F回路過負荷突破時の高圧スパーク＆点滅フラッシュ */}
-      <AnimatePresence>
-        {isPlungingToB1F && (
-          <motion.div
-            id="b1f-breakthrough-flash"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0.95, 0.25, 0.9, 0.35, 0.85] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.75, repeat: Infinity }}
-            className="fixed inset-0 z-45 pointer-events-none border-[12px] border-amber-400/90 bg-sky-400/15 shadow-[inset_0_0_95px_rgba(251,191,36,0.75)]"
-          />
-        )}
-      </AnimatePresence>
+      {/* B1F回路過負荷突破時の高圧スパーク＆点滅フラッシュ（AnimatePresence/exitを排し、終了時・画面遷移時に即座にDOMから消去） */}
+      {isPlungingToB1F && gameState === 'FINAL_DOOR' && (
+        <motion.div
+          id="b1f-breakthrough-flash"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0.95, 0.25, 0.9, 0.35, 0.85] }}
+          transition={{ duration: 0.75, repeat: Infinity }}
+          className="fixed inset-0 z-45 pointer-events-none border-[12px] border-amber-400/90 bg-sky-400/15 shadow-[inset_0_0_95px_rgba(251,191,36,0.75)]"
+        />
+      )}
 
       {/* 1. 最上部：階層インジケーター＆SHIFT＆精神安定度＆通報累積ヘッダー */}
       <FloorIndicator

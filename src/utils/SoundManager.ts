@@ -352,13 +352,13 @@ class SoundManager {
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 怪異階でも一見普通だが僅かにピッチが狂う演出も可能
+    // 怪異階でも一見普通だが僅かにピッチが狂う演出も可能（高周波チャイムにつき従来の約40%ゲインに低減）
     const detuneFactor = isAnomalyFloor ? 0.985 : 1.0;
     const partials = [
-      { freq: 1046.5 * detuneFactor, amp: 0.10, decay: 1.8 },
-      { freq: 2093.0 * detuneFactor, amp: 0.05, decay: 1.2 },
-      { freq: 3185.0 * detuneFactor, amp: 0.028, decay: 0.65 },
-      { freq: 4430.0 * detuneFactor, amp: 0.014, decay: 0.3 },
+      { freq: 1046.5 * detuneFactor, amp: 0.04, decay: 1.8 },
+      { freq: 2093.0 * detuneFactor, amp: 0.02, decay: 1.2 },
+      { freq: 3185.0 * detuneFactor, amp: 0.011, decay: 0.65 },
+      { freq: 4430.0 * detuneFactor, amp: 0.0056, decay: 0.3 },
     ];
 
     partials.forEach(({ freq, amp, decay }) => {
@@ -914,20 +914,21 @@ class SoundManager {
 
   /**
    * 怪異が扉をこじ開けようとする時の激しい金属打撃音・軋み摩擦音・衝撃波（「ドガンッ！！ キギギギ……！」）
+   * ※警告・衝撃系SEにつき出力ゲインを従来の約40%（-8dB相当）に低減
    */
   public playDoorBang(): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1. 重低音の金属衝撃打撃波（エレベーターの鉄箱全体が激震する音、耳に刺さらないよう音量バランス調整）
+    // 1. 重低音の金属衝撃打撃波（従来の約40%ゲイン: 0.22 -> 0.088）
     const bassOsc = ctx.createOscillator();
     bassOsc.type = 'sawtooth';
     bassOsc.frequency.setValueAtTime(140, now);
     bassOsc.frequency.exponentialRampToValueAtTime(28, now + 0.35);
 
     const bassGain = ctx.createGain();
-    bassGain.gain.setValueAtTime(0.22, now);
+    bassGain.gain.setValueAtTime(0.088, now);
     bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
 
     bassOsc.connect(bassGain);
@@ -935,7 +936,7 @@ class SoundManager {
     bassOsc.start(now);
     bassOsc.stop(now + 0.42);
 
-    // 2. 金属板が叩きつけられる高音の鉄打撃クラスター
+    // 2. 金属板が叩きつけられる高音の鉄打撃クラスター（従来の約40%ゲイン: 0.07 -> 0.028）
     [540, 780, 1120].forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -943,7 +944,7 @@ class SoundManager {
       osc.frequency.setValueAtTime(freq + idx * 45, now);
       osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
 
-      gain.gain.setValueAtTime(0.07, now);
+      gain.gain.setValueAtTime(0.028, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
 
       osc.connect(gain);
@@ -952,7 +953,7 @@ class SoundManager {
       osc.stop(now + 0.18);
     });
 
-    // 3. 爪や鉄板が無理やりこじ開けられる金切り摩擦ノイズ（「ギギギギッ！」）
+    // 3. 爪や鉄板が無理やりこじ開けられる金切り摩擦ノイズ（従来の約40%ゲイン: 0.10 -> 0.04）
     const bufferSize = Math.floor(ctx.sampleRate * 0.35);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -969,7 +970,7 @@ class SoundManager {
     filter.Q.setValueAtTime(6.0, now);
 
     const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.10, now);
+    noiseGain.gain.setValueAtTime(0.04, now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
     noise.connect(filter);
@@ -1112,27 +1113,27 @@ class SoundManager {
 
   /**
    * 非常ベル／緊急照射（BELL）押下時の重厚な警報サイレン＆高圧滅菌レーザー照射音
-   * - 旧式ビルの不気味な重低音機械式クラクションと高圧コンデンサ放電・アーク閃光音を合成
+   * - 従来の約40%（-8dB相当）まで出力ゲインを引き下げ、耳に刺さらない音量バランスに調整
    */
   public playEmergencyBell(): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1. 重厚な機械式ソレノイド投入音（「ガツンッ！」という硬質な鉄の打撃）
+    // 1. 重厚な機械式ソレノイド投入音（0.32 -> 0.128）
     const clunkOsc = ctx.createOscillator();
     const clunkGain = ctx.createGain();
     clunkOsc.type = 'triangle';
     clunkOsc.frequency.setValueAtTime(160, now);
     clunkOsc.frequency.exponentialRampToValueAtTime(38, now + 0.09);
-    clunkGain.gain.setValueAtTime(0.32, now);
+    clunkGain.gain.setValueAtTime(0.128, now);
     clunkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
     clunkOsc.connect(clunkGain);
     clunkGain.connect(ctx.destination);
     clunkOsc.start(now);
     clunkOsc.stop(now + 0.11);
 
-    // 2. 不協和音の旧式防空・非常クラクション（「ブォォォン！ブォォォン！」と唸る重苦しい警報）
+    // 2. 不協和音の旧式防空・非常クラクション（0.22 -> 0.088）
     [0, 0.36].forEach((offset) => {
       const start = now + offset;
       const horn1 = ctx.createOscillator();
@@ -1141,13 +1142,12 @@ class SoundManager {
       const hornFilter = ctx.createBiquadFilter();
       const hornGain = ctx.createGain();
 
-      // 短二度・増四度の不気味な重工業クラクション周波数
       horn1.type = 'sawtooth';
       horn1.frequency.setValueAtTime(248, start);
       horn1.frequency.linearRampToValueAtTime(232, start + 0.32);
 
       horn2.type = 'sawtooth';
-      horn2.frequency.setValueAtTime(352, start); // トライトーン（悪魔の音程）
+      horn2.frequency.setValueAtTime(352, start);
       horn2.frequency.linearRampToValueAtTime(330, start + 0.32);
 
       subHorn.type = 'square';
@@ -1158,8 +1158,8 @@ class SoundManager {
       hornFilter.Q.setValueAtTime(1.8, start);
 
       hornGain.gain.setValueAtTime(0.001, start);
-      hornGain.gain.linearRampToValueAtTime(0.22, start + 0.03);
-      hornGain.gain.setValueAtTime(0.22, start + 0.24);
+      hornGain.gain.linearRampToValueAtTime(0.088, start + 0.03);
+      hornGain.gain.setValueAtTime(0.088, start + 0.24);
       hornGain.gain.exponentialRampToValueAtTime(0.001, start + 0.33);
 
       horn1.connect(hornFilter);
@@ -1176,26 +1176,25 @@ class SoundManager {
       subHorn.stop(start + 0.34);
     });
 
-    // 3. 高圧紫外線・防衛レーザー照射の電磁パルス放電音（「バチィィン！ジジジッ…ブゥゥン」）
+    // 3. 高圧紫外線・防衛レーザー照射の電磁パルス放電音（0.18 -> 0.072）
     const zapStart = now + 0.04;
     const zapOsc = ctx.createOscillator();
     const zapGain = ctx.createGain();
     zapOsc.type = 'sawtooth';
     zapOsc.frequency.setValueAtTime(1650, zapStart);
     zapOsc.frequency.exponentialRampToValueAtTime(65, zapStart + 0.45);
-    zapGain.gain.setValueAtTime(0.18, zapStart);
+    zapGain.gain.setValueAtTime(0.072, zapStart);
     zapGain.gain.exponentialRampToValueAtTime(0.001, zapStart + 0.48);
     zapOsc.connect(zapGain);
     zapGain.connect(ctx.destination);
     zapOsc.start(zapStart);
     zapOsc.stop(zapStart + 0.5);
 
-    // 4. アーク放電スパーク・怪異が焼灼されるノイズバースト
+    // 4. アーク放電スパーク・怪異が焼灼されるノイズバースト（0.24 -> 0.096）
     const bufferSize = Math.floor(ctx.sampleRate * 0.55);
     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = noiseBuffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
-      // バチバチと弾ける高圧放電テクスチャ
       const crackle = Math.random() > 0.82 ? 1.8 : 0.45;
       data[i] = (Math.random() * 2 - 1) * crackle;
     }
@@ -1209,7 +1208,7 @@ class SoundManager {
     bandpass.Q.setValueAtTime(1.4, zapStart);
 
     const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.24, zapStart);
+    noiseGain.gain.setValueAtTime(0.096, zapStart);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, zapStart + 0.52);
 
     noise.connect(bandpass);
@@ -1221,6 +1220,7 @@ class SoundManager {
 
   /**
    * 4. クレーム発生時のインターホン警告音（ブザー）
+   * ※従来の約40%ゲイン（0.18 -> 0.072）に低減
    */
   public playComplaintBuzzer(): void {
     const ctx = this.ensureContext();
@@ -1238,10 +1238,10 @@ class SoundManager {
       osc.frequency.setValueAtTime(165, start);
 
       subOsc.type = 'square';
-      subOsc.frequency.setValueAtTime(173, start); // 不快なうなり
+      subOsc.frequency.setValueAtTime(173, start);
 
-      gain.gain.setValueAtTime(0.18, start);
-      gain.gain.setValueAtTime(0.18, start + 0.22);
+      gain.gain.setValueAtTime(0.072, start);
+      gain.gain.setValueAtTime(0.072, start + 0.22);
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.28);
 
       osc.connect(gain);
@@ -1257,6 +1257,7 @@ class SoundManager {
 
   /**
    * 5. 怪異侵入・ゲームオーバー時の不協和音ノイズ（ジャンプスケア）
+   * ※従来の約40%ゲイン（0.09 -> 0.036, 0.32 -> 0.128）に低減
    */
   public playJumpscareNoise(): void {
     const ctx = this.ensureContext();
@@ -1273,7 +1274,7 @@ class SoundManager {
       osc.frequency.setValueAtTime(f, now);
       osc.frequency.linearRampToValueAtTime(f * (0.85 + Math.random() * 0.3), now + duration);
 
-      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.setValueAtTime(0.036, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
       osc.connect(gain);
@@ -1300,7 +1301,7 @@ class SoundManager {
     filter.Q.setValueAtTime(0.8, now);
 
     const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.32, now);
+    noiseGain.gain.setValueAtTime(0.128, now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
     noise.connect(filter);
@@ -1341,6 +1342,7 @@ class SoundManager {
 
   /**
    * 10F・5F チェックポイント到達時の管理室通信チャイム（「ピポーン」）
+   * ※従来の約40%ゲイン（0.18 -> 0.072）に低減
    */
   public playCheckpointNotice(): void {
     const ctx = this.ensureContext();
@@ -1359,7 +1361,7 @@ class SoundManager {
       osc.frequency.setValueAtTime(freq, now + start);
 
       gain.gain.setValueAtTime(0.001, now + start);
-      gain.gain.linearRampToValueAtTime(0.18, now + start + 0.02);
+      gain.gain.linearRampToValueAtTime(0.072, now + start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
 
       osc.connect(gain);
@@ -1382,7 +1384,7 @@ class SoundManager {
     // 1. 到着時の不協和音ホラードローン（低周波のうなりと冷気のような帯域）
     this.startAnomalyPresence();
 
-    // 2. 短二度・減五度の不気味なクラスターバースト（一瞬の恐怖インパクト）
+    // 2. 短二度・減五度の不気味なクラスターバースト（従来の約40%ゲイン: 0.12 -> 0.048）
     [65.4, 69.3, 92.5, 138.6].forEach((freq) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -1390,7 +1392,7 @@ class SoundManager {
       osc.frequency.setValueAtTime(freq, now);
 
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.12, now + 0.08);
+      gain.gain.linearRampToValueAtTime(0.048, now + 0.08);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
 
       osc.connect(gain);
@@ -1408,6 +1410,7 @@ class SoundManager {
 
   /**
    * 怪異が扉の向こうに滞在している間の持続的ホラードローン（低音のうなり）
+   * ※従来の約40%ゲイン（0.14 -> 0.056）に低減
    */
   public startAnomalyPresence(): void {
     const ctx = this.ensureContext();
@@ -1417,7 +1420,7 @@ class SoundManager {
     const now = ctx.currentTime;
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.001, now);
-    masterGain.gain.exponentialRampToValueAtTime(0.14, now + 0.4);
+    masterGain.gain.exponentialRampToValueAtTime(0.056, now + 0.4);
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -1468,6 +1471,7 @@ class SoundManager {
 
   /**
    * 怪異が扉をこじ開けようと力をかけ続けている間の持続的な金属軋み音ループ（「ギギ…ギギギ…」）
+   * ※従来の約40%ゲイン（0.12 -> 0.048）に低減
    */
   public startPryingLoop(): void {
     const ctx = this.ensureContext();
@@ -1479,7 +1483,6 @@ class SoundManager {
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
-      // 擦れる不規則な摩擦音波形
       data[i] = (Math.random() * 2 - 1) * (i % 80 < 40 ? 1 : 0.3);
     }
 
@@ -1487,7 +1490,6 @@ class SoundManager {
     source.buffer = buffer;
     source.loop = true;
 
-    // LFOでフィルター周波数を揺らして「ギギ…ギギ…」と周期的に軋むリアルな音にする
     const lfo = ctx.createOscillator();
     lfo.type = 'sawtooth';
     lfo.frequency.setValueAtTime(3.2, now);
@@ -1497,14 +1499,13 @@ class SoundManager {
     lfo.connect(lfoGain);
 
     const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
     filter.frequency.setValueAtTime(1200, now);
     filter.Q.setValueAtTime(7.5, now);
     lfoGain.connect(filter.frequency);
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(0.12, now + 0.2);
+    gain.gain.linearRampToValueAtTime(0.048, now + 0.2);
 
     source.connect(filter);
     filter.connect(gain);
@@ -1542,18 +1543,18 @@ class SoundManager {
 
   /**
    * 6. 扉を65%以上開けた瞬間、怪異が本性を現すグリッチ音・不協和音・関節の折れる音
+   * ※従来の約40%ゲイン（0.32 -> 0.128, 0.085 -> 0.034）に低減
    */
   public playPeekRevealGlitch(): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1) 首がガクッと折れる乾いた破砕ノイズバースト（「バキッ…ザザッ！」）
+    // 1) 首がガクッと折れる乾いた破砕ノイズバースト
     const snapLen = Math.floor(ctx.sampleRate * 0.22);
     const snapBuf = ctx.createBuffer(1, snapLen, ctx.sampleRate);
     const snapData = snapBuf.getChannelData(0);
     for (let i = 0; i < snapLen; i++) {
-      // グリッチ的な断続ノイズ
       const gate = (i % 1800) < 950 ? 1.0 : 0.15;
       snapData[i] = (Math.random() * 2 - 1) * gate;
     }
@@ -1568,7 +1569,7 @@ class SoundManager {
     snapFilter.Q.setValueAtTime(3.5, now);
 
     const snapGain = ctx.createGain();
-    snapGain.gain.setValueAtTime(0.32, now);
+    snapGain.gain.setValueAtTime(0.128, now);
     snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
 
     snapSource.connect(snapFilter);
@@ -1577,7 +1578,7 @@ class SoundManager {
     snapSource.start(now);
     snapSource.stop(now + 0.23);
 
-    // 2) 背筋が凍る不協和音スティンガー（短二度＋三全音）
+    // 2) 背筋が凍る不協和音スティンガー（0.085 -> 0.034）
     [110.0, 116.54, 155.56, 311.13, 659.25].forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -1586,7 +1587,7 @@ class SoundManager {
       osc.frequency.linearRampToValueAtTime(freq * 0.94, now + 0.65);
 
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.085, now + 0.02);
+      gain.gain.linearRampToValueAtTime(0.034, now + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.68);
 
       osc.connect(gain);
@@ -1597,7 +1598,7 @@ class SoundManager {
   }
 
   /**
-   * 7. 扉を65%以上開けた際、怪しい影が「ただの善良な住人」だと判明する安堵音
+   * 7. 2F→1Fの非常ベル誘導トラップを耐え抜いた際の静かな解除チャイム（約40%ゲイン: 0.11 -> 0.044）
    */
   public playPeekInnocentReveal(): void {
     const ctx = this.ensureContext();
@@ -1612,7 +1613,7 @@ class SoundManager {
       osc.frequency.setValueAtTime(freq, start);
 
       gain.gain.setValueAtTime(0.001, start);
-      gain.gain.linearRampToValueAtTime(0.11, start + 0.02);
+      gain.gain.linearRampToValueAtTime(0.044, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
 
       osc.connect(gain);
@@ -1624,6 +1625,7 @@ class SoundManager {
 
   /**
    * 8. 瘴気（MIASMA）発生時の不気味な噴出音と激しい心音ループ（「ドクン…ドクン…」）
+   * ※従来の約40%ゲイン（0.09 -> 0.036, 0.36/0.26 -> 0.144/0.104）に低減
    */
   public startMiasmaHeartbeat(): void {
     const ctx = this.ensureContext();
@@ -1650,7 +1652,7 @@ class SoundManager {
 
     const mGain = ctx.createGain();
     mGain.gain.setValueAtTime(0.001, now);
-    mGain.gain.linearRampToValueAtTime(0.09, now + 0.4);
+    mGain.gain.linearRampToValueAtTime(0.036, now + 0.4);
 
     source.connect(filter);
     filter.connect(mGain);
@@ -1660,7 +1662,7 @@ class SoundManager {
     this.miasmaNoiseNode = source;
     this.miasmaGain = mGain;
 
-    // 2) 激しい心音（「ドクン・ドクン」）を周期再生
+    // 2) 心音（「ドクン・ドクン」）を周期再生
     const triggerBeat = () => {
       const c = this.ensureContext();
       if (!c) return;
@@ -1674,7 +1676,7 @@ class SoundManager {
         osc.frequency.exponentialRampToValueAtTime(26, t + offset + 0.16);
 
         gain.gain.setValueAtTime(0.001, t + offset);
-        gain.gain.linearRampToValueAtTime(idx === 0 ? 0.36 : 0.26, t + offset + 0.02);
+        gain.gain.linearRampToValueAtTime(idx === 0 ? 0.144 : 0.104, t + offset + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.001, t + offset + 0.17);
 
         osc.connect(gain);
@@ -1716,6 +1718,7 @@ class SoundManager {
 
   /**
    * 9. 車内怪異の豹変＆ステンレス扉への鏡面映り込み演出音
+   * ※高周波倍音・スパーク音のゲインを従来の約40%（0.06 -> 0.024, 0.22 -> 0.088）に低減
    */
   public playMirrorGhostAppear(): void {
     const ctx = this.ensureContext();
@@ -1725,7 +1728,7 @@ class SoundManager {
     // 持続低音ドローン開始
     this.startAnomalyPresence();
 
-    // 鏡面がキィィンと共鳴するような冷たい金属倍音＋不気味な急降下音
+    // 鏡面が共鳴する冷たい金属倍音（0.06 -> 0.024）
     [1480, 1568, 2217].forEach((freq) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -1734,7 +1737,7 @@ class SoundManager {
       osc.frequency.linearRampToValueAtTime(freq * 0.97, now + 1.8);
 
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.06, now + 0.08);
+      gain.gain.linearRampToValueAtTime(0.024, now + 0.08);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
 
       osc.connect(gain);
@@ -1743,13 +1746,13 @@ class SoundManager {
       osc.stop(now + 1.85);
     });
 
-    // 蛍光灯がバチバチッと赤黒く明滅するスパークノイズ
+    // 蛍光灯が明滅するスパークノイズ（0.22 -> 0.088）
     const subOsc = ctx.createOscillator();
     const subGain = ctx.createGain();
     subOsc.type = 'sawtooth';
     subOsc.frequency.setValueAtTime(95, now);
     subOsc.frequency.exponentialRampToValueAtTime(34, now + 0.7);
-    subGain.gain.setValueAtTime(0.22, now);
+    subGain.gain.setValueAtTime(0.088, now);
     subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
     subOsc.connect(subGain);
     subGain.connect(ctx.destination);
@@ -1759,6 +1762,7 @@ class SoundManager {
 
   /**
    * 10. 下降中イベント発生時にエレベーターがガタガタッと揺れて減速する衝撃音
+   * ※従来の約40%ゲイン（0.28 -> 0.112）に低減
    */
   public playElevatorJolt(): void {
     const ctx = this.ensureContext();
@@ -1772,7 +1776,7 @@ class SoundManager {
       osc.frequency.setValueAtTime(115, now + offset);
       osc.frequency.exponentialRampToValueAtTime(32, now + offset + 0.16);
 
-      gain.gain.setValueAtTime(0.28, now + offset);
+      gain.gain.setValueAtTime(0.112, now + offset);
       gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.18);
 
       osc.connect(gain);
@@ -1784,13 +1788,13 @@ class SoundManager {
 
   /**
    * 11. 通常エンディング：階層インジケーターが 1F → 15F へ高速巻き戻しされる際の機械駆動パルス音
+   * ※従来の約40%ゲイン（0.14 -> 0.056）に低減
    */
   public playFloorRewindTick(floorNum: number): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 階数が上がるにつれてピッチが上昇するリレークリック＋モーターうなり
     const baseFreq = 180 + floorNum * 34;
     const osc = ctx.createOscillator();
     osc.type = 'sawtooth';
@@ -1804,7 +1808,7 @@ class SoundManager {
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(0.14, now + 0.008);
+    gain.gain.linearRampToValueAtTime(0.056, now + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
 
     osc.connect(filter);
@@ -1817,6 +1821,7 @@ class SoundManager {
 
   /**
    * 12. トゥルーエンディング：1階を素通りして地下B1Fへ突入する際の火花・制動突破音
+   * ※従来の約40%ゲイン（0.32 -> 0.128, 0.18 -> 0.072）に低減
    */
   public playB1FBreakthrough(): void {
     const ctx = this.ensureContext();
@@ -1830,7 +1835,7 @@ class SoundManager {
     dropOsc.frequency.exponentialRampToValueAtTime(28, now + 1.1);
 
     const dropGain = ctx.createGain();
-    dropGain.gain.setValueAtTime(0.32, now);
+    dropGain.gain.setValueAtTime(0.128, now);
     dropGain.gain.exponentialRampToValueAtTime(0.001, now + 1.15);
 
     dropOsc.connect(dropGain);
@@ -1856,7 +1861,7 @@ class SoundManager {
     sparkFilter.Q.setValueAtTime(4.0, now);
 
     const sparkGain = ctx.createGain();
-    sparkGain.gain.setValueAtTime(0.18, now);
+    sparkGain.gain.setValueAtTime(0.072, now);
     sparkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
 
     sparkSrc.connect(sparkFilter);
@@ -1868,13 +1873,14 @@ class SoundManager {
 
   /**
    * 13. トゥルーエンディング：B1Fの扉が100%開いた瞬間、「バチィッ！」と管理室の通信・監視システムが爆発ショートする音
+   * ※従来の約40%ゲイン（0.35 -> 0.14, 0.18 -> 0.072）に低減
    */
   public playSystemShortCircuitExplosion(): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1) 「バチィッ！！」という強烈な高圧アーク放電クラック
+    // 1) 「バチィッ！！」という高圧アーク放電クラック
     const arcLen = Math.floor(ctx.sampleRate * 0.45);
     const arcBuf = ctx.createBuffer(1, arcLen, ctx.sampleRate);
     const arcData = arcBuf.getChannelData(0);
@@ -1892,7 +1898,7 @@ class SoundManager {
     arcFilter.Q.setValueAtTime(2.2, now);
 
     const arcGain = ctx.createGain();
-    arcGain.gain.setValueAtTime(0.35, now);
+    arcGain.gain.setValueAtTime(0.14, now);
     arcGain.gain.exponentialRampToValueAtTime(0.001, now + 0.44);
 
     arcSrc.connect(arcFilter);
@@ -1901,7 +1907,7 @@ class SoundManager {
     arcSrc.start(now);
     arcSrc.stop(now + 0.45);
 
-    // 2) 監視システムの電源が落ちていくパワーダウン音（「キュゥゥゥン……プツッ」）
+    // 2) 監視システムの電源が落ちていくパワーダウン音
     const pwrOsc = ctx.createOscillator();
     pwrOsc.type = 'sawtooth';
     pwrOsc.frequency.setValueAtTime(980, now + 0.04);
@@ -1913,7 +1919,7 @@ class SoundManager {
     pwrFilter.frequency.exponentialRampToValueAtTime(90, now + 0.85);
 
     const pwrGain = ctx.createGain();
-    pwrGain.gain.setValueAtTime(0.18, now + 0.04);
+    pwrGain.gain.setValueAtTime(0.072, now + 0.04);
     pwrGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.88);
 
     pwrOsc.connect(pwrFilter);

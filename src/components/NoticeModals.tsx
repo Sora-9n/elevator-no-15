@@ -376,11 +376,11 @@ export const NoticeModals: React.FC<NoticeModalsProps> = React.memo(({
                       <div className="font-extrabold text-stone-950 mb-0.5 flex items-center justify-between">
                         <span>【第三条：非常ベル連動・防衛レーザー】</span>
                         <span className="text-[10px] font-bold text-red-900 border border-red-800/60 px-1.5 py-0.2">
-                          低層規程
+                          中・低層規程
                         </span>
                       </div>
                       <p className="text-stone-800">
-                        5階以下の低層階を下降中、閉まった正面扉の鏡面に「背後の怪異」が映り込むことがある。鏡面に異常な影を確認した場合は、直ちに「非常ベル」を押せ。天井の高圧紫外線レーザーが作動し、対象を焼き払う。
+                        10階以下を下降中、閉まった正面扉の鏡面に「背後の怪異」が映り込むことがある。鏡面に異常な影を確認した場合は、直ちに「非常ベル」を押せ。天井の高圧紫外線レーザーが作動し、対象を焼き払う。
                       </p>
                     </div>
 

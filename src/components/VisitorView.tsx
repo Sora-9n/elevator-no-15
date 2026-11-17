@@ -119,9 +119,6 @@ function resolveHairArchetype(
 ): HairArchetype {
   if (isKeyWoman || visitorId === 'v-ch3-key-woman') return 'KEY_WOMAN_LONG';
   if (visitorId === 'v-any-neck-anomaly') return 'ANOMALY_WET_LONG';
-  if (appearance.silhouetteType === 'HUNCHED' && appearance.isShadowedFace) {
-    return 'HOODED_HUNCH';
-  }
   if (visitorId === 'v-ch1-peek-trap-woman' || visitorId === 'v-ch2-sick-fan-resident') {
     return 'SHOULDER_LONG';
   }
@@ -167,7 +164,6 @@ function resolveGarmentArchetype(
   if (visitorId.includes('delivery')) return 'DELIVERY_JACKET';
   if (
     visitorId === 'v-ch1-floor12-phantom' ||
-    visitorId === 'v-ch1-peek-innocent-shadow' ||
     visitorId.startsWith('v-ch3-floor5-')
   ) {
     return 'LOUNGE_HOODIE';
@@ -175,8 +171,7 @@ function resolveGarmentArchetype(
   return 'OVERCOAT_CARDIGAN';
 }
 
-function resolveHasGlasses(visitorId: string, appearance: VisitorAppearance): boolean {
-  if (appearance.isShadowedFace) return false;
+function resolveHasGlasses(visitorId: string): boolean {
   return (
     visitorId === 'v-ch2-polite-resident' ||
     visitorId === 'v-ch2-peek-trap-gentleman' ||
@@ -574,8 +569,8 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
     );
 
     const hasGlasses = useMemo(
-      () => resolveHasGlasses(visitorId, appearance),
-      [visitorId, appearance]
+      () => resolveHasGlasses(visitorId),
+      [visitorId]
     );
 
     const isRedCoat = garmentType === 'RED_TRENCH_COAT';
@@ -603,11 +598,7 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
     }, [appearance.headTiltDeg, appearance.silhouetteType]);
 
     // 逆光シルエット用の顔・首トーン（顔全体が暗い影 #0c0c0e〜#141418 に沈み、輪郭縁のみ微かな逆光ハイライト）
-    const faceSilhouetteBase = appearance.isShadowedFace
-      ? '#09090b'
-      : isKeyWoman
-      ? '#131318'
-      : '#101014';
+    const faceSilhouetteBase = isKeyWoman ? '#131318' : '#101014';
     const faceSilhouetteDeep = '#09090c';
     const faceRimLight = isKeyWoman ? '#64748b' : '#3f3f46';
 
@@ -1864,7 +1855,7 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
               fill="none"
               stroke={faceRimLight}
               strokeWidth={isKeyWoman ? '1.6' : '1.2'}
-              opacity={appearance.isShadowedFace ? 0.25 : isKeyWoman ? 0.8 : 0.55}
+              opacity={isKeyWoman ? 0.8 : 0.55}
             />
             <path
               d="M 177 82 C 175 96, 171 107, 165 115"
@@ -1902,7 +1893,7 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
             )}
 
             {appearance.eyeStyle === 'NORMAL' && (
-              <g opacity={appearance.isShadowedFace ? 0.45 : 1}>
+              <g>
                 {/* 暗がりの中で鈍く浮かぶ細めの強膜（白目） */}
                 <path
                   d="M 114 79 Q 123 74.5 132 79 Q 123 83.5 114 79 Z"
@@ -1926,7 +1917,7 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
             )}
 
             {appearance.eyeStyle === 'DEAD_DARK' && (
-              <g opacity={appearance.isShadowedFace ? 0.5 : 1}>
+              <g>
                 {/* 焦点の合わない濁った灰色の白目と極小の黒点 */}
                 <path
                   d="M 113 79 Q 123 73.5 133 79 Q 123 84.5 113 79 Z"
@@ -1950,12 +1941,8 @@ const VisitorIllustrationSvg = React.memo<VisitorIllustrationProps>(
                 {/* 異常個体：白目が完全に消失し、漆黒の眼窩の奥で白い点だけがぎょろりと光る */}
                 <ellipse cx="123" cy="79" rx="11" ry="6" fill="#000000" />
                 <ellipse cx="157" cy="79" rx="11" ry="6" fill="#000000" />
-                {!appearance.isShadowedFace && (
-                  <>
-                    <circle cx="123" cy="79.5" r="1.5" fill="#f5f5f4" />
-                    <circle cx="157" cy="79.5" r="1.5" fill="#f5f5f4" />
-                  </>
-                )}
+                <circle cx="123" cy="79.5" r="1.5" fill="#f5f5f4" />
+                <circle cx="157" cy="79.5" r="1.5" fill="#f5f5f4" />
                 {appearance.hasBloodStains && (
                   <>
                     <path d="M 122 86 L 120 110 L 124 106 Z" fill="#991b1b" />
